@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WrenchPro — Mobile Mechanic Manager</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a1a;font-size:14px;}
+.app{display:flex;height:100vh;}
+
+/* Sidebar */
+.sidebar{width:220px;flex-shrink:0;background:#fff;border-right:1px solid #e8e8e4;display:flex;flex-direction:column;padding:1rem 0;overflow-y:auto;}
+.brand{padding:0 1rem 1rem;border-bottom:1px solid #e8e8e4;margin-bottom:.5rem;}
+.brand-name{font-size:17px;font-weight:600;color:#1a1a1a;}
+.brand-sub{font-size:11px;color:#888;margin-top:2px;}
+.nav-sect{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#aaa;padding:1rem 1rem .3rem;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 1rem;cursor:pointer;font-size:13px;color:#555;border-left:3px solid transparent;transition:all .12s;}
+.nav-item:hover{background:#f5f5f0;color:#1a1a1a;}
+.nav-item.active{background:#f0f6ff;color:#1a6abf;border-left-color:#378ADD;font-weight:500;}
+.nav-icon{width:16px;text-align:center;font-size:14px;}
+
+/* Main */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0;}
+.topbar{background:#fff;border-bottom:1px solid #e8e8e4;padding:.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:10;}
+.topbar h1{font-size:17px;font-weight:600;}
+.top-actions{display:flex;gap:8px;}
+.content{padding:1.5rem;flex:1;}
+
+/* Buttons */
+.btn{padding:7px 14px;border-radius:8px;border:1px solid #d0d0cc;background:#fff;color:#1a1a1a;font-size:13px;cursor:pointer;font-family:inherit;transition:all .12s;}
+.btn:hover{background:#f5f5f0;border-color:#bbb;}
+.btn-primary{background:#378ADD;color:#fff;border-color:#378ADD;}
+.btn-primary:hover{background:#185FA5;border-color:#185FA5;}
+.btn-sm{padding:3px 10px;font-size:11px;}
+.btn-success{background:#3B6D11;color:#fff;border-color:#3B6D11;}
+.btn-success:hover{background:#27500A;}
+.btn-danger{border-color:#E24B4A;color:#A32D2D;}
+.btn-danger:hover{background:#FCEBEB;}
+
+/* Cards */
+.card{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
+.card-title{font-size:14px;font-weight:600;}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.5rem;}
+.stats-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:1.5rem;}
+.stat{background:#f5f5f0;border-radius:8px;padding:1rem;}
+.stat-label{font-size:11px;color:#888;margin-bottom:5px;font-weight:500;}
+.stat-value{font-size:22px;font-weight:600;}
+.stat-sub{font-size:11px;margin-top:3px;}
+.green{color:#3B6D11;} .red{color:#A32D2D;} .amber{color:#854F0B;} .blue{color:#185FA5;}
+
+/* Grid */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-bottom:1rem;}
+
+/* Tables */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #e8e8e4;white-space:nowrap;background:#fafaf8;}
+td{padding:10px 12px;border-bottom:1px solid #f0f0ec;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#fafaf8;}
+.td-name{font-weight:500;}
+
+/* Badges */
+.badge{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;white-space:nowrap;}
+.b-green{background:#EAF3DE;color:#3B6D11;}
+.b-amber{background:#FAEEDA;color:#854F0B;}
+.b-red{background:#FCEBEB;color:#A32D2D;}
+.b-blue{background:#E6F1FB;color:#185FA5;}
+.b-gray{background:#f0f0ec;color:#666;}
+
+/* Avatar */
+.avatar{border-radius:50%;background:#E6F1FB;display:flex;align-items:center;justify-content:center;font-weight:600;color:#185FA5;flex-shrink:0;}
+
+/* Search */
+.search-bar{display:flex;gap:8px;margin-bottom:1rem;}
+.search-bar input,.search-bar select{padding:7px 12px;border:1px solid #d0d0cc;border-radius:8px;background:#fff;color:#1a1a1a;font-size:13px;font-family:inherit;outline:none;}
+.search-bar input{flex:1;}
+.search-bar input:focus,.search-bar select:focus{border-color:#378ADD;}
+
+/* Pages */
+.page{display:none;}
+.page.active{display:block;}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:flex-start;justify-content:center;z-index:200;padding-top:50px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:14px;border:1px solid #e8e8e4;padding:1.5rem;width:520px;max-width:95%;margin-bottom:2rem;}
+.modal h2{font-size:16px;font-weight:600;margin-bottom:1rem;}
+.fr{margin-bottom:12px;}
+.fr label{display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:500;}
+.fr input,.fr select,.fr textarea{width:100%;padding:7px 10px;border:1px solid #d0d0cc;border-radius:8px;background:#fafaf8;color:#1a1a1a;font-size:13px;font-family:inherit;outline:none;}
+.fr input:focus,.fr select:focus,.fr textarea:focus{border-color:#378ADD;background:#fff;}
+.fr textarea{resize:vertical;min-height:60px;}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.mfooter{display:flex;justify-content:space-between;align-items:center;margin-top:1.25rem;padding-top:1rem;border-top:1px solid #e8e8e4;}
+.mfooter-r{display:flex;gap:8px;}
+
+/* Customer detail */
+.back-link{font-size:13px;color:#378ADD;cursor:pointer;margin-bottom:1rem;display:inline-flex;align-items:center;gap:4px;}
+.profile-hdr{display:flex;align-items:flex-start;gap:16px;margin-bottom:1.5rem;}
+.tabs{display:flex;border-bottom:1px solid #e8e8e4;margin-bottom:1.5rem;}
+.tab{padding:8px 16px;font-size:13px;cursor:pointer;color:#888;border-bottom:3px solid transparent;margin-bottom:-1px;font-weight:500;}
+.tab:hover{color:#1a1a1a;}
+.tab.active{color:#378ADD;border-bottom-color:#378ADD;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* Vehicle cards */
+.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+.vcard{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:1rem;cursor:pointer;}
+.vcard:hover{border-color:#bbb;background:#fafaf8;}
+.vcard-make{font-size:15px;font-weight:600;margin-bottom:3px;}
+.vcard-sub{font-size:12px;color:#888;margin-bottom:8px;}
+.vpills{display:flex;gap:6px;flex-wrap:wrap;}
+.vpill{font-size:10px;padding:2px 8px;border-radius:999px;background:#f0f0ec;color:#666;}
+.add-vcard{border:1px dashed #ccc;border-radius:12px;padding:1rem;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100px;cursor:pointer;color:#aaa;font-size:13px;gap:6px;}
+.add-vcard:hover{background:#fafaf8;color:#666;}
+
+/* Payment plan */
+.plan-card{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:1rem;margin-bottom:.75rem;cursor:pointer;}
+.plan-card:hover{border-color:#bbb;}
+.plan-card.overdue{border-left:3px solid #E24B4A;}
+.progress-bar{background:#f0f0ec;border-radius:999px;height:6px;overflow:hidden;margin:6px 0;}
+.progress-fill{height:100%;border-radius:999px;background:#378ADD;}
+.progress-fill.done{background:#639922;}
+.progress-fill.over{background:#E24B4A;}
+.inst-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0ec;font-size:13px;}
+.inst-row:last-child{border-bottom:none;}
+
+/* Job history */
+.job-row{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0ec;}
+.job-row:last-child{border-bottom:none;}
+.job-date{min-width:80px;font-size:11px;color:#888;padding-top:2px;}
+
+/* Calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;}
+.cal-dh{font-size:11px;color:#888;text-align:center;padding:4px 0;font-weight:600;}
+.cal-cell{background:#f5f5f0;border-radius:8px;padding:6px;min-height:70px;cursor:pointer;border:1px solid transparent;}
+.cal-cell:hover{border-color:#ccc;}
+.cal-cell.today{border-color:#378ADD;}
+.cal-cell.other{opacity:.4;}
+.cal-num{font-size:12px;font-weight:600;margin-bottom:3px;}
+.cal-ev{font-size:10px;background:#E6F1FB;color:#185FA5;border-radius:3px;padding:1px 4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cal-ev.green{background:#EAF3DE;color:#3B6D11;}
+.cal-ev.amber{background:#FAEEDA;color:#854F0B;}
+
+/* Report */
+.report-line{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #f0f0ec;}
+.report-line:last-child{border-bottom:none;}
+.report-total{display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:600;border-top:2px solid #e8e8e4;margin-top:4px;}
+.report-sect{margin-bottom:1.5rem;}
+.report-sect h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:.75rem;padding-bottom:6px;border-bottom:1px solid #e8e8e4;}
+
+/* Filter bar */
+.filter-bar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center;}
+.filter-bar select,.filter-bar input{padding:6px 10px;border:1px solid #d0d0cc;border-radius:8px;background:#fff;color:#1a1a1a;font-size:12px;font-family:inherit;outline:none;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+
+.empty{text-align:center;padding:3rem 1rem;color:#aaa;font-size:13px;}
+
+/* Settings */
+.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;}
+.settings-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:.75rem;}
+.settings-hint{font-size:11px;color:#aaa;margin-top:-8px;margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<div class="app">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="brand"><div class="brand-name">WrenchPro</div><div class="brand-sub">Mobile Mechanic Manager</div></div>
+  <div class="nav-sect">Overview</div>
+  <div class="nav-item active" onclick="sp('dashboard',this)"><span class="nav-icon">◈</span> Dashboard</div>
+  <div class="nav-sect">Operations</div>
+  <div class="nav-item" onclick="sp('jobs',this)"><span class="nav-icon">⚙</span> Jobs</div>
+  <div class="nav-item" onclick="sp('schedule',this)"><span class="nav-icon">◷</span> Schedule</div>
+  <div class="nav-sect">Customers</div>
+  <div class="nav-item" onclick="sp('customers',this)"><span class="nav-icon">◉</span> Customers</div>
+  <div class="nav-item" onclick="sp('vehicles',this)"><span class="nav-icon">▣</span> Vehicles</div>
+  <div class="nav-sect">Finance</div>
+  <div class="nav-item" onclick="sp('finance',this)"><span class="nav-icon">$</span> Overview</div>
+  <div class="nav-item" onclick="sp('plans',this)"><span class="nav-icon">◑</span> Payment plans</div>
+  <div class="nav-item" onclick="sp('expenses',this)"><span class="nav-icon">↓</span> Expenses</div>
+  <div class="nav-item" onclick="sp('report',this)"><span class="nav-icon">≡</span> P&L report</div>
+  <div class="nav-sect">Account</div>
+  <div class="nav-item" onclick="sp('settings',this)"><span class="nav-icon">⊙</span> Settings</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <h1 id="ptitle">Dashboard</h1>
+    <div class="top-actions">
+      <button class="btn" id="sec-btn" style="display:none;" onclick="secAction()"></button>
+      <button class="btn btn-primary" id="pri-btn" onclick="priAction()">+ New Job</button>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-label">Active jobs</div><div class="stat-value" id="d-jobs">—</div></div>
+        <div class="stat"><div class="stat-label">Revenue collected</div><div class="stat-value green" id="d-rev">—</div></div>
+        <div class="stat"><div class="stat-label">Total expenses</div><div class="stat-value red" id="d-exp">—</div></div>
+        <div class="stat"><div class="stat-label">Net profit</div><div class="stat-value" id="d-net">—</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-hdr"><span class="card-title">Recent jobs</span><span style="font-size:12px;color:#378ADD;cursor:pointer;" onclick="sp('jobs',document.querySelector('.nav-item:nth-child(5)'))">View all</span></div>
+          <div id="d-recent-jobs"><div class="empty">Loading...</div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><span class="card-title">Recent payments</span><span style="font-size:12px;color:#378ADD;cursor:pointer;" onclick="sp('finance',document.querySelector('.nav-item[onclick*=\'finance\']'))">View all</span></div>
+          <div id="d-recent-pmts"><div class="empty">Loading...</div></div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-label">Total customers</div><div class="stat-value blue" id="d-custs">—</div></div>
+        <div class="stat"><div class="stat-label">Vehicles tracked</div><div class="stat-value blue" id="d-vehs">—</div></div>
+        <div class="stat"><div class="stat-label">Outstanding balance</div><div class="stat-value amber" id="d-out">—</div></div>
+        <div class="stat"><div class="stat-label">Overdue payments</div><div class="stat-value red" id="d-overdue">—</div></div>
+      </div>
+    </div>
+
+    <!-- JOBS -->
+    <div class="page" id="page-jobs">
+      <div class="search-bar">
+        <input type="text" id="job-search" placeholder="Search jobs, customers, vehicles..." oninput="renderJobs()">
+        <select id="job-status-filter" onchange="renderJobs()">
+          <option value="">All statuses</option>
+          <option>Pending</option><option>In Progress</option><option>Done</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Labor</th><th>Parts</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody id="jobs-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE -->
+    <div class="page" id="page-schedule">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;">
+        <button class="btn" onclick="changeMonth(-1)">←</button>
+        <span style="font-size:15px;font-weight:600;min-width:160px;text-align:center;" id="cal-title"></span>
+        <button class="btn" onclick="changeMonth(1)">→</button>
+        <button class="btn" onclick="goToday()" style="margin-left:auto;">Today</button>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div class="cal-grid" id="cal-hdr"></div>
+        <div class="cal-grid" style="margin-top:4px;" id="cal-body"></div>
+      </div>
+    </div>
+
+    <!-- CUSTOMERS -->
+    <div class="page" id="page-customers">
+      <div id="cust-list">
+        <div class="search-bar"><input type="text" id="cust-search" placeholder="Search customers..." oninput="renderCustomers()"></div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="table-wrap">
+            <table><thead><tr><th>Customer</th><th>Contact</th><th>Vehicles</th><th>Jobs</th><th>Last service</th><th></th></tr></thead>
+            <tbody id="cust-tbody"></tbody></table>
+          </div>
+        </div>
+      </div>
+      <div id="cust-detail" style="display:none;"></div>
+    </div>
+
+    <!-- VEHICLES -->
+    <div class="page" id="page-vehicles">
+      <div class="search-bar"><input type="text" id="veh-search" placeholder="Search make, model, plate, VIN..." oninput="renderVehicles()"></div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Vehicle</th><th>Plate</th><th>VIN</th><th>Mileage</th><th>Owner</th><th>Jobs</th><th></th></tr></thead>
+          <tbody id="veh-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCE -->
+    <div class="page" id="page-finance">
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-label">Revenue collected</div><div class="stat-value green" id="f-rev">—</div></div>
+        <div class="stat"><div class="stat-label">Outstanding balance</div><div class="stat-value red" id="f-out">—</div></div>
+        <div class="stat"><div class="stat-label">Active plans</div><div class="stat-value blue" id="f-plans">—</div></div>
+        <div class="stat"><div class="stat-label">Overdue payments</div><div class="stat-value red" id="f-od">—</div></div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:1rem 1.25rem .5rem;"><span class="card-title">Payment ledger</span></div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Date</th><th>Customer</th><th>Description</th><th>Method</th><th>Amount</th></tr></thead>
+          <tbody id="ledger-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANS -->
+    <div class="page" id="page-plans">
+      <div id="plans-list"></div>
+    </div>
+
+    <!-- EXPENSES -->
+    <div class="page" id="page-expenses">
+      <div class="filter-bar">
+        <select id="exp-cat" onchange="renderExpenses()">
+          <option value="">All categories</option>
+          <option>Parts &amp; supplies</option><option>Fuel</option><option>Tools &amp; equipment</option>
+          <option>Insurance</option><option>Marketing</option><option>Other</option>
+        </select>
+        <select id="exp-mo" onchange="renderExpenses()">
+          <option value="">All time</option>
+        </select>
+      </div>
+      <div class="stats-grid-3">
+        <div class="stat"><div class="stat-label">Total expenses</div><div class="stat-value" id="exp-total">—</div></div>
+        <div class="stat"><div class="stat-label">Top category</div><div class="stat-value" style="font-size:15px;" id="exp-top">—</div></div>
+        <div class="stat"><div class="stat-label">This month</div><div class="stat-value" id="exp-month">—</div></div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th></th></tr></thead>
+          <tbody id="exp-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="settings-section-title">Business profile</div>
+          <div class="fr"><label>Business name</label><input id="s-biz-name" placeholder="Joe's Mobile Mechanic"></div>
+          <div class="fr"><label>Owner name</label><input id="s-owner" placeholder="Joe Smith"></div>
+          <div class="f2">
+            <div class="fr"><label>Phone</label><input id="s-phone" placeholder="(555) 000-0000"></div>
+            <div class="fr"><label>Email</label><input id="s-email" placeholder="joe@example.com"></div>
+          </div>
+          <div class="fr"><label>Address / service area</label><input id="s-addr" placeholder="Dallas, TX"></div>
+        </div>
+        <div class="card">
+          <div class="settings-section-title">Service defaults</div>
+          <div class="f2">
+            <div class="fr"><label>Default labor rate ($/hr)</label><input type="number" id="s-labor" placeholder="75.00" step="0.01" min="0"></div>
+            <div class="fr"><label>Default payment method</label>
+              <select id="s-pay-method">
+                <option>Cash</option><option>Card</option><option>Venmo</option>
+                <option>CashApp</option><option>Check</option><option>Zelle</option>
+              </select>
+            </div>
+          </div>
+          <div class="f2">
+            <div class="fr"><label>Tax rate (%)</label><input type="number" id="s-tax" placeholder="0" step="0.01" min="0" max="100"></div>
+            <div class="fr"><label>Currency symbol</label><input id="s-currency" placeholder="$" maxlength="3"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="settings-section-title">Vehicle preferences</div>
+          <div class="fr"><label>Oil change warning threshold (miles before due)</label><input type="number" id="s-oil-warn" placeholder="1500" min="0"></div>
+          <div class="settings-hint">Vehicles within this many miles of their next oil change will show an "Oil soon" badge.</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-primary" onclick="saveSettings()">Save settings</button>
+        <span id="s-saved" style="font-size:12px;color:#3B6D11;display:none;">Saved!</span>
+      </div>
+      <div id="s-app-version" style="margin-top:1.5rem;font-size:11px;color:#bbb;"></div>
+    </div>
+
+    <!-- P&L REPORT -->
+    <div class="page" id="page-report">
+      <div class="filter-bar">
+        <label style="font-size:12px;color:#666;font-weight:500;">Period:</label>
+        <select id="rpt-period" onchange="renderReport()">
+          <option value="all">All time</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportReport()">Export for accountant</button>
+      </div>
+      <div id="report-body"></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL: Job -->
+<div class="modal-overlay" id="m-job">
+  <div class="modal">
+    <h2 id="m-job-title">New job</h2>
+    <div class="f2">
+      <div class="fr"><label>Customer</label>
+        <select id="jf-cust" onchange="loadVehiclesForJob()"><option value="">— Select —</option></select>
+      </div>
+      <div class="fr"><label>Vehicle</label>
+        <select id="jf-veh"><option value="">— Select vehicle —</option></select>
+      </div>
+    </div>
+    <div class="fr"><label>Service description</label><textarea id="jf-service" placeholder="Oil change, brake pads, diagnostics..."></textarea></div>
+    <div class="f3">
+      <div class="fr"><label>Date</label><input type="date" id="jf-date"></div>
+      <div class="fr"><label>Mileage</label><input type="number" id="jf-miles" placeholder="45000"></div>
+      <div class="fr"><label>Status</label>
+        <select id="jf-status"><option>Pending</option><option>In Progress</option><option>Done</option></select>
+      </div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Labor ($)</label><input type="number" id="jf-labor" placeholder="0.00" step="0.01"></div>
+      <div class="fr"><label>Parts ($)</label><input type="number" id="jf-parts" placeholder="0.00" step="0.01"></div>
+    </div>
+    <div class="fr"><label>Notes</label><input id="jf-notes" placeholder="Any notes..."></div>
+    <div class="mfooter">
+      <div id="jf-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-job')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveJob()">Save job</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Customer -->
+<div class="modal-overlay" id="m-cust">
+  <div class="modal">
+    <h2 id="m-cust-title">New customer</h2>
+    <div class="f2">
+      <div class="fr"><label>First name</label><input id="cf-first" placeholder="John"></div>
+      <div class="fr"><label>Last name</label><input id="cf-last" placeholder="Smith"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Phone</label><input id="cf-phone" placeholder="(555) 000-0000"></div>
+      <div class="fr"><label>Email</label><input id="cf-email" placeholder="john@email.com"></div>
+    </div>
+    <div class="fr"><label>Address</label><input id="cf-addr" placeholder="123 Main St, City, State"></div>
+    <div class="fr"><label>Notes</label><input id="cf-notes" placeholder="Anything to remember..."></div>
+    <div class="mfooter">
+      <div id="cf-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-cust')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCustomer()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Vehicle -->
+<div class="modal-overlay" id="m-veh">
+  <div class="modal">
+    <h2 id="m-veh-title">Add vehicle</h2>
+    <div class="f3">
+      <div class="fr"><label>Year</label><input type="number" id="vf-year" placeholder="2019"></div>
+      <div class="fr"><label>Make</label><input id="vf-make" placeholder="Toyota"></div>
+      <div class="fr"><label>Model</label><input id="vf-model" placeholder="Camry"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Trim / engine</label><input id="vf-trim" placeholder="LE 2.5L"></div>
+      <div class="fr"><label>Color</label><input id="vf-color" placeholder="Silver"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>License plate</label><input id="vf-plate" placeholder="ABC-1234"></div>
+      <div class="fr"><label>State</label><input id="vf-state" placeholder="TX"></div>
+    </div>
+    <div class="fr"><label>VIN</label><input id="vf-vin" placeholder="1HGCM82633A123456" style="font-family:monospace;font-size:12px;"></div>
+    <div class="f2">
+      <div class="fr"><label>Current mileage</label><input type="number" id="vf-miles" placeholder="45000"></div>
+      <div class="fr"><label>Next oil change (mi)</label><input type="number" id="vf-oilmi" placeholder="50000"></div>
+    </div>
+    <div class="fr"><label>Notes</label><input id="vf-notes" placeholder="Known issues, quirks..."></div>
+    <div class="mfooter">
+      <div id="vf-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-veh')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveVehicle()">Save vehicle</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Payment -->
+<div class="modal-overlay" id="m-pmt">
+  <div class="modal">
+    <h2>Record payment</h2>
+    <div class="f2">
+      <div class="fr"><label>Customer</label>
+        <select id="pf-cust" onchange="loadPlansForPayment()"><option value="">— Select —</option></select>
+      </div>
+      <div class="fr"><label>Apply to plan (optional)</label>
+        <select id="pf-plan"><option value="">— General payment —</option></select>
+      </div>
+    </div>
+    <div class="fr"><label>Description</label><input id="pf-desc" placeholder="Oil change, installment 2 of 4..."></div>
+    <div class="f3">
+      <div class="fr"><label>Amount ($)</label><input type="number" id="pf-amt" placeholder="0.00" step="0.01"></div>
+      <div class="fr"><label>Date</label><input type="date" id="pf-date"></div>
+      <div class="fr"><label>Method</label>
+        <select id="pf-method">
+          <option>Cash</option><option>Card</option><option>Venmo</option>
+          <option>CashApp</option><option>Check</option><option>Zelle</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr"><label>Note</label><input id="pf-note" placeholder="Optional note..."></div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button class="btn" onclick="closeM('m-pmt')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePayment()">Save payment</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- MODAL: Payment Plan -->
+<div class="modal-overlay" id="m-plan">
+  <div class="modal">
+    <h2>New payment plan</h2>
+    <div class="f2">
+      <div class="fr"><label>Customer</label><select id="pl-cust"><option value="">— Select —</option></select></div>
+      <div class="fr"><label>Description</label><input id="pl-desc" placeholder="Engine rebuild, brake job..."></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Total amount ($)</label><input type="number" id="pl-total" placeholder="0.00" step="0.01" oninput="calcPlan()"></div>
+      <div class="fr"><label>Down payment ($)</label><input type="number" id="pl-down" placeholder="0.00" step="0.01" oninput="calcPlan()"></div>
+    </div>
+    <div class="f3">
+      <div class="fr"><label>Plan type</label>
+        <select id="pl-type" onchange="calcPlan()">
+          <option value="installments">Fixed installments</option>
+          <option value="custom">Custom amounts</option>
+          <option value="balance">Balance due</option>
+        </select>
+      </div>
+      <div class="fr"><label>Number of payments</label><input type="number" id="pl-count" value="4" min="1" max="24" oninput="calcPlan()"></div>
+      <div class="fr"><label>Frequency</label>
+        <select id="pl-freq"><option value="weekly">Weekly</option><option value="biweekly">Bi-weekly</option><option value="monthly" selected>Monthly</option></select>
+      </div>
+    </div>
+    <div class="fr"><label>First payment due</label><input type="date" id="pl-start"></div>
+    <div id="plan-preview" style="background:#f5f5f0;border-radius:8px;padding:.75rem;margin:.5rem 0;font-size:12px;min-height:36px;"></div>
+    <div class="fr"><label>Notes</label><input id="pl-notes" placeholder="Any terms or notes..."></div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button class="btn" onclick="closeM('m-plan')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlan()">Create plan</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- MODAL: Expense -->
+<div class="modal-overlay" id="m-exp">
+  <div class="modal">
+    <h2>Add expense</h2>
+    <div class="f2">
+      <div class="fr"><label>Date</label><input type="date" id="ef-date"></div>
+      <div class="fr"><label>Amount ($)</label><input type="number" id="ef-amt" placeholder="0.00" step="0.01"></div>
+    </div>
+    <div class="fr"><label>Description</label><input id="ef-desc" placeholder="Brake pads from AutoZone..."></div>
+    <div class="fr"><label>Category</label>
+      <select id="ef-cat">
+        <option>Parts &amp; supplies</option><option>Fuel</option><option>Tools &amp; equipment</option>
+        <option>Insurance</option><option>Marketing</option><option>Other</option>
+      </select>
+    </div>
+    <div class="fr"><label>Receipt note</label><input id="ef-note" placeholder="Optional"></div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button class="btn" onclick="closeM('m-exp')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveExpense()">Save expense</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- MODAL: Plan detail -->
+<div class="modal-overlay" id="m-plan-detail">
+  <div class="modal" id="plan-detail-inner" style="width:560px;"></div>
+</div>
+
+<!-- MODAL: Appointment -->
+<div class="modal-overlay" id="m-appt">
+  <div class="modal">
+    <h2>New appointment</h2>
+    <div class="f2">
+      <div class="fr"><label>Customer name</label><input id="af-cust" placeholder="John Smith"></div>
+      <div class="fr"><label>Phone</label><input id="af-phone" placeholder="(555) 000-0000"></div>
+    </div>
+    <div class="fr"><label>Service</label><input id="af-service" placeholder="Brake inspection, oil change..."></div>
+    <div class="f2">
+      <div class="fr"><label>Date</label><input type="date" id="af-date"></div>
+      <div class="fr"><label>Time</label><input type="time" id="af-time"></div>
+    </div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button class="btn" onclick="closeM('m-appt')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAppt()">Save</button>
+    </div></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], settings:{} };
+let currentPage = 'dashboard';
+let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
+let detailCustId = null, detailTab = 'vehicles';
+let calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
+
+// ── Utilities ──
+const fmt$ = n => (state.settings.currency_symbol||'$') + Number(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const today = () => new Date().toISOString().split('T')[0];
+const initials = (f,l) => ((f||'?')[0]+(l||'?')[0]).toUpperCase();
+const vLabel = v => v ? `${v.year||''} ${v.make||''} ${v.model||''}`.trim() : '—';
+const fullName = c => c ? `${c.first} ${c.last}` : '—';
+
+function statusBadge(s){
+  const m = {'Pending':'b-amber','In Progress':'b-blue','Done':'b-green','Paid':'b-green','Unpaid':'b-red','active':'b-blue'};
+  return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
+}
+
+function oilBadge(v){
+  if(!v.oil_change_miles||!v.miles) return '';
+  const diff = v.oil_change_miles - v.miles;
+  const warn = state.settings.oil_warn_miles || 1500;
+  if(diff<=0) return '<span class="badge b-red">Oil overdue</span>';
+  if(diff<warn) return '<span class="badge b-amber">Oil soon</span>';
+  return '<span class="badge b-green">Oil OK</span>';
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+function addDays(d, n){
+  const dt = new Date(d); dt.setDate(dt.getDate()+n);
+  return dt.toISOString().split('T')[0];
+}
+
+// ── API calls ──
+async function api(method, path, body){
+  const opts = { method, headers:{'Content-Type':'application/json'} };
+  if(body) opts.body = JSON.stringify(body);
+  const r = await fetch(API+path, opts);
+  return r.json();
+}
+
+async function loadAll(){
+  const [custs, vehs, jobs, pmts, plans, exps, settings] = await Promise.all([
+    api('GET','/api/customers'), api('GET','/api/vehicles'),
+    api('GET','/api/jobs'), api('GET','/api/payments'),
+    api('GET','/api/plans'), api('GET','/api/expenses'),
+    api('GET','/api/settings')
+  ]);
+  state.customers = custs||[];
+  state.vehicles = vehs||[];
+  state.jobs = jobs||[];
+  state.payments = pmts||[];
+  state.plans = plans||[];
+  state.expenses = exps||[];
+  state.settings = settings||{};
+  renderPage(currentPage);
+}
+
+// ── Navigation ──
+function sp(id, el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  currentPage = id;
+  const titles = {dashboard:'Dashboard',jobs:'Jobs',schedule:'Schedule',customers:'Customers',vehicles:'Vehicles',finance:'Finance overview',plans:'Payment plans',expenses:'Expenses',report:'P&L report',settings:'Settings'};
+  document.getElementById('ptitle').textContent = titles[id]||id;
+  const pri = document.getElementById('pri-btn');
+  const sec = document.getElementById('sec-btn');
+  sec.style.display = 'none';
+  pri.style.display = '';
+  if(id==='dashboard'){pri.textContent='+ New Job';}
+  else if(id==='jobs'){pri.textContent='+ New Job';}
+  else if(id==='customers'){ pri.textContent='+ New Customer'; showCustList(); }
+  else if(id==='vehicles'){pri.textContent='+ Add Vehicle';}
+  else if(id==='schedule'){pri.textContent='+ Appointment';}
+  else if(id==='finance'){pri.textContent='+ Record Payment'; sec.style.display=''; sec.textContent='+ New Plan';}
+  else if(id==='plans'){pri.textContent='+ New Plan'; sec.style.display=''; sec.textContent='+ Record Payment';}
+  else if(id==='expenses'){pri.textContent='+ Add Expense';}
+  else if(id==='report'){pri.style.display='none';}
+  else if(id==='settings'){pri.style.display='none';}
+  renderPage(id);
+}
+
+function priAction(){
+  const p = currentPage;
+  if(p==='dashboard'||p==='jobs') openJobModal();
+  else if(p==='customers') openCustModal();
+  else if(p==='vehicles') openVehModal(null,null);
+  else if(p==='schedule') openApptModal(today());
+  else if(p==='finance') openPmtModal();
+  else if(p==='plans') openPlanModal();
+  else if(p==='expenses') openExpModal();
+}
+
+function secAction(){
+  if(currentPage==='finance') openPlanModal();
+  else if(currentPage==='plans') openPmtModal();
+}
+
+// ── Render pages ──
+function renderPage(id){
+  if(id==='dashboard') renderDashboard();
+  else if(id==='jobs') renderJobs();
+  else if(id==='schedule') renderCalendar();
+  else if(id==='customers') renderCustomers();
+  else if(id==='vehicles') renderVehicles();
+  else if(id==='finance') renderFinance();
+  else if(id==='plans') renderPlans();
+  else if(id==='expenses') renderExpenses();
+  else if(id==='report') renderReport();
+  else if(id==='settings') renderSettings();
+}
+
+async function renderDashboard(){
+  try {
+    const data = await api('GET','/api/dashboard');
+    document.getElementById('d-jobs').textContent = data.activeJobs;
+    document.getElementById('d-rev').textContent = fmt$(data.totalRevenue);
+    document.getElementById('d-exp').textContent = fmt$(data.totalExpenses);
+    const net = data.netProfit;
+    const netEl = document.getElementById('d-net');
+    netEl.textContent = fmt$(net);
+    netEl.className = 'stat-value '+(net>=0?'green':'red');
+    document.getElementById('d-custs').textContent = data.totalCustomers;
+    document.getElementById('d-vehs').textContent = data.totalVehicles;
+    const outstanding = state.plans.reduce((a,p)=>a+planBalance(p),0);
+    const overdue = state.plans.reduce((a,p)=>a+planOverdue(p),0);
+    document.getElementById('d-out').textContent = fmt$(outstanding);
+    document.getElementById('d-overdue').textContent = overdue;
+    document.getElementById('d-recent-jobs').innerHTML = (data.recentJobs||[]).length ?
+      data.recentJobs.map(j=>`<div class="job-row">
+        <div class="job-date">${j.date}</div>
+        <div style="flex:1;">
+          <div style="font-weight:500;">${j.first} ${j.last}</div>
+          <div style="font-size:11px;color:#888;">${j.year} ${j.make} ${j.model} · ${(j.service||'').slice(0,40)}</div>
+        </div>
+        ${statusBadge(j.status)}
+      </div>`).join('') : '<div class="empty">No jobs yet</div>';
+    document.getElementById('d-recent-pmts').innerHTML = (data.recentPayments||[]).length ?
+      data.recentPayments.map(p=>`<div class="job-row">
+        <div class="job-date">${p.date}</div>
+        <div style="flex:1;">
+          <div style="font-weight:500;">${p.first} ${p.last}</div>
+          <div style="font-size:11px;color:#888;">${p.description||''} · ${p.method}</div>
+        </div>
+        <div style="font-weight:600;color:#3B6D11;">${fmt$(p.amount)}</div>
+      </div>`).join('') : '<div class="empty">No payments yet</div>';
+  } catch(e){ console.error(e); }
+}
+
+function renderJobs(){
+  const q = (document.getElementById('job-search')||{value:''}).value.toLowerCase();
+  const sf = (document.getElementById('job-status-filter')||{value:''}).value;
+  let jobs = state.jobs.filter(j=>{
+    const name = `${j.first||''} ${j.last||''}`.toLowerCase();
+    const veh = `${j.year||''} ${j.make||''} ${j.model||''}`.toLowerCase();
+    const svc = (j.service||'').toLowerCase();
+    return (!q||name.includes(q)||veh.includes(q)||svc.includes(q)) && (!sf||j.status===sf);
+  });
+  const tbody = document.getElementById('jobs-tbody');
+  if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty">No jobs found</td></tr>`; return; }
+  tbody.innerHTML = jobs.map(j=>`<tr>
+    <td style="color:#888;font-size:12px;">${j.date||'—'}</td>
+    <td class="td-name">${j.first||''} ${j.last||''}</td>
+    <td style="font-size:12px;">${j.year||''} ${j.make||''} ${j.model||''}<br><span style="color:#aaa;">${j.plate||''}</span></td>
+    <td>${(j.service||'').slice(0,35)}${(j.service||'').length>35?'…':''}</td>
+    <td style="color:#3B6D11;">${fmt$(j.labor)}</td>
+    <td style="color:#888;">${fmt$(j.parts)}</td>
+    <td style="font-weight:600;">${fmt$((j.labor||0)+(j.parts||0))}</td>
+    <td>${statusBadge(j.status)}</td>
+    <td><button class="btn btn-sm" onclick="openJobModal(${j.id})">Edit</button></td>
+  </tr>`).join('');
+}
+
+function renderCalendar(){
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-title').textContent=`${months[calMonth]} ${calYear}`;
+  document.getElementById('cal-hdr').innerHTML=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="cal-dh">${d}</div>`).join('');
+  const first=new Date(calYear,calMonth,1), last=new Date(calYear,calMonth+1,0);
+  const todayStr=today(); let cells='';
+  for(let i=0;i<first.getDay();i++){
+    const d=new Date(calYear,calMonth,-first.getDay()+i+1);
+    cells+=`<div class="cal-cell other"><div class="cal-num">${d.getDate()}</div></div>`;
+  }
+  for(let d=1;d<=last.getDate();d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday=ds===todayStr;
+    const dayJobs=state.jobs.filter(j=>j.date===ds);
+    const dayAppts=(state.appts||[]).filter(a=>a.date===ds);
+    const evs=[
+      ...dayAppts.map(a=>`<div class="cal-ev">${a.time?fmtTime(a.time)+' ':''} ${a.cust}</div>`),
+      ...dayJobs.map(j=>`<div class="cal-ev ${j.status==='Done'?'green':j.status==='Pending'?'amber':''}">${(j.service||'').slice(0,14)}</div>`)
+    ].slice(0,2).join('');
+    cells+=`<div class="cal-cell${isToday?' today':''}" onclick="openApptModal('${ds}')"><div class="cal-num">${d}</div>${evs}</div>`;
+  }
+  document.getElementById('cal-body').innerHTML=cells;
+}
+
+function fmtTime(t){ const [h,m]=t.split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`; }
+function changeMonth(d){ calMonth+=d; if(calMonth>11){calMonth=0;calYear++;}else if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
+function goToday(){ calMonth=new Date().getMonth(); calYear=new Date().getFullYear(); renderCalendar(); }
+
+function renderCustomers(){
+  const q=(document.getElementById('cust-search')||{value:''}).value.toLowerCase();
+  const tbody=document.getElementById('cust-tbody');
+  const filtered=state.customers.filter(c=>!q||(fullName(c).toLowerCase().includes(q)||c.phone.includes(q)));
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">No customers found</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(c=>{
+    const vehs=state.vehicles.filter(v=>v.customer_id===c.id);
+    const jobs=state.jobs.filter(j=>j.customer_id===c.id);
+    const lastJob=jobs.sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const vPills=vehs.slice(0,2).map(v=>`<span class="vpill">${vLabel(v)}</span>`).join('');
+    const more=vehs.length>2?`<span class="vpill">+${vehs.length-2}</span>`:'';
+    return `<tr style="cursor:pointer;" onclick="openCustDetail(${c.id})">
+      <td><div style="display:flex;align-items:center;gap:10px;">
+        <div class="avatar" style="width:32px;height:32px;font-size:11px;">${initials(c.first,c.last)}</div>
+        <div><div class="td-name">${fullName(c)}</div><div style="font-size:11px;color:#888;">${c.address||''}</div></div>
+      </div></td>
+      <td><div>${c.phone||'—'}</div><div style="font-size:11px;color:#888;">${c.email||''}</div></td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap;">${vPills}${more}</div></td>
+      <td>${jobs.length}</td>
+      <td style="font-size:12px;color:#888;">${lastJob?lastJob.date:'—'}</td>
+      <td><button class="btn btn-sm" onclick="event.stopPropagation();openCustModal(${c.id})">Edit</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function showCustList(){
+  document.getElementById('cust-list').style.display='';
+  document.getElementById('cust-detail').style.display='none';
+  document.getElementById('pri-btn').textContent='+ New Customer';
+  document.getElementById('pri-btn').onclick=priAction;
+  detailCustId=null;
+  renderCustomers();
+}
+
+function openCustDetail(id){
+  detailCustId=id; detailTab='vehicles';
+  document.getElementById('cust-list').style.display='none';
+  document.getElementById('cust-detail').style.display='';
+  document.getElementById('pri-btn').textContent='+ Add Vehicle';
+  document.getElementById('pri-btn').onclick=()=>openVehModal(id,null);
+  renderCustDetail();
+}
+
+function renderCustDetail(){
+  const c=state.customers.find(x=>x.id===detailCustId);
+  if(!c)return;
+  const vehs=state.vehicles.filter(v=>v.customer_id===c.id);
+  const jobs=state.jobs.filter(j=>j.customer_id===c.id);
+  const pmts=state.payments.filter(p=>p.customer_id===c.id);
+  const plans=state.plans.filter(p=>p.customer_id===c.id);
+  const totalSpent=pmts.reduce((a,p)=>a+p.amount,0);
+  const el=document.getElementById('cust-detail');
+  el.innerHTML=`
+    <div class="back-link" onclick="showCustList()">← Back to customers</div>
+    <div class="profile-hdr">
+      <div class="avatar" style="width:52px;height:52px;font-size:18px;">${initials(c.first,c.last)}</div>
+      <div style="flex:1;">
+        <div style="font-size:18px;font-weight:600;">${fullName(c)}</div>
+        <div style="font-size:13px;color:#888;margin-top:2px;">${c.phone||''}${c.email?' · '+c.email:''}</div>
+        ${c.address?`<div style="font-size:12px;color:#888;margin-top:2px;">${c.address}</div>`:''}
+        ${c.notes?`<div style="font-size:12px;background:#f5f5f0;padding:4px 10px;border-radius:6px;margin-top:6px;color:#666;">${c.notes}</div>`:''}
+      </div>
+      <button class="btn btn-sm" onclick="openCustModal(${c.id})">Edit</button>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:1.5rem;">
+      <div class="stat" style="flex:1;"><div class="stat-label">Vehicles</div><div class="stat-value">${vehs.length}</div></div>
+      <div class="stat" style="flex:1;"><div class="stat-label">Total jobs</div><div class="stat-value">${jobs.length}</div></div>
+      <div class="stat" style="flex:1;"><div class="stat-label">Total spent</div><div class="stat-value green">${fmt$(totalSpent)}</div></div>
+      <div class="stat" style="flex:1;"><div class="stat-label">Active plans</div><div class="stat-value blue">${plans.length}</div></div>
+    </div>
+    <div class="tabs">
+      <div class="tab ${detailTab==='vehicles'?'active':''}" onclick="switchTab('vehicles')">Vehicles (${vehs.length})</div>
+      <div class="tab ${detailTab==='history'?'active':''}" onclick="switchTab('history')">Job history (${jobs.length})</div>
+      <div class="tab ${detailTab==='payments'?'active':''}" onclick="switchTab('payments')">Payments (${pmts.length})</div>
+    </div>
+    <div class="tab-content ${detailTab==='vehicles'?'active':''}" id="tab-vehicles">
+      <div class="vehicle-grid">
+        ${vehs.map(v=>`<div class="vcard" onclick="openVehModal(${c.id},${v.id})">
+          <div class="vcard-make">${vLabel(v)}</div>
+          <div class="vcard-sub">${v.trim||''} ${v.color?'· '+v.color:''}</div>
+          <div class="vpills">
+            ${v.plate?`<span class="vpill">${v.plate}${v.state?' '+v.state:''}</span>`:''}
+            ${v.miles?`<span class="vpill">${Number(v.miles).toLocaleString()} mi</span>`:''}
+            ${oilBadge(v)}
+          </div>
+          ${v.vin?`<div style="font-size:10px;color:#aaa;margin-top:6px;font-family:monospace;">${v.vin}</div>`:''}
+          ${v.notes?`<div style="font-size:11px;color:#888;margin-top:6px;font-style:italic;">${v.notes}</div>`:''}
+        </div>`).join('')}
+        <div class="add-vcard" onclick="openVehModal(${c.id},null)">
+          <span style="font-size:22px;color:#ccc;">+</span><span>Add vehicle</span>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content ${detailTab==='history'?'active':''}">
+      ${jobs.length?jobs.sort((a,b)=>b.date.localeCompare(a.date)).map(j=>{
+        const v=state.vehicles.find(x=>x.id===j.vehicle_id);
+        return `<div class="job-row">
+          <div class="job-date">${j.date}<br><span style="font-size:10px;">${j.miles?Number(j.miles).toLocaleString()+' mi':''}</span></div>
+          <div style="flex:1;"><div style="font-weight:500;">${j.service||''}</div><div style="font-size:11px;color:#888;">${vLabel(v)}${j.notes?' · '+j.notes:''}</div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">${statusBadge(j.status)}<div style="font-weight:600;">${fmt$((j.labor||0)+(j.parts||0))}</div></div>
+        </div>`;
+      }).join(''):'<div class="empty">No jobs on record</div>'}
+    </div>
+    <div class="tab-content ${detailTab==='payments'?'active':''}">
+      ${pmts.length?pmts.sort((a,b)=>b.date.localeCompare(a.date)).map(p=>`<div class="job-row">
+        <div class="job-date">${p.date}</div>
+        <div style="flex:1;"><div style="font-weight:500;">${p.description||''}</div><div style="font-size:11px;color:#888;">${p.method||''} ${p.note?'· '+p.note:''}</div></div>
+        <div style="font-weight:600;color:#3B6D11;">${fmt$(p.amount)}</div>
+      </div>`).join(''):'<div class="empty">No payments recorded</div>'}
+    </div>
+  `;
+}
+
+function switchTab(t){ detailTab=t; renderCustDetail(); }
+
+function renderVehicles(){
+  const q=(document.getElementById('veh-search')||{value:''}).value.toLowerCase();
+  const tbody=document.getElementById('veh-tbody');
+  const filtered=state.vehicles.filter(v=>{
+    const l=vLabel(v).toLowerCase();
+    return !q||l.includes(q)||(v.plate||'').toLowerCase().includes(q)||(v.vin||'').toLowerCase().includes(q)||(v.color||'').toLowerCase().includes(q);
+  });
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">No vehicles found</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(v=>{
+    const c=state.customers.find(x=>x.id===v.customer_id);
+    const jobs=state.jobs.filter(j=>j.vehicle_id===v.id);
+    return `<tr>
+      <td><div class="td-name">${vLabel(v)}</div><div style="font-size:11px;color:#888;">${v.trim||''} ${v.color?'· '+v.color:''}</div></td>
+      <td>${v.plate||'—'} <span style="font-size:10px;color:#aaa;">${v.state||''}</span></td>
+      <td style="font-size:11px;font-family:monospace;color:#888;">${v.vin||'—'}</td>
+      <td>${v.miles?Number(v.miles).toLocaleString()+' mi':'—'} ${oilBadge(v)}</td>
+      <td style="cursor:pointer;color:#378ADD;" onclick="openCustDetail(${v.customer_id})">${fullName(c)}</td>
+      <td>${jobs.length}</td>
+      <td><button class="btn btn-sm" onclick="openVehModal(${v.customer_id},${v.id})">Edit</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderFinance(){
+  const totalRev=state.payments.reduce((a,p)=>a+p.amount,0);
+  const outstanding=state.plans.reduce((a,p)=>a+planBalance(p),0);
+  const activePlans=state.plans.filter(p=>planBalance(p)>0).length;
+  const overdue=state.plans.reduce((a,p)=>a+planOverdue(p),0);
+  document.getElementById('f-rev').textContent=fmt$(totalRev);
+  document.getElementById('f-out').textContent=fmt$(outstanding);
+  document.getElementById('f-plans').textContent=activePlans;
+  document.getElementById('f-od').textContent=overdue;
+  const tbody=document.getElementById('ledger-tbody');
+  const pmts=[...state.payments].sort((a,b)=>b.date.localeCompare(a.date));
+  tbody.innerHTML=pmts.length?pmts.map(p=>`<tr>
+    <td style="color:#888;font-size:12px;">${p.date||'—'}</td>
+    <td class="td-name">${p.first||''} ${p.last||''}</td>
+    <td>${p.description||'—'} ${p.note?'<span style="color:#aaa;font-size:11px;">· '+p.note+'</span>':''}</td>
+    <td><span class="badge b-gray">${p.method||'Cash'}</span></td>
+    <td style="font-weight:600;color:#3B6D11;">${fmt$(p.amount)}</td>
+  </tr>`).join(''):`<tr><td colspan="5" class="empty">No payments yet</td></tr>`;
+}
+
+function planBalance(p){ return p.total - planPaid(p); }
+function planPaid(p){ return (p.down_payment||0) + (p.installments||[]).filter(i=>i.paid).reduce((a,i)=>a+i.amount,0); }
+function planOverdue(p){ const t=today(); return (p.installments||[]).filter(i=>!i.paid&&i.due_date<t).length; }
+
+function renderPlans(){
+  const el=document.getElementById('plans-list');
+  if(!state.plans.length){el.innerHTML='<div class="empty" style="padding:3rem;">No payment plans yet. Create one with the button above.</div>';return;}
+  el.innerHTML=state.plans.map(p=>{
+    const paid=planPaid(p), bal=planBalance(p), pct=Math.min(100,Math.round(paid/p.total*100)), od=planOverdue(p);
+    return `<div class="plan-card ${od>0&&bal>0?'overdue':''}" onclick="openPlanDetail(${p.id})">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div><span style="font-weight:600;">${p.first} ${p.last}</span> <span style="font-size:12px;color:#888;">· ${p.description||''}</span></div>
+        <div style="display:flex;gap:6px;">
+          ${od>0&&bal>0?`<span class="badge b-red">${od} overdue</span>`:''}
+          ${bal<=0?'<span class="badge b-green">Paid in full</span>':''}
+          <span class="badge b-gray">${p.frequency||'monthly'}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:20px;font-size:13px;margin-bottom:8px;">
+        <span>Total: <strong>${fmt$(p.total)}</strong></span>
+        <span>Paid: <strong style="color:#3B6D11;">${fmt$(paid)}</strong></span>
+        <span>Balance: <strong style="color:${bal>0?'#A32D2D':'#3B6D11'};">${fmt$(bal)}</strong></span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill ${bal<=0?'done':od>0?'over':''}" style="width:${pct}%"></div></div>
+      <div style="font-size:11px;color:#888;margin-top:4px;">${pct}% complete · ${(p.installments||[]).filter(i=>!i.paid).length} payment(s) remaining</div>
+    </div>`;
+  }).join('');
+}
+
+function openPlanDetail(id){
+  const p=state.plans.find(x=>x.id===id);
+  if(!p)return;
+  const paid=planPaid(p), bal=planBalance(p), pct=Math.min(100,Math.round(paid/p.total*100));
+  document.getElementById('plan-detail-inner').innerHTML=`
+    <h2>${p.first} ${p.last} — ${p.description||''}</h2>
+    <div style="display:flex;gap:12px;margin-bottom:1rem;">
+      <div class="stat" style="flex:1;"><div class="stat-label">Total</div><div class="stat-value">${fmt$(p.total)}</div></div>
+      <div class="stat" style="flex:1;"><div class="stat-label">Paid</div><div class="stat-value green">${fmt$(paid)}</div></div>
+      <div class="stat" style="flex:1;"><div class="stat-label">Balance</div><div class="stat-value red">${fmt$(bal)}</div></div>
+    </div>
+    <div class="progress-bar" style="margin-bottom:.75rem;"><div class="progress-fill ${bal<=0?'done':''}" style="width:${pct}%"></div></div>
+    ${p.down_payment?`<div style="font-size:13px;margin-bottom:.75rem;">Down payment: <strong>${fmt$(p.down_payment)}</strong></div>`:''}
+    <div style="font-weight:600;font-size:13px;margin-bottom:.5rem;">Installments</div>
+    ${(p.installments||[]).map((inst,i)=>{
+      const od=!inst.paid&&inst.due_date<today();
+      return `<div class="inst-row">
+        <span style="width:20px;font-size:11px;color:#888;">${i+1}</span>
+        <span style="flex:1;">${inst.due_date}</span>
+        <span style="flex:1;">${fmt$(inst.amount)}</span>
+        <span style="flex:1;">${inst.paid?'<span class="badge b-green">Paid</span>':od?'<span class="badge b-red">Overdue</span>':'<span class="badge b-amber">Pending</span>'}</span>
+        ${!inst.paid?`<button class="btn btn-sm btn-success" onclick="markInstPaid(${inst.id},${p.id})">Mark paid</button>`:''}
+      </div>`;
+    }).join('')}
+    ${p.notes?`<div style="font-size:12px;color:#888;margin-top:.75rem;font-style:italic;">${p.notes}</div>`:''}
+    <div class="mfooter"><div><button class="btn btn-sm btn-danger" onclick="deletePlan(${p.id})">Delete plan</button></div>
+    <div><button class="btn" onclick="closeM('m-plan-detail')">Close</button></div></div>
+  `;
+  document.getElementById('m-plan-detail').classList.add('open');
+}
+
+async function markInstPaid(instId, planId){
+  await api('PUT',`/api/plans/installment/${instId}/pay`);
+  const p=state.plans.find(x=>x.id===planId);
+  if(p){ const inst=p.installments.find(i=>i.id===instId); if(inst){inst.paid=1; const amt=inst.amount;
+    await api('POST','/api/payments',{customer_id:p.customer_id,plan_id:planId,description:p.description+' (installment)',amount:amt,method:'Cash',date:today(),note:'Auto-logged from plan'});
+    await loadAll();
+  }}
+  openPlanDetail(planId);
+  toast('Installment marked as paid');
+}
+
+async function deletePlan(id){
+  if(!confirm('Delete this payment plan?'))return;
+  await api('DELETE',`/api/plans/${id}`);
+  closeM('m-plan-detail');
+  await loadAll();
+  toast('Plan deleted');
+}
+
+function renderExpenses(){
+  const cat=(document.getElementById('exp-cat')||{value:''}).value;
+  const mo=(document.getElementById('exp-mo')||{value:''}).value;
+  const filtered=state.expenses.filter(e=>(!cat||e.category===cat)&&(!mo||e.date.startsWith(mo)));
+  const total=state.expenses.reduce((a,e)=>a+e.amount,0);
+  const thisMonth=state.expenses.filter(e=>e.date.startsWith(today().slice(0,7))).reduce((a,e)=>a+e.amount,0);
+  const cats={}; state.expenses.forEach(e=>{cats[e.category]=(cats[e.category]||0)+e.amount;});
+  const top=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('exp-total').textContent=fmt$(total);
+  document.getElementById('exp-top').textContent=top?top[0]:'—';
+  document.getElementById('exp-month').textContent=fmt$(thisMonth);
+  const tbody=document.getElementById('exp-tbody');
+  tbody.innerHTML=filtered.length?[...filtered].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>`<tr>
+    <td style="color:#888;font-size:12px;">${e.date}</td>
+    <td class="td-name">${e.description}</td>
+    <td><span class="badge b-gray">${e.category}</span></td>
+    <td style="font-weight:600;color:#A32D2D;">${fmt$(e.amount)}</td>
+    <td><button class="btn btn-sm btn-danger" onclick="deleteExpense(${e.id})">Delete</button></td>
+  </tr>`).join(''):`<tr><td colspan="5" class="empty">No expenses found</td></tr>`;
+  populateExpMonths();
+}
+
+function populateExpMonths(){
+  const months=[...new Set(state.expenses.map(e=>e.date.slice(0,7)))].sort().reverse();
+  const sel=document.getElementById('exp-mo');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All time</option>'+months.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${m}</option>`).join('');
+}
+
+async function deleteExpense(id){
+  await api('DELETE',`/api/expenses/${id}`);
+  await loadAll(); toast('Expense deleted');
+}
+
+function renderReport(){
+  const period=(document.getElementById('rpt-period')||{value:'all'}).value;
+  function inPeriod(d){
+    if(!d)return false;
+    if(period==='all')return true;
+    if(period.includes('Q1'))return d>='2025-01-01'&&d<='2025-03-31';
+    if(period.length===4)return d.startsWith(period);
+    return d.startsWith(period);
+  }
+  const pmts=state.payments.filter(p=>inPeriod(p.date));
+  const exps=state.expenses.filter(e=>inPeriod(e.date));
+  const totalIncome=pmts.reduce((a,p)=>a+p.amount,0);
+  const totalExp=exps.reduce((a,e)=>a+e.amount,0);
+  const net=totalIncome-totalExp;
+  const laborEst=totalIncome*0.58, partsEst=totalIncome*0.42;
+  const expByCat={}; exps.forEach(e=>{expByCat[e.category]=(expByCat[e.category]||0)+e.amount;});
+  const pmtByMethod={}; pmts.forEach(p=>{pmtByMethod[p.method]=(pmtByMethod[p.method]||0)+p.amount;});
+  const outstanding=state.plans.filter(p=>planBalance(p)>0);
+  document.getElementById('report-body').innerHTML=`
+    <div class="card">
+      <div class="report-sect"><h3>Income</h3>
+        <div class="report-line"><span>Labor revenue (est. 58%)</span><span style="color:#3B6D11;">${fmt$(laborEst)}</span></div>
+        <div class="report-line"><span>Parts / materials (est. 42%)</span><span style="color:#3B6D11;">${fmt$(partsEst)}</span></div>
+        <div class="report-total"><span>Total income</span><span style="color:#3B6D11;">${fmt$(totalIncome)}</span></div>
+      </div>
+      <div class="report-sect"><h3>Expenses by category</h3>
+        ${Object.entries(expByCat).length?Object.entries(expByCat).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<div class="report-line"><span>${cat}</span><span style="color:#A32D2D;">(${fmt$(amt)})</span></div>`).join(''):'<div style="color:#aaa;font-size:13px;padding:6px 0;">No expenses in period</div>'}
+        <div class="report-total"><span>Total expenses</span><span style="color:#A32D2D;">(${fmt$(totalExp)})</span></div>
+      </div>
+      <div class="report-sect"><h3>Net profit</h3>
+        <div class="report-total"><span>Net profit / loss</span><span style="color:${net>=0?'#3B6D11':'#A32D2D'};">${net<0?'-':''}${fmt$(Math.abs(net))}</span></div>
+        <div style="font-size:12px;color:#888;margin-top:.5rem;">Profit margin: ${totalIncome>0?Math.round(net/totalIncome*100):0}%</div>
+      </div>
+      <div class="report-sect"><h3>Payments by method</h3>
+        ${Object.entries(pmtByMethod).map(([m,a])=>`<div class="report-line"><span>${m}</span><span>${fmt$(a)}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No payments in period</div>'}
+      </div>
+      <div class="report-sect"><h3>Outstanding balances</h3>
+        ${outstanding.map(p=>`<div class="report-line"><span>${p.first} ${p.last} — ${p.description}</span><span style="color:#854F0B;">${fmt$(planBalance(p))}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No outstanding balances</div>'}
+        <div class="report-total"><span>Total outstanding</span><span style="color:#854F0B;">${fmt$(outstanding.reduce((a,p)=>a+planBalance(p),0))}</span></div>
+      </div>
+    </div>`;
+  populateReportPeriods();
+}
+
+function populateReportPeriods(){
+  const months=[...new Set([...state.payments,...state.expenses].map(x=>x.date?x.date.slice(0,7):null).filter(Boolean))].sort().reverse();
+  const sel=document.getElementById('rpt-period');
+  const cur=sel.value;
+  sel.innerHTML=`<option value="all">All time</option>`+months.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${m}</option>`).join('');
+}
+
+function exportReport(){
+  const period=(document.getElementById('rpt-period')||{value:'all'}).value;
+  function inP(d){ if(!d)return false; if(period==='all')return true; if(period.length===4)return d.startsWith(period); return d.startsWith(period); }
+  const pmts=state.payments.filter(p=>inP(p.date));
+  const exps=state.expenses.filter(e=>inP(e.date));
+  const totalIncome=pmts.reduce((a,p)=>a+p.amount,0);
+  const totalExp=exps.reduce((a,e)=>a+e.amount,0);
+  const net=totalIncome-totalExp;
+  const expByCat={}; exps.forEach(e=>{expByCat[e.category]=(expByCat[e.category]||0)+e.amount;});
+  const pmtByMethod={}; pmts.forEach(p=>{pmtByMethod[p.method]=(pmtByMethod[p.method]||0)+p.amount;});
+  const outstanding=state.plans.filter(p=>planBalance(p)>0);
+  const bizName = state.settings.business_name || 'WrenchPro';
+  const lines=[
+    `${bizName} — P&L Report`,
+    `Period: ${period==='all'?'All time':period}`,
+    `Generated: ${today()}`,
+    state.settings.owner_name?`Owner: ${state.settings.owner_name}`:'',
+    state.settings.phone?`Phone: ${state.settings.phone}`:'',
+    state.settings.address?`Service area: ${state.settings.address}`:'',
+    ``,
+    `INCOME`,
+    `  Labor revenue (est. 58%): ${fmt$(totalIncome*0.58)}`,
+    `  Parts / materials (est. 42%): ${fmt$(totalIncome*0.42)}`,
+    `  Total income: ${fmt$(totalIncome)}`,
+    ``,
+    `EXPENSES BY CATEGORY`,
+    ...Object.entries(expByCat).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`  ${cat}: (${fmt$(amt)})`),
+    `  Total expenses: (${fmt$(totalExp)})`,
+    ``,
+    `NET PROFIT / LOSS: ${fmt$(net)}`,
+    `Profit margin: ${totalIncome>0?Math.round(net/totalIncome*100):0}%`,
+    ``,
+    `PAYMENTS BY METHOD`,
+    ...Object.entries(pmtByMethod).map(([m,a])=>`  ${m}: ${fmt$(a)}`),
+    ``,
+    `OUTSTANDING BALANCES`,
+    ...outstanding.map(p=>`  ${p.first} ${p.last} — ${p.description}: ${fmt$(planBalance(p))}`),
+    `  Total outstanding: ${fmt$(outstanding.reduce((a,p)=>a+planBalance(p),0))}`,
+  ];
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`WrenchPro-PL-${period==='all'?'all-time':period}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Modals ──
+function closeM(id){ document.getElementById(id).classList.remove('open'); }
+
+async function openJobModal(id){
+  editJobId = id||null;
+  await populateCustomerDropdown('jf-cust');
+  document.getElementById('jf-date').value=today();
+  document.getElementById('jf-del').innerHTML='';
+  if(id){
+    const j=state.jobs.find(x=>x.id===id);
+    if(!j)return;
+    document.getElementById('m-job-title').textContent='Edit job';
+    document.getElementById('jf-cust').value=j.customer_id;
+    await loadVehiclesForJob(j.vehicle_id);
+    document.getElementById('jf-service').value=j.service||'';
+    document.getElementById('jf-date').value=j.date||today();
+    document.getElementById('jf-miles').value=j.miles||'';
+    document.getElementById('jf-status').value=j.status||'Pending';
+    document.getElementById('jf-labor').value=j.labor||'';
+    document.getElementById('jf-parts').value=j.parts||'';
+    document.getElementById('jf-notes').value=j.notes||'';
+    document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${id})">Delete job</button>`;
+  } else {
+    document.getElementById('m-job-title').textContent='New job';
+    ['jf-service','jf-miles','jf-labor','jf-parts','jf-notes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('jf-status').value='Pending';
+    if(state.settings.default_labor_rate>0) document.getElementById('jf-labor').value=state.settings.default_labor_rate;
+  }
+  document.getElementById('m-job').classList.add('open');
+}
+
+async function loadVehiclesForJob(selectId){
+  const custId=parseInt(document.getElementById('jf-cust').value);
+  const sel=document.getElementById('jf-veh');
+  if(isNaN(custId)){sel.innerHTML='<option value="">— Select vehicle —</option>';return;}
+  const vehs=state.vehicles.filter(v=>v.customer_id===custId);
+  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${v.id}" ${selectId===v.id?'selected':''}>${vLabel(v)} · ${v.plate||'no plate'}</option>`).join('');
+}
+
+async function saveJob(){
+  const custId=parseInt(document.getElementById('jf-cust').value);
+  const vehId=parseInt(document.getElementById('jf-veh').value);
+  if(!custId||!vehId){toast('Please select a customer and vehicle.');return;}
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,labor:parseFloat(document.getElementById('jf-labor').value)||0,parts:parseFloat(document.getElementById('jf-parts').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value};
+  if(editJobId) await api('PUT',`/api/jobs/${editJobId}`,body);
+  else await api('POST','/api/jobs',body);
+  closeM('m-job'); await loadAll(); toast(editJobId?'Job updated':'Job saved');
+}
+
+async function deleteJob(id){
+  if(!confirm('Delete this job?'))return;
+  await api('DELETE',`/api/jobs/${id}`);
+  closeM('m-job'); await loadAll(); toast('Job deleted');
+}
+
+async function populateCustomerDropdown(selId){
+  const sel=document.getElementById(selId);
+  sel.innerHTML='<option value="">— Select customer —</option>'+state.customers.map(c=>`<option value="${c.id}">${fullName(c)}</option>`).join('');
+}
+
+async function openCustModal(id){
+  editCustId=id||null;
+  document.getElementById('cf-del').innerHTML='';
+  if(id){
+    const c=state.customers.find(x=>x.id===id);
+    if(!c)return;
+    document.getElementById('m-cust-title').textContent='Edit customer';
+    document.getElementById('cf-first').value=c.first||'';
+    document.getElementById('cf-last').value=c.last||'';
+    document.getElementById('cf-phone').value=c.phone||'';
+    document.getElementById('cf-email').value=c.email||'';
+    document.getElementById('cf-addr').value=c.address||'';
+    document.getElementById('cf-notes').value=c.notes||'';
+    document.getElementById('cf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCustomer(${id})">Delete</button>`;
+  } else {
+    document.getElementById('m-cust-title').textContent='New customer';
+    ['cf-first','cf-last','cf-phone','cf-email','cf-addr','cf-notes'].forEach(x=>document.getElementById(x).value='');
+  }
+  document.getElementById('m-cust').classList.add('open');
+}
+
+async function saveCustomer(){
+  const body={first:document.getElementById('cf-first').value||'New',last:document.getElementById('cf-last').value||'Customer',phone:document.getElementById('cf-phone').value,email:document.getElementById('cf-email').value,address:document.getElementById('cf-addr').value,notes:document.getElementById('cf-notes').value};
+  if(editCustId) await api('PUT',`/api/customers/${editCustId}`,body);
+  else await api('POST','/api/customers',body);
+  closeM('m-cust'); await loadAll(); toast(editCustId?'Customer updated':'Customer added');
+  if(detailCustId) renderCustDetail();
+}
+
+async function deleteCustomer(id){
+  if(!confirm('Delete this customer? This will not delete their jobs or vehicles.'))return;
+  await api('DELETE',`/api/customers/${id}`);
+  closeM('m-cust'); showCustList(); await loadAll(); toast('Customer deleted');
+}
+
+function openVehModal(custId, vehId){
+  editVehCustId=custId; editVehId=vehId||null;
+  document.getElementById('vf-del').innerHTML='';
+  if(vehId){
+    const v=state.vehicles.find(x=>x.id===vehId);
+    if(!v)return;
+    document.getElementById('m-veh-title').textContent='Edit vehicle';
+    document.getElementById('vf-year').value=v.year||'';
+    document.getElementById('vf-make').value=v.make||'';
+    document.getElementById('vf-model').value=v.model||'';
+    document.getElementById('vf-trim').value=v.trim||'';
+    document.getElementById('vf-color').value=v.color||'';
+    document.getElementById('vf-plate').value=v.plate||'';
+    document.getElementById('vf-state').value=v.state||'';
+    document.getElementById('vf-vin').value=v.vin||'';
+    document.getElementById('vf-miles').value=v.miles||'';
+    document.getElementById('vf-oilmi').value=v.oil_change_miles||'';
+    document.getElementById('vf-notes').value=v.notes||'';
+    document.getElementById('vf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteVehicle(${vehId})">Remove vehicle</button>`;
+  } else {
+    document.getElementById('m-veh-title').textContent='Add vehicle';
+    ['vf-year','vf-make','vf-model','vf-trim','vf-color','vf-plate','vf-state','vf-vin','vf-miles','vf-oilmi','vf-notes'].forEach(x=>document.getElementById(x).value='');
+  }
+  document.getElementById('m-veh').classList.add('open');
+}
+
+async function saveVehicle(){
+  const body={customer_id:editVehCustId,year:parseInt(document.getElementById('vf-year').value)||0,make:document.getElementById('vf-make').value||'Unknown',model:document.getElementById('vf-model').value||'',trim:document.getElementById('vf-trim').value,color:document.getElementById('vf-color').value,plate:document.getElementById('vf-plate').value,state:document.getElementById('vf-state').value,vin:document.getElementById('vf-vin').value,miles:parseInt(document.getElementById('vf-miles').value)||0,oil_change_miles:parseInt(document.getElementById('vf-oilmi').value)||0,notes:document.getElementById('vf-notes').value};
+  if(editVehId) await api('PUT',`/api/vehicles/${editVehId}`,body);
+  else await api('POST','/api/vehicles',body);
+  closeM('m-veh'); await loadAll(); toast(editVehId?'Vehicle updated':'Vehicle added');
+  if(detailCustId) renderCustDetail();
+}
+
+async function deleteVehicle(id){
+  if(!confirm('Remove this vehicle?'))return;
+  await api('DELETE',`/api/vehicles/${id}`);
+  closeM('m-veh'); await loadAll(); toast('Vehicle removed');
+  if(detailCustId) renderCustDetail();
+}
+
+async function openPmtModal(){
+  await populateCustomerDropdown('pf-cust');
+  document.getElementById('pf-plan').innerHTML='<option value="">— General payment —</option>';
+  document.getElementById('pf-date').value=today();
+  document.getElementById('pf-method').value=state.settings.default_pay_method||'Cash';
+  ['pf-desc','pf-amt','pf-note'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('m-pmt').classList.add('open');
+}
+
+async function loadPlansForPayment(){
+  const custId=parseInt(document.getElementById('pf-cust').value);
+  const sel=document.getElementById('pf-plan');
+  if(isNaN(custId)){sel.innerHTML='<option value="">— General payment —</option>';return;}
+  const plans=state.plans.filter(p=>p.customer_id===custId&&planBalance(p)>0);
+  sel.innerHTML='<option value="">— General payment —</option>'+plans.map(p=>`<option value="${p.id}">${p.description} (${fmt$(planBalance(p))} remaining)</option>`).join('');
+}
+
+async function savePayment(){
+  const custId=parseInt(document.getElementById('pf-cust').value);
+  const amt=parseFloat(document.getElementById('pf-amt').value)||0;
+  if(!custId||!amt){toast('Please fill in customer and amount.');return;}
+  await api('POST','/api/payments',{customer_id:custId,plan_id:parseInt(document.getElementById('pf-plan').value)||null,description:document.getElementById('pf-desc').value,amount:amt,method:document.getElementById('pf-method').value,date:document.getElementById('pf-date').value,note:document.getElementById('pf-note').value});
+  closeM('m-pmt'); await loadAll(); toast('Payment recorded');
+}
+
+async function openPlanModal(){
+  await populateCustomerDropdown('pl-cust');
+  ['pl-desc','pl-total','pl-down','pl-notes'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('pl-count').value='4';
+  document.getElementById('pl-type').value='installments';
+  document.getElementById('pl-freq').value='monthly';
+  document.getElementById('pl-start').value=today();
+  document.getElementById('plan-preview').innerHTML='';
+  document.getElementById('m-plan').classList.add('open');
+}
+
+function calcPlan(){
+  const total=parseFloat(document.getElementById('pl-total').value)||0;
+  const down=parseFloat(document.getElementById('pl-down').value)||0;
+  const count=parseInt(document.getElementById('pl-count').value)||1;
+  const rem=total-down;
+  const inst=rem/count;
+  const prev=document.getElementById('plan-preview');
+  if(!total){prev.innerHTML='';return;}
+  prev.innerHTML=`<strong>${count} payments</strong> of ${fmt$(inst)} · Down payment: ${fmt$(down)} · Remaining after down: ${fmt$(rem)}`;
+}
+
+async function savePlan(){
+  const custId=parseInt(document.getElementById('pl-cust').value);
+  const total=parseFloat(document.getElementById('pl-total').value)||0;
+  if(!custId||!total){toast('Please select a customer and enter total amount.');return;}
+  const down=parseFloat(document.getElementById('pl-down').value)||0;
+  const count=parseInt(document.getElementById('pl-count').value)||4;
+  const freq=document.getElementById('pl-freq').value;
+  const start=document.getElementById('pl-start').value||today();
+  const rem=total-down;
+  const instAmt=parseFloat((rem/count).toFixed(2));
+  const freqDays={weekly:7,biweekly:14,monthly:30};
+  const days=freqDays[freq]||30;
+  const installments=[];
+  for(let i=0;i<count;i++) installments.push({due_date:addDays(start,i*days),amount:instAmt});
+  await api('POST','/api/plans',{customer_id:custId,description:document.getElementById('pl-desc').value,total,down_payment:down,plan_type:document.getElementById('pl-type').value,installment_count:count,frequency:freq,start_date:start,notes:document.getElementById('pl-notes').value,installments});
+  if(down>0) await api('POST','/api/payments',{customer_id:custId,description:(document.getElementById('pl-desc').value||'Plan')+' — down payment',amount:down,method:'Cash',date:today(),note:'Down payment'});
+  closeM('m-plan'); await loadAll(); toast('Payment plan created');
+}
+
+function openExpModal(){
+  document.getElementById('ef-date').value=today();
+  ['ef-amt','ef-desc','ef-note'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('m-exp').classList.add('open');
+}
+
+async function saveExpense(){
+  const amt=parseFloat(document.getElementById('ef-amt').value)||0;
+  if(!amt){toast('Please enter an amount.');return;}
+  await api('POST','/api/expenses',{date:document.getElementById('ef-date').value,description:document.getElementById('ef-desc').value||'Expense',category:document.getElementById('ef-cat').value,amount:amt,note:document.getElementById('ef-note').value});
+  closeM('m-exp'); await loadAll(); toast('Expense saved');
+}
+
+function openApptModal(dateStr){
+  document.getElementById('af-date').value=dateStr||today();
+  document.getElementById('af-time').value='09:00';
+  ['af-cust','af-phone','af-service'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('m-appt').classList.add('open');
+}
+
+function saveAppt(){
+  state.appts.push({cust:document.getElementById('af-cust').value||'Appointment',phone:document.getElementById('af-phone').value,service:document.getElementById('af-service').value,date:document.getElementById('af-date').value,time:document.getElementById('af-time').value});
+  closeM('m-appt'); renderCalendar(); toast('Appointment saved');
+}
+
+// ── Settings ──
+function renderSettings(){
+  const s = state.settings;
+  document.getElementById('s-biz-name').value = s.business_name||'';
+  document.getElementById('s-owner').value    = s.owner_name||'';
+  document.getElementById('s-phone').value    = s.phone||'';
+  document.getElementById('s-email').value    = s.email||'';
+  document.getElementById('s-addr').value     = s.address||'';
+  document.getElementById('s-labor').value    = s.default_labor_rate||'';
+  document.getElementById('s-pay-method').value = s.default_pay_method||'Cash';
+  document.getElementById('s-tax').value      = s.tax_rate||'';
+  document.getElementById('s-oil-warn').value = s.oil_warn_miles||1500;
+  document.getElementById('s-currency').value = s.currency_symbol||'$';
+  document.getElementById('s-saved').style.display='none';
+  const verEl = document.getElementById('s-app-version');
+  if(window.electronAPI) verEl.textContent = `WrenchPro v${window.electronAPI.version} · ${window.electronAPI.platform}`;
+}
+
+async function saveSettings(){
+  const body = {
+    business_name:       document.getElementById('s-biz-name').value,
+    owner_name:          document.getElementById('s-owner').value,
+    phone:               document.getElementById('s-phone').value,
+    email:               document.getElementById('s-email').value,
+    address:             document.getElementById('s-addr').value,
+    default_labor_rate:  parseFloat(document.getElementById('s-labor').value)||0,
+    default_pay_method:  document.getElementById('s-pay-method').value,
+    tax_rate:            parseFloat(document.getElementById('s-tax').value)||0,
+    oil_warn_miles:      parseInt(document.getElementById('s-oil-warn').value)||1500,
+    currency_symbol:     document.getElementById('s-currency').value||'$',
+  };
+  await api('PUT','/api/settings',body);
+  state.settings = {...state.settings, ...body};
+  const saved = document.getElementById('s-saved');
+  saved.style.display='';
+  setTimeout(()=>saved.style.display='none', 2500);
+  toast('Settings saved');
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+
+// Boot
+loadAll();
+</script>
+</body>
+</html>
