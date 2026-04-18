@@ -2,11 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Only allow requests from localhost (Electron window or local browser)
+app.use(cors({ origin: /^(http:\/\/localhost(:\d+)?|null)$/ }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -17,9 +19,10 @@ app.use('/api/payments', require('./routes/payments'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/appointments', require('./routes/appointments'));
+app.use('/api/employees', require('./routes/employees'));
 
 app.get('/api/dashboard', (req, res) => {
-  const db = require('./database');
   const totalRevenue = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM payments').get().total;
   const totalExpenses = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM expenses').get().total;
   const activeJobs = db.prepare("SELECT COUNT(*) as count FROM jobs WHERE status != 'Done'").get().count;

@@ -17,16 +17,20 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const { customer_id, job_id, description, total, down_payment, plan_type, installment_count, frequency, start_date, notes, installments } = req.body;
-  const result = db.prepare(`
+  const insertPlan = db.prepare(`
     INSERT INTO payment_plans (customer_id, job_id, description, total, down_payment, plan_type, installment_count, frequency, start_date, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(customer_id, job_id || null, description, total, down_payment || 0, plan_type || 'installments', installment_count || 4, frequency || 'monthly', start_date, notes || '');
-  
-  const planId = result.lastInsertRowid;
-  if (installments && installments.length) {
-    const insertInst = db.prepare('INSERT INTO installments (plan_id, due_date, amount, paid) VALUES (?, ?, ?, ?)');
-    installments.forEach(inst => insertInst.run(planId, inst.due_date, inst.amount, 0));
-  }
+  `);
+  const insertInst = db.prepare('INSERT INTO installments (plan_id, due_date, amount, paid) VALUES (?, ?, ?, ?)');
+
+  const planId = db.transaction(() => {
+    const result = insertPlan.run(customer_id, job_id || null, description, total, down_payment || 0, plan_type || 'installments', installment_count || 4, frequency || 'monthly', start_date, notes || '');
+    if (installments && installments.length) {
+      installments.forEach(inst => insertInst.run(result.lastInsertRowid, inst.due_date, inst.amount, 0));
+    }
+    return result.lastInsertRowid;
+  })();
+
   res.json({ id: planId, ...req.body });
 });
 
@@ -37,8 +41,10 @@ router.put('/installment/:id/pay', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM installments WHERE plan_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM payment_plans WHERE id = ?').run(req.params.id);
+  db.transaction(() => {
+    db.prepare('DELETE FROM installments WHERE plan_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM payment_plans WHERE id = ?').run(req.params.id);
+  })();
   res.json({ success: true });
 });
 

@@ -8,9 +8,12 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', (req, res) => {
-  const { business_name, owner_name, phone, email, address,
-          default_labor_rate, default_pay_method, tax_rate,
-          oil_warn_miles, currency_symbol } = req.body;
+  const {
+    business_name, owner_name, phone, email, address,
+    default_labor_rate, default_pay_method, tax_rate,
+    oil_warn_miles, currency_symbol,
+    tax_id, invoice_terms, invoice_footer, invoice_logo,
+  } = req.body;
   db.prepare(`
     UPDATE settings SET
       business_name = ?,
@@ -22,7 +25,11 @@ router.put('/', (req, res) => {
       default_pay_method = ?,
       tax_rate = ?,
       oil_warn_miles = ?,
-      currency_symbol = ?
+      currency_symbol = ?,
+      tax_id = ?,
+      invoice_terms = ?,
+      invoice_footer = ?,
+      invoice_logo = ?
     WHERE id = 1
   `).run(
     business_name || '',
@@ -34,7 +41,11 @@ router.put('/', (req, res) => {
     default_pay_method || 'Cash',
     parseFloat(tax_rate) || 0,
     parseInt(oil_warn_miles) || 1500,
-    currency_symbol || '$'
+    currency_symbol || '$',
+    tax_id || '',
+    invoice_terms || 'Due on receipt',
+    invoice_footer || 'Thank you for your business!',
+    invoice_logo !== undefined ? invoice_logo : '',
   );
   res.json({ ok: true });
 });

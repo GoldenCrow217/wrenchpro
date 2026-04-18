@@ -183,9 +183,12 @@ tr:hover td{background:#fafaf8;}
   <div class="nav-sect">Operations</div>
   <div class="nav-item" onclick="sp('jobs',this)"><span class="nav-icon">⚙</span> Jobs</div>
   <div class="nav-item" onclick="sp('schedule',this)"><span class="nav-icon">◷</span> Schedule</div>
+  <div class="nav-item" onclick="openQuickEntry()"><span class="nav-icon">✦</span> Quick entry</div>
   <div class="nav-sect">Customers</div>
   <div class="nav-item" onclick="sp('customers',this)"><span class="nav-icon">◉</span> Customers</div>
   <div class="nav-item" onclick="sp('vehicles',this)"><span class="nav-icon">▣</span> Vehicles</div>
+  <div class="nav-sect">Team</div>
+  <div class="nav-item" onclick="sp('employees',this)"><span class="nav-icon">◎</span> Employees</div>
   <div class="nav-sect">Finance</div>
   <div class="nav-item" onclick="sp('finance',this)"><span class="nav-icon">$</span> Overview</div>
   <div class="nav-item" onclick="sp('plans',this)"><span class="nav-icon">◑</span> Payment plans</div>
@@ -243,7 +246,7 @@ tr:hover td{background:#fafaf8;}
       </div>
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="table-wrap">
-          <table><thead><tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Labor</th><th>Parts</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <table><thead><tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Assigned to</th><th>Labor</th><th>Parts</th><th>Total</th><th>Status</th><th></th></tr></thead>
           <tbody id="jobs-tbody"></tbody></table>
         </div>
       </div>
@@ -284,6 +287,18 @@ tr:hover td{background:#fafaf8;}
         <div class="table-wrap">
           <table><thead><tr><th>Vehicle</th><th>Plate</th><th>VIN</th><th>Mileage</th><th>Owner</th><th>Jobs</th><th></th></tr></thead>
           <tbody id="veh-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPLOYEES -->
+    <div class="page" id="page-employees">
+      <div class="search-bar"><input type="text" id="emp-search" placeholder="Search employees..." oninput="renderEmployees()"></div>
+      <div id="emp-stats" class="stats-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));"></div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Name</th><th>Role</th><th>Contact</th><th>Pay rate</th><th>Jobs assigned</th><th>Labor total</th><th>Status</th><th></th></tr></thead>
+          <tbody id="emp-tbody"></tbody></table>
         </div>
       </div>
     </div>
@@ -346,7 +361,7 @@ tr:hover td{background:#fafaf8;}
             <div class="fr"><label>Phone</label><input id="s-phone" placeholder="(555) 000-0000"></div>
             <div class="fr"><label>Email</label><input id="s-email" placeholder="joe@example.com"></div>
           </div>
-          <div class="fr"><label>Address / service area</label><input id="s-addr" placeholder="Dallas, TX"></div>
+          <div class="fr"><label>Address / service area</label><input id="s-addr" placeholder="123 Main St, Dallas, TX"></div>
         </div>
         <div class="card">
           <div class="settings-section-title">Service defaults</div>
@@ -362,6 +377,31 @@ tr:hover td{background:#fafaf8;}
           <div class="f2">
             <div class="fr"><label>Tax rate (%)</label><input type="number" id="s-tax" placeholder="0" step="0.01" min="0" max="100"></div>
             <div class="fr"><label>Currency symbol</label><input id="s-currency" placeholder="$" maxlength="3"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="settings-section-title">Invoice settings</div>
+          <div class="f2">
+            <div class="fr"><label>Tax ID / EIN</label><input id="s-tax-id" placeholder="12-3456789"></div>
+            <div class="fr"><label>Payment terms</label>
+              <select id="s-inv-terms">
+                <option>Due on receipt</option>
+                <option>Net 7</option>
+                <option>Net 15</option>
+                <option>Net 30</option>
+              </select>
+            </div>
+          </div>
+          <div class="fr"><label>Invoice footer note</label><input id="s-inv-footer" placeholder="Thank you for your business!"></div>
+          <div class="fr"><label>Business logo</label>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <img id="s-logo-preview" style="max-height:60px;max-width:160px;border-radius:6px;border:1px solid #e8e8e4;display:none;">
+              <div>
+                <input type="file" id="s-logo-file" accept="image/*" style="display:none;" onchange="handleLogoUpload(this)">
+                <button class="btn btn-sm" onclick="document.getElementById('s-logo-file').click()">Upload logo</button>
+                <button class="btn btn-sm btn-danger" id="s-logo-clear" style="display:none;margin-left:4px;" onclick="clearLogo()">Remove</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -416,11 +456,20 @@ tr:hover td{background:#fafaf8;}
         <select id="jf-status"><option>Pending</option><option>In Progress</option><option>Done</option></select>
       </div>
     </div>
-    <div class="f2">
-      <div class="fr"><label>Labor ($)</label><input type="number" id="jf-labor" placeholder="0.00" step="0.01"></div>
-      <div class="fr"><label>Parts ($)</label><input type="number" id="jf-parts" placeholder="0.00" step="0.01"></div>
+    <div style="background:#f5f5f0;border-radius:8px;padding:.75rem;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Labor (flat-rate)</div>
+      <div class="f3">
+        <div class="fr"><label>Book hours <span style="font-weight:400;color:#aaa;">(e.g. 1.2)</span></label><input type="number" id="jf-labor-hrs" placeholder="0.0" step="0.1" min="0" oninput="calcJobLabor()"></div>
+        <div class="fr"><label>Rate ($/hr)</label><input type="number" id="jf-labor-rate" placeholder="0.00" step="0.01" min="0" oninput="calcJobLabor()"></div>
+        <div class="fr"><label>Labor total ($)</label><input type="number" id="jf-labor" placeholder="0.00" step="0.01" oninput="jfLaborManual()"></div>
+      </div>
+      <div id="jf-labor-hint" style="font-size:11px;color:#888;margin-top:-4px;"></div>
     </div>
+    <div class="fr"><label>Parts ($)</label><input type="number" id="jf-parts" placeholder="0.00" step="0.01"></div>
     <div class="fr"><label>Notes</label><input id="jf-notes" placeholder="Any notes..."></div>
+    <div class="fr"><label>Assigned to <span style="font-weight:400;color:#aaa;">(optional)</span></label>
+      <select id="jf-emp"><option value="">— Unassigned —</option></select>
+    </div>
     <div class="mfooter">
       <div id="jf-del"></div>
       <div class="mfooter-r">
@@ -459,6 +508,9 @@ tr:hover td{background:#fafaf8;}
 <div class="modal-overlay" id="m-veh">
   <div class="modal">
     <h2 id="m-veh-title">Add vehicle</h2>
+    <div class="fr" id="vf-cust-row" style="display:none;"><label>Customer</label>
+      <select id="vf-cust"><option value="">— Select customer —</option></select>
+    </div>
     <div class="f3">
       <div class="fr"><label>Year</label><input type="number" id="vf-year" placeholder="2019"></div>
       <div class="fr"><label>Make</label><input id="vf-make" placeholder="Toyota"></div>
@@ -602,9 +654,125 @@ tr:hover td{background:#fafaf8;}
   </div>
 </div>
 
+<!-- MODAL: Employee -->
+<div class="modal-overlay" id="m-emp">
+  <div class="modal">
+    <h2 id="m-emp-title">Add employee</h2>
+    <div class="f2">
+      <div class="fr"><label>First name</label><input id="ef2-first" placeholder="Jane"></div>
+      <div class="fr"><label>Last name</label><input id="ef2-last" placeholder="Doe"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Phone</label><input id="ef2-phone" placeholder="(555) 000-0000"></div>
+      <div class="fr"><label>Email</label><input id="ef2-email" placeholder="jane@example.com"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Role</label>
+        <select id="ef2-role">
+          <option>Mechanic</option>
+          <option>Lead Mechanic</option>
+          <option>Apprentice</option>
+          <option>Service Writer</option>
+          <option>Manager</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="fr"><label>Hourly rate ($)</label><input type="number" id="ef2-rate" placeholder="25.00" step="0.01" min="0"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Status</label>
+        <select id="ef2-status">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="fr"></div>
+    </div>
+    <div class="fr"><label>Notes</label><input id="ef2-notes" placeholder="Any notes..."></div>
+    <div class="mfooter">
+      <div id="ef2-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-emp')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEmployee()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Quick Entry -->
+<div class="modal-overlay" id="m-quick">
+  <div class="modal" style="width:600px;">
+    <h2>Quick Entry — Historical Job</h2>
+    <p style="font-size:12px;color:#888;margin:-6px 0 12px;">Enter a past job in one shot. Creates the customer and vehicle automatically if they don't exist yet.</p>
+    <div class="settings-section-title" style="margin-bottom:8px;">Customer</div>
+    <div class="f2">
+      <div class="fr"><label>First name</label><input id="qf-first" placeholder="John" oninput="qfAutocomplete()"></div>
+      <div class="fr"><label>Last name</label><input id="qf-last" placeholder="Smith" oninput="qfAutocomplete()"></div>
+    </div>
+    <div id="qf-cust-match" style="font-size:12px;color:#378ADD;margin:-8px 0 8px;min-height:18px;"></div>
+    <div class="f2">
+      <div class="fr"><label>Phone</label><input id="qf-phone" placeholder="(555) 000-0000"></div>
+      <div class="fr"><label>Email</label><input id="qf-email" placeholder="optional"></div>
+    </div>
+    <div class="settings-section-title" style="margin:10px 0 8px;">Vehicle</div>
+    <div class="f3">
+      <div class="fr"><label>Year</label><input type="number" id="qf-year" placeholder="2018"></div>
+      <div class="fr"><label>Make</label><input id="qf-make" placeholder="Toyota"></div>
+      <div class="fr"><label>Model</label><input id="qf-model" placeholder="Camry"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>License plate</label><input id="qf-plate" placeholder="ABC-1234"></div>
+      <div class="fr"><label>Mileage at service</label><input type="number" id="qf-miles" placeholder="45000"></div>
+    </div>
+    <div id="qf-veh-match" style="font-size:12px;color:#378ADD;margin:-8px 0 8px;min-height:18px;"></div>
+    <div class="settings-section-title" style="margin:10px 0 8px;">Job</div>
+    <div class="fr"><label>Service description</label><textarea id="qf-service" placeholder="Oil change, brake pads, tire rotation..."></textarea></div>
+    <div class="f3">
+      <div class="fr"><label>Date</label><input type="date" id="qf-date"></div>
+      <div class="fr"><label>Labor hours <span style="font-weight:400;color:#aaa;">(e.g. 1.2)</span></label><input type="number" id="qf-labor-hrs" placeholder="0.0" step="0.1" min="0" oninput="calcQfLabor()"></div>
+      <div class="fr"><label>Parts ($)</label><input type="number" id="qf-parts" placeholder="0.00" step="0.01"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Rate ($/hr)</label><input type="number" id="qf-labor-rate" placeholder="0.00" step="0.01" oninput="calcQfLabor()"></div>
+      <div class="fr"><label>Labor total ($)</label><input type="number" id="qf-labor" placeholder="0.00" step="0.01"></div>
+    </div>
+    <div id="qf-labor-hint" style="font-size:11px;color:#888;margin:-8px 0 8px;"></div>
+    <div class="fr"><label>Notes</label><input id="qf-notes" placeholder="Any notes from your records..."></div>
+    <div class="settings-section-title" style="margin:10px 0 8px;">Payment <span style="font-weight:400;color:#aaa;">(optional)</span></div>
+    <div class="f3">
+      <div class="fr"><label>Amount paid ($)</label><input type="number" id="qf-paid" placeholder="0.00" step="0.01"></div>
+      <div class="fr"><label>Method</label>
+        <select id="qf-method">
+          <option>Cash</option><option>Card</option><option>Venmo</option>
+          <option>CashApp</option><option>Check</option><option>Zelle</option>
+        </select>
+      </div>
+      <div class="fr"><label>Payment date</label><input type="date" id="qf-pay-date"></div>
+    </div>
+    <div class="mfooter">
+      <div style="font-size:12px;color:#888;" id="qf-status"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-quick')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveQuickEntry()">Save job</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Invoice -->
+<div class="modal-overlay" id="m-invoice">
+  <div class="modal" style="width:680px;padding:0;">
+    <div id="invoice-content" style="padding:1.5rem;"></div>
+    <div style="padding:1rem 1.5rem;border-top:1px solid #e8e8e4;display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn" onclick="closeM('m-invoice')">Close</button>
+      <button class="btn btn-primary" onclick="printInvoice()">Print / Save PDF</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = '';
-let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], settings:{} };
+let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{} };
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
 let detailCustId = null, detailTab = 'vehicles';
@@ -651,11 +819,12 @@ async function api(method, path, body){
 }
 
 async function loadAll(){
-  const [custs, vehs, jobs, pmts, plans, exps, settings] = await Promise.all([
+  const [custs, vehs, jobs, pmts, plans, exps, settings, appts, emps] = await Promise.all([
     api('GET','/api/customers'), api('GET','/api/vehicles'),
     api('GET','/api/jobs'), api('GET','/api/payments'),
     api('GET','/api/plans'), api('GET','/api/expenses'),
-    api('GET','/api/settings')
+    api('GET','/api/settings'), api('GET','/api/appointments'),
+    api('GET','/api/employees')
   ]);
   state.customers = custs||[];
   state.vehicles = vehs||[];
@@ -664,6 +833,8 @@ async function loadAll(){
   state.plans = plans||[];
   state.expenses = exps||[];
   state.settings = settings||{};
+  state.appts = appts||[];
+  state.employees = emps||[];
   renderPage(currentPage);
 }
 
@@ -674,7 +845,7 @@ function sp(id, el){
   document.getElementById('page-'+id).classList.add('active');
   if(el) el.classList.add('active');
   currentPage = id;
-  const titles = {dashboard:'Dashboard',jobs:'Jobs',schedule:'Schedule',customers:'Customers',vehicles:'Vehicles',finance:'Finance overview',plans:'Payment plans',expenses:'Expenses',report:'P&L report',settings:'Settings'};
+  const titles = {dashboard:'Dashboard',jobs:'Jobs',schedule:'Schedule',customers:'Customers',vehicles:'Vehicles',employees:'Employees',finance:'Finance overview',plans:'Payment plans',expenses:'Expenses',report:'P&L report',settings:'Settings'};
   document.getElementById('ptitle').textContent = titles[id]||id;
   const pri = document.getElementById('pri-btn');
   const sec = document.getElementById('sec-btn');
@@ -687,6 +858,7 @@ function sp(id, el){
   else if(id==='schedule'){pri.textContent='+ Appointment';}
   else if(id==='finance'){pri.textContent='+ Record Payment'; sec.style.display=''; sec.textContent='+ New Plan';}
   else if(id==='plans'){pri.textContent='+ New Plan'; sec.style.display=''; sec.textContent='+ Record Payment';}
+  else if(id==='employees'){pri.textContent='+ Add Employee';}
   else if(id==='expenses'){pri.textContent='+ Add Expense';}
   else if(id==='report'){pri.style.display='none';}
   else if(id==='settings'){pri.style.display='none';}
@@ -701,6 +873,7 @@ function priAction(){
   else if(p==='schedule') openApptModal(today());
   else if(p==='finance') openPmtModal();
   else if(p==='plans') openPlanModal();
+  else if(p==='employees') openEmpModal();
   else if(p==='expenses') openExpModal();
 }
 
@@ -718,6 +891,7 @@ function renderPage(id){
   else if(id==='vehicles') renderVehicles();
   else if(id==='finance') renderFinance();
   else if(id==='plans') renderPlans();
+  else if(id==='employees') renderEmployees();
   else if(id==='expenses') renderExpenses();
   else if(id==='report') renderReport();
   else if(id==='settings') renderSettings();
@@ -776,11 +950,12 @@ function renderJobs(){
     <td class="td-name">${j.first||''} ${j.last||''}</td>
     <td style="font-size:12px;">${j.year||''} ${j.make||''} ${j.model||''}<br><span style="color:#aaa;">${j.plate||''}</span></td>
     <td>${(j.service||'').slice(0,35)}${(j.service||'').length>35?'…':''}</td>
-    <td style="color:#3B6D11;">${fmt$(j.labor)}</td>
+    <td style="font-size:12px;color:#555;">${j.emp_first?j.emp_first+' '+j.emp_last:'<span style="color:#ccc;">—</span>'}</td>
+    <td style="color:#3B6D11;">${fmt$(j.labor)}${j.labor_hours?`<br><span style="font-size:10px;color:#888;">${j.labor_hours} hrs</span>`:''}</td>
     <td style="color:#888;">${fmt$(j.parts)}</td>
     <td style="font-weight:600;">${fmt$((j.labor||0)+(j.parts||0))}</td>
     <td>${statusBadge(j.status)}</td>
-    <td><button class="btn btn-sm" onclick="openJobModal(${j.id})">Edit</button></td>
+    <td style="display:flex;gap:4px;"><button class="btn btn-sm" onclick="openJobModal(${j.id})">Edit</button><button class="btn btn-sm" onclick="openInvoice(${j.id})">Invoice</button></td>
   </tr>`).join('');
 }
 
@@ -910,7 +1085,7 @@ function renderCustDetail(){
         const v=state.vehicles.find(x=>x.id===j.vehicle_id);
         return `<div class="job-row">
           <div class="job-date">${j.date}<br><span style="font-size:10px;">${j.miles?Number(j.miles).toLocaleString()+' mi':''}</span></div>
-          <div style="flex:1;"><div style="font-weight:500;">${j.service||''}</div><div style="font-size:11px;color:#888;">${vLabel(v)}${j.notes?' · '+j.notes:''}</div></div>
+          <div style="flex:1;"><div style="font-weight:500;">${j.service||''}</div><div style="font-size:11px;color:#888;">${vLabel(v)}${j.emp_first?' · '+j.emp_first+' '+j.emp_last:''}${j.notes?' · '+j.notes:''}</div></div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">${statusBadge(j.status)}<div style="font-weight:600;">${fmt$((j.labor||0)+(j.parts||0))}</div></div>
         </div>`;
       }).join(''):'<div class="empty">No jobs on record</div>'}
@@ -1034,7 +1209,7 @@ async function markInstPaid(instId, planId){
   await api('PUT',`/api/plans/installment/${instId}/pay`);
   const p=state.plans.find(x=>x.id===planId);
   if(p){ const inst=p.installments.find(i=>i.id===instId); if(inst){inst.paid=1; const amt=inst.amount;
-    await api('POST','/api/payments',{customer_id:p.customer_id,plan_id:planId,description:p.description+' (installment)',amount:amt,method:'Cash',date:today(),note:'Auto-logged from plan'});
+    await api('POST','/api/payments',{customer_id:p.customer_id,plan_id:planId,description:p.description+' (installment)',amount:amt,method:state.settings.default_pay_method||'Cash',date:today(),note:'Auto-logged from plan'});
     await loadAll();
   }}
   openPlanDetail(planId);
@@ -1181,12 +1356,91 @@ function exportReport(){
   URL.revokeObjectURL(a.href);
 }
 
+// ── Employees ──
+let editEmpId = null;
+
+function renderEmployees(){
+  const q=(document.getElementById('emp-search')||{value:''}).value.toLowerCase();
+  const filtered=state.employees.filter(e=>!q||(e.first+' '+e.last).toLowerCase().includes(q)||(e.role||'').toLowerCase().includes(q));
+  const active=state.employees.filter(e=>e.status==='active');
+  const totalJobs=state.jobs.filter(j=>j.employee_id).length;
+  const totalLabor=state.jobs.reduce((a,j)=>a+(j.employee_id?j.labor||0:0),0);
+  document.getElementById('emp-stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Active employees</div><div class="stat-value blue">${active.length}</div></div>
+    <div class="stat"><div class="stat-label">Jobs assigned</div><div class="stat-value">${totalJobs}</div></div>
+    <div class="stat"><div class="stat-label">Total labor assigned</div><div class="stat-value green">${fmt$(totalLabor)}</div></div>
+  `;
+  const tbody=document.getElementById('emp-tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="8" class="empty">No employees found</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(e=>{
+    const jobs=state.jobs.filter(j=>j.employee_id===e.id);
+    const labor=jobs.reduce((a,j)=>a+(j.labor||0),0);
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px;">
+        <div class="avatar" style="width:32px;height:32px;font-size:11px;">${initials(e.first,e.last)}</div>
+        <div class="td-name">${e.first} ${e.last}</div>
+      </div></td>
+      <td><span class="badge b-gray">${e.role||'Mechanic'}</span></td>
+      <td><div>${e.phone||'—'}</div><div style="font-size:11px;color:#888;">${e.email||''}</div></td>
+      <td>${e.hourly_rate?fmt$(e.hourly_rate)+'/hr':'—'}</td>
+      <td>${jobs.length}</td>
+      <td style="color:#3B6D11;font-weight:500;">${labor?fmt$(labor):'—'}</td>
+      <td>${e.status==='active'?'<span class="badge b-green">Active</span>':'<span class="badge b-gray">Inactive</span>'}</td>
+      <td><button class="btn btn-sm" onclick="openEmpModal(${e.id})">Edit</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openEmpModal(id){
+  editEmpId=id||null;
+  document.getElementById('ef2-del').innerHTML='';
+  if(id){
+    const e=state.employees.find(x=>x.id===id);
+    if(!e)return;
+    document.getElementById('m-emp-title').textContent='Edit employee';
+    document.getElementById('ef2-first').value=e.first||'';
+    document.getElementById('ef2-last').value=e.last||'';
+    document.getElementById('ef2-phone').value=e.phone||'';
+    document.getElementById('ef2-email').value=e.email||'';
+    document.getElementById('ef2-role').value=e.role||'Mechanic';
+    document.getElementById('ef2-rate').value=e.hourly_rate||'';
+    document.getElementById('ef2-status').value=e.status||'active';
+    document.getElementById('ef2-notes').value=e.notes||'';
+    document.getElementById('ef2-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEmployee(${id})">Remove</button>`;
+  } else {
+    document.getElementById('m-emp-title').textContent='Add employee';
+    ['ef2-first','ef2-last','ef2-phone','ef2-email','ef2-rate','ef2-notes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('ef2-role').value='Mechanic';
+    document.getElementById('ef2-status').value='active';
+  }
+  document.getElementById('m-emp').classList.add('open');
+}
+
+async function saveEmployee(){
+  const first=document.getElementById('ef2-first').value.trim();
+  const last=document.getElementById('ef2-last').value.trim();
+  if(!first||!last){toast('Please enter first and last name.');return;}
+  const body={first,last,phone:document.getElementById('ef2-phone').value,email:document.getElementById('ef2-email').value,role:document.getElementById('ef2-role').value,hourly_rate:parseFloat(document.getElementById('ef2-rate').value)||0,status:document.getElementById('ef2-status').value,notes:document.getElementById('ef2-notes').value};
+  if(editEmpId) await api('PUT',`/api/employees/${editEmpId}`,body);
+  else await api('POST','/api/employees',body);
+  closeM('m-emp'); await loadAll(); toast(editEmpId?'Employee updated':'Employee added');
+}
+
+async function deleteEmployee(id){
+  if(!confirm('Remove this employee? Their jobs will be unassigned.'))return;
+  await api('DELETE',`/api/employees/${id}`);
+  closeM('m-emp'); await loadAll(); toast('Employee removed');
+}
+
 // ── Modals ──
 function closeM(id){ document.getElementById(id).classList.remove('open'); }
 
 async function openJobModal(id){
   editJobId = id||null;
   await populateCustomerDropdown('jf-cust');
+  // Populate employee dropdown (active only)
+  const empSel=document.getElementById('jf-emp');
+  empSel.innerHTML='<option value="">— Unassigned —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}${e.role?' ('+e.role+')':''}</option>`).join('');
   document.getElementById('jf-date').value=today();
   document.getElementById('jf-del').innerHTML='';
   if(id){
@@ -1202,12 +1456,17 @@ async function openJobModal(id){
     document.getElementById('jf-labor').value=j.labor||'';
     document.getElementById('jf-parts').value=j.parts||'';
     document.getElementById('jf-notes').value=j.notes||'';
+    document.getElementById('jf-labor-hrs').value=j.labor_hours||'';
+    document.getElementById('jf-labor-rate').value=j.labor_rate||(state.settings.default_labor_rate||'');
+    document.getElementById('jf-emp').value=j.employee_id||'';
+    document.getElementById('jf-labor-hint').textContent='';
     document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${id})">Delete job</button>`;
   } else {
     document.getElementById('m-job-title').textContent='New job';
-    ['jf-service','jf-miles','jf-labor','jf-parts','jf-notes'].forEach(x=>document.getElementById(x).value='');
+    ['jf-service','jf-miles','jf-labor','jf-labor-hrs','jf-parts','jf-notes'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('jf-status').value='Pending';
-    if(state.settings.default_labor_rate>0) document.getElementById('jf-labor').value=state.settings.default_labor_rate;
+    document.getElementById('jf-labor-hint').textContent='';
+    document.getElementById('jf-labor-rate').value=state.settings.default_labor_rate>0?state.settings.default_labor_rate:'';
   }
   document.getElementById('m-job').classList.add('open');
 }
@@ -1224,7 +1483,8 @@ async function saveJob(){
   const custId=parseInt(document.getElementById('jf-cust').value);
   const vehId=parseInt(document.getElementById('jf-veh').value);
   if(!custId||!vehId){toast('Please select a customer and vehicle.');return;}
-  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,labor:parseFloat(document.getElementById('jf-labor').value)||0,parts:parseFloat(document.getElementById('jf-parts').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value};
+  const empId=parseInt(document.getElementById('jf-emp').value)||null;
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,labor:parseFloat(document.getElementById('jf-labor').value)||0,labor_hours:parseFloat(document.getElementById('jf-labor-hrs').value)||0,labor_rate:parseFloat(document.getElementById('jf-labor-rate').value)||0,parts:parseFloat(document.getElementById('jf-parts').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId};
   if(editJobId) await api('PUT',`/api/jobs/${editJobId}`,body);
   else await api('POST','/api/jobs',body);
   closeM('m-job'); await loadAll(); toast(editJobId?'Job updated':'Job saved');
@@ -1234,6 +1494,26 @@ async function deleteJob(id){
   if(!confirm('Delete this job?'))return;
   await api('DELETE',`/api/jobs/${id}`);
   closeM('m-job'); await loadAll(); toast('Job deleted');
+}
+
+function calcJobLabor(){
+  const hrs = parseFloat(document.getElementById('jf-labor-hrs').value) || 0;
+  const rate = parseFloat(document.getElementById('jf-labor-rate').value) || 0;
+  if(hrs > 0 && rate > 0){
+    const total = parseFloat((hrs * rate).toFixed(2));
+    document.getElementById('jf-labor').value = total;
+    const mins = Math.round(hrs * 60);
+    const h = Math.floor(mins/60), m = mins%60;
+    document.getElementById('jf-labor-hint').textContent =
+      `${hrs} hrs = ${h>0?h+'h ':''} ${m>0?m+'m':''} · ${fmt$(total)}`.trim();
+  } else {
+    document.getElementById('jf-labor-hint').textContent = hrs>0 ? `${hrs} hrs × rate = labor $` : '';
+  }
+}
+
+function jfLaborManual(){
+  // User typed directly in the dollar field — clear the hint so it's clear the auto-calc was overridden
+  document.getElementById('jf-labor-hint').textContent = '(manual override)';
 }
 
 async function populateCustomerDropdown(selId){
@@ -1279,6 +1559,16 @@ async function deleteCustomer(id){
 function openVehModal(custId, vehId){
   editVehCustId=custId; editVehId=vehId||null;
   document.getElementById('vf-del').innerHTML='';
+  // Show customer selector when no customer context (opened from Vehicles page)
+  const custRow=document.getElementById('vf-cust-row');
+  const custSel=document.getElementById('vf-cust');
+  if(!custId){
+    custRow.style.display='';
+    custSel.innerHTML='<option value="">— Select customer —</option>'+state.customers.map(c=>`<option value="${c.id}">${fullName(c)}</option>`).join('');
+  } else {
+    custRow.style.display='none';
+    custSel.value='';
+  }
   if(vehId){
     const v=state.vehicles.find(x=>x.id===vehId);
     if(!v)return;
@@ -1303,7 +1593,9 @@ function openVehModal(custId, vehId){
 }
 
 async function saveVehicle(){
-  const body={customer_id:editVehCustId,year:parseInt(document.getElementById('vf-year').value)||0,make:document.getElementById('vf-make').value||'Unknown',model:document.getElementById('vf-model').value||'',trim:document.getElementById('vf-trim').value,color:document.getElementById('vf-color').value,plate:document.getElementById('vf-plate').value,state:document.getElementById('vf-state').value,vin:document.getElementById('vf-vin').value,miles:parseInt(document.getElementById('vf-miles').value)||0,oil_change_miles:parseInt(document.getElementById('vf-oilmi').value)||0,notes:document.getElementById('vf-notes').value};
+  const custId = editVehCustId || parseInt(document.getElementById('vf-cust').value)||null;
+  if(!custId){toast('Please select a customer.');return;}
+  const body={customer_id:custId,year:parseInt(document.getElementById('vf-year').value)||0,make:document.getElementById('vf-make').value||'Unknown',model:document.getElementById('vf-model').value||'',trim:document.getElementById('vf-trim').value,color:document.getElementById('vf-color').value,plate:document.getElementById('vf-plate').value,state:document.getElementById('vf-state').value,vin:document.getElementById('vf-vin').value,miles:parseInt(document.getElementById('vf-miles').value)||0,oil_change_miles:parseInt(document.getElementById('vf-oilmi').value)||0,notes:document.getElementById('vf-notes').value};
   if(editVehId) await api('PUT',`/api/vehicles/${editVehId}`,body);
   else await api('POST','/api/vehicles',body);
   closeM('m-veh'); await loadAll(); toast(editVehId?'Vehicle updated':'Vehicle added');
@@ -1403,9 +1695,10 @@ function openApptModal(dateStr){
   document.getElementById('m-appt').classList.add('open');
 }
 
-function saveAppt(){
-  state.appts.push({cust:document.getElementById('af-cust').value||'Appointment',phone:document.getElementById('af-phone').value,service:document.getElementById('af-service').value,date:document.getElementById('af-date').value,time:document.getElementById('af-time').value});
-  closeM('m-appt'); renderCalendar(); toast('Appointment saved');
+async function saveAppt(){
+  const body={cust:document.getElementById('af-cust').value||'Appointment',phone:document.getElementById('af-phone').value,service:document.getElementById('af-service').value,date:document.getElementById('af-date').value,time:document.getElementById('af-time').value};
+  await api('POST','/api/appointments',body);
+  closeM('m-appt'); await loadAll(); toast('Appointment saved');
 }
 
 // ── Settings ──
@@ -1421,12 +1714,43 @@ function renderSettings(){
   document.getElementById('s-tax').value      = s.tax_rate||'';
   document.getElementById('s-oil-warn').value = s.oil_warn_miles||1500;
   document.getElementById('s-currency').value = s.currency_symbol||'$';
+  document.getElementById('s-tax-id').value   = s.tax_id||'';
+  document.getElementById('s-inv-terms').value= s.invoice_terms||'Due on receipt';
+  document.getElementById('s-inv-footer').value = s.invoice_footer||'Thank you for your business!';
+  // Logo preview
+  const preview = document.getElementById('s-logo-preview');
+  const clearBtn = document.getElementById('s-logo-clear');
+  if(s.invoice_logo){ preview.src=s.invoice_logo; preview.style.display=''; clearBtn.style.display=''; }
+  else { preview.style.display='none'; clearBtn.style.display='none'; }
   document.getElementById('s-saved').style.display='none';
   const verEl = document.getElementById('s-app-version');
   if(window.electronAPI) verEl.textContent = `WrenchPro v${window.electronAPI.version} · ${window.electronAPI.platform}`;
 }
 
+function handleLogoUpload(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = e.target.result;
+    document.getElementById('s-logo-preview').src = data;
+    document.getElementById('s-logo-preview').style.display = '';
+    document.getElementById('s-logo-clear').style.display = '';
+    state.settings._pendingLogo = data;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearLogo(){
+  document.getElementById('s-logo-preview').style.display='none';
+  document.getElementById('s-logo-clear').style.display='none';
+  document.getElementById('s-logo-file').value='';
+  state.settings._pendingLogo = '';
+}
+
 async function saveSettings(){
+  const logo = state.settings._pendingLogo !== undefined
+    ? state.settings._pendingLogo
+    : (state.settings.invoice_logo||'');
   const body = {
     business_name:       document.getElementById('s-biz-name').value,
     owner_name:          document.getElementById('s-owner').value,
@@ -1438,13 +1762,244 @@ async function saveSettings(){
     tax_rate:            parseFloat(document.getElementById('s-tax').value)||0,
     oil_warn_miles:      parseInt(document.getElementById('s-oil-warn').value)||1500,
     currency_symbol:     document.getElementById('s-currency').value||'$',
+    tax_id:              document.getElementById('s-tax-id').value,
+    invoice_terms:       document.getElementById('s-inv-terms').value,
+    invoice_footer:      document.getElementById('s-inv-footer').value,
+    invoice_logo:        logo,
   };
   await api('PUT','/api/settings',body);
   state.settings = {...state.settings, ...body};
+  delete state.settings._pendingLogo;
   const saved = document.getElementById('s-saved');
   saved.style.display='';
   setTimeout(()=>saved.style.display='none', 2500);
   toast('Settings saved');
+}
+
+// ── Invoice ──
+function openInvoice(jobId){
+  const j = state.jobs.find(x=>x.id===jobId);
+  if(!j) return;
+  const c = state.customers.find(x=>x.id===j.customer_id);
+  const v = state.vehicles.find(x=>x.id===j.vehicle_id);
+  const s = state.settings;
+  const tax = ((j.labor||0)+(j.parts||0)) * ((s.tax_rate||0)/100);
+  const total = (j.labor||0)+(j.parts||0)+tax;
+  const invoiceNum = `INV-${String(j.id).padStart(4,'0')}`;
+  document.getElementById('invoice-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a1a1a;">
+      <div>
+        ${s.invoice_logo?`<img src="${s.invoice_logo}" style="max-height:70px;max-width:200px;margin-bottom:8px;display:block;">`:''}
+        <div style="font-size:20px;font-weight:700;">${s.business_name||'WrenchPro'}</div>
+        ${s.owner_name?`<div style="font-size:13px;color:#555;">${s.owner_name}</div>`:''}
+        ${s.phone?`<div style="font-size:12px;color:#888;">${s.phone}</div>`:''}
+        ${s.email?`<div style="font-size:12px;color:#888;">${s.email}</div>`:''}
+        ${s.address?`<div style="font-size:12px;color:#888;">${s.address}</div>`:''}
+        ${s.tax_id?`<div style="font-size:11px;color:#aaa;margin-top:4px;">Tax ID: ${s.tax_id}</div>`:''}
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:22px;font-weight:700;color:#378ADD;">INVOICE</div>
+        <div style="font-size:13px;color:#555;">${invoiceNum}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">Date: ${j.date||'—'}</div>
+        <div style="font-size:12px;color:#888;">Terms: ${s.invoice_terms||'Due on receipt'}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+      <div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Bill To</div>
+        <div style="font-weight:600;">${c?fullName(c):'—'}</div>
+        ${c&&c.phone?`<div style="font-size:12px;color:#888;">${c.phone}</div>`:''}
+        ${c&&c.email?`<div style="font-size:12px;color:#888;">${c.email}</div>`:''}
+        ${c&&c.address?`<div style="font-size:12px;color:#888;">${c.address}</div>`:''}
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Vehicle</div>
+        <div style="font-weight:600;">${vLabel(v)}</div>
+        ${v&&v.plate?`<div style="font-size:12px;color:#888;">Plate: ${v.plate}${v.state?' '+v.state:''}</div>`:''}
+        ${j.miles?`<div style="font-size:12px;color:#888;">Mileage: ${Number(j.miles).toLocaleString()} mi</div>`:''}
+        ${j.emp_first?`<div style="font-size:12px;color:#888;">Technician: ${j.emp_first} ${j.emp_last}</div>`:''}
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid #1a1a1a;">
+          <th style="text-align:left;padding:6px 0;font-size:11px;color:#888;text-transform:uppercase;">Description</th>
+          <th style="text-align:right;padding:6px 0;font-size:11px;color:#888;text-transform:uppercase;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${j.labor>0?`<tr>
+          <td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">
+            Labor${j.service?` — ${j.service}`:''}
+            ${j.labor_hours?`<div style="font-size:11px;color:#888;margin-top:2px;">${j.labor_hours} hrs${j.labor_rate?' @ '+fmt$(j.labor_rate)+'/hr':''}</div>`:''}
+          </td>
+          <td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(j.labor)}</td>
+        </tr>`:''}
+        ${j.parts>0?`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">Parts &amp; materials${!j.labor&&j.service?` — ${j.service}`:''}</td><td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(j.parts)}</td></tr>`:''}
+        ${!j.labor&&!j.parts&&j.service?`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">${j.service}</td><td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(0)}</td></tr>`:''}
+      </tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;">
+      <div style="min-width:220px;">
+        ${tax>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#888;"><span>Tax (${s.tax_rate}%)</span><span>${fmt$(tax)}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;margin-top:4px;"><span>Total</span><span>${fmt$(total)}</span></div>
+      </div>
+    </div>
+    ${j.notes?`<div style="margin-top:1rem;padding:10px;background:#f5f5f0;border-radius:6px;font-size:12px;color:#666;"><strong>Notes:</strong> ${j.notes}</div>`:''}
+    ${s.invoice_footer?`<div style="margin-top:1.5rem;text-align:center;font-size:12px;color:#aaa;border-top:1px solid #e8e8e4;padding-top:1rem;">${s.invoice_footer}</div>`:''}
+  `;
+  document.getElementById('m-invoice').classList.add('open');
+}
+
+function printInvoice(){
+  const content = document.getElementById('invoice-content').innerHTML;
+  const w = window.open('','_blank','width=800,height:900');
+  w.document.write(`<!DOCTYPE html><html><head><title>Invoice</title><style>
+    *{box-sizing:border-box;margin:0;padding:0;} body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px;color:#1a1a1a;font-size:14px;}
+    @media print{body{padding:20px;}}
+  </style></head><body>${content}</body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>{ w.print(); w.close(); }, 400);
+}
+
+// ── Quick Entry ──
+let _qfLogoBase64 = null;
+
+function calcQfLabor(){
+  const hrs = parseFloat(document.getElementById('qf-labor-hrs').value) || 0;
+  const rate = parseFloat(document.getElementById('qf-labor-rate').value) || 0;
+  if(hrs > 0 && rate > 0){
+    document.getElementById('qf-labor').value = parseFloat((hrs * rate).toFixed(2));
+    const mins = Math.round(hrs * 60);
+    const h = Math.floor(mins/60), m = mins%60;
+    document.getElementById('qf-labor-hint').textContent = `${hrs} hrs = ${h>0?h+'h ':''} ${m>0?m+'m':''}`.trim();
+  } else {
+    document.getElementById('qf-labor-hint').textContent = '';
+  }
+}
+
+function openQuickEntry(){
+  ['qf-first','qf-last','qf-phone','qf-email','qf-make','qf-model','qf-plate','qf-service','qf-notes','qf-paid','qf-labor-hrs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('qf-year').value='';
+  document.getElementById('qf-miles').value='';
+  document.getElementById('qf-labor').value='';
+  document.getElementById('qf-labor-rate').value=state.settings.default_labor_rate>0?state.settings.default_labor_rate:'';
+  document.getElementById('qf-labor-hint').textContent='';
+  document.getElementById('qf-date').value=today();
+  document.getElementById('qf-pay-date').value=today();
+  document.getElementById('qf-method').value=state.settings.default_pay_method||'Cash';
+  document.getElementById('qf-cust-match').textContent='';
+  document.getElementById('qf-veh-match').textContent='';
+  document.getElementById('qf-status').textContent='';
+  document.getElementById('m-quick').classList.add('open');
+}
+
+function qfAutocomplete(){
+  const first = document.getElementById('qf-first').value.trim().toLowerCase();
+  const last  = document.getElementById('qf-last').value.trim().toLowerCase();
+  if(!first&&!last){ document.getElementById('qf-cust-match').textContent=''; return; }
+  const match = state.customers.find(c=>
+    c.first.toLowerCase().startsWith(first) && (!last||c.last.toLowerCase().startsWith(last))
+  );
+  if(match){
+    document.getElementById('qf-cust-match').textContent = `✓ Matches existing customer: ${fullName(match)}`;
+    document.getElementById('qf-phone').value = match.phone||'';
+    document.getElementById('qf-email').value = match.email||'';
+    // Pre-fill vehicle if they only have one
+    const vehs = state.vehicles.filter(v=>v.customer_id===match.id);
+    if(vehs.length===1){
+      document.getElementById('qf-year').value  = vehs[0].year||'';
+      document.getElementById('qf-make').value  = vehs[0].make||'';
+      document.getElementById('qf-model').value = vehs[0].model||'';
+      document.getElementById('qf-plate').value = vehs[0].plate||'';
+      document.getElementById('qf-veh-match').textContent = `✓ Pre-filled vehicle: ${vLabel(vehs[0])}`;
+    }
+  } else {
+    document.getElementById('qf-cust-match').textContent = first||last ? '+ Will create new customer' : '';
+  }
+}
+
+async function saveQuickEntry(){
+  const statusEl = document.getElementById('qf-status');
+  const first = document.getElementById('qf-first').value.trim();
+  const last  = document.getElementById('qf-last').value.trim();
+  const make  = document.getElementById('qf-make').value.trim();
+  const model = document.getElementById('qf-model').value.trim();
+  const service = document.getElementById('qf-service').value.trim();
+  const date  = document.getElementById('qf-date').value;
+
+  if(!first||!last){ toast('Please enter customer first and last name.'); return; }
+  if(!service){ toast('Please enter a service description.'); return; }
+  if(!date){ toast('Please enter a date.'); return; }
+
+  statusEl.textContent = 'Saving...';
+
+  // 1. Find or create customer
+  let cust = state.customers.find(c=>
+    c.first.toLowerCase()===first.toLowerCase() &&
+    c.last.toLowerCase()===last.toLowerCase()
+  );
+  if(!cust){
+    cust = await api('POST','/api/customers',{
+      first, last,
+      phone: document.getElementById('qf-phone').value,
+      email: document.getElementById('qf-email').value,
+    });
+  }
+
+  // 2. Find or create vehicle
+  let veh = null;
+  if(make||model){
+    const year = parseInt(document.getElementById('qf-year').value)||0;
+    const plate = document.getElementById('qf-plate').value.trim();
+    veh = state.vehicles.find(v=>
+      v.customer_id===cust.id &&
+      v.make.toLowerCase()===(make.toLowerCase()) &&
+      v.model.toLowerCase()===(model.toLowerCase())
+    );
+    if(!veh){
+      veh = await api('POST','/api/vehicles',{
+        customer_id: cust.id, year, make, model,
+        plate, miles: parseInt(document.getElementById('qf-miles').value)||0,
+      });
+    }
+  }
+
+  if(!veh){ toast('Please enter at least a make and model for the vehicle.'); statusEl.textContent=''; return; }
+
+  // 3. Create job
+  const labor       = parseFloat(document.getElementById('qf-labor').value)||0;
+  const labor_hours = parseFloat(document.getElementById('qf-labor-hrs').value)||0;
+  const labor_rate  = parseFloat(document.getElementById('qf-labor-rate').value)||0;
+  const parts       = parseFloat(document.getElementById('qf-parts').value)||0;
+  const job = await api('POST','/api/jobs',{
+    customer_id: cust.id,
+    vehicle_id:  veh.id,
+    service,
+    date,
+    miles: parseInt(document.getElementById('qf-miles').value)||0,
+    labor, labor_hours, labor_rate, parts,
+    status: 'Done',
+    notes: document.getElementById('qf-notes').value,
+  });
+
+  // 4. Optionally log payment
+  const paid = parseFloat(document.getElementById('qf-paid').value)||0;
+  if(paid>0){
+    await api('POST','/api/payments',{
+      customer_id: cust.id,
+      job_id: job.id,
+      description: service.slice(0,60),
+      amount: paid,
+      method: document.getElementById('qf-method').value,
+      date: document.getElementById('qf-pay-date').value,
+    });
+  }
+
+  closeM('m-quick');
+  await loadAll();
+  toast('Job saved successfully!');
 }
 
 // Close modals on overlay click
