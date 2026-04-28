@@ -21,6 +21,7 @@ app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/appointments', require('./routes/appointments'));
 app.use('/api/employees', require('./routes/employees'));
+app.use('/api/crm', require('./routes/crm'));
 
 app.get('/api/dashboard', (req, res) => {
   const totalRevenue = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM payments').get().total;

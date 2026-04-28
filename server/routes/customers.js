@@ -16,18 +16,18 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { first, last, phone, email, address, notes } = req.body;
+  const { first, last, phone, email, address, notes, status, tags } = req.body;
   const result = db.prepare(
-    'INSERT INTO customers (first, last, phone, email, address, notes) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(first, last, phone || '', email || '', address || '', notes || '');
-  res.json({ id: result.lastInsertRowid, first, last, phone, email, address, notes });
+    'INSERT INTO customers (first, last, phone, email, address, notes, status, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(first, last, phone || '', email || '', address || '', notes || '', status || 'Active', tags || '');
+  res.json({ id: result.lastInsertRowid, first, last, phone, email, address, notes, status, tags });
 });
 
 router.put('/:id', (req, res) => {
-  const { first, last, phone, email, address, notes } = req.body;
+  const { first, last, phone, email, address, notes, status, tags } = req.body;
   db.prepare(
-    'UPDATE customers SET first=?, last=?, phone=?, email=?, address=?, notes=? WHERE id=?'
-  ).run(first, last, phone || '', email || '', address || '', notes || '', req.params.id);
+    'UPDATE customers SET first=?, last=?, phone=?, email=?, address=?, notes=?, status=?, tags=? WHERE id=?'
+  ).run(first, last, phone || '', email || '', address || '', notes || '', status || 'Active', tags || '', req.params.id);
   res.json({ success: true });
 });
 

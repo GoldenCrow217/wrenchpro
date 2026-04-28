@@ -150,6 +150,41 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS customer_interactions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    type        TEXT DEFAULT 'Note',
+    summary     TEXT NOT NULL,
+    employee_id INTEGER,
+    created_at  TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS follow_ups (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id  INTEGER NOT NULL,
+    due_date     TEXT NOT NULL,
+    note         TEXT,
+    status       TEXT DEFAULT 'pending',
+    created_at   TEXT DEFAULT (datetime('now')),
+    completed_at TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS service_reminders (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id   INTEGER NOT NULL,
+    vehicle_id    INTEGER,
+    service_type  TEXT,
+    reminder_date TEXT NOT NULL,
+    note          TEXT,
+    status        TEXT DEFAULT 'pending',
+    created_at    TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_vehicles_customer ON vehicles(customer_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_customer ON jobs(customer_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_vehicle ON jobs(vehicle_id);
@@ -157,10 +192,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_payments_plan ON payments(plan_id);
   CREATE INDEX IF NOT EXISTS idx_installments_plan ON installments(plan_id);
   CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date);
+  CREATE INDEX IF NOT EXISTS idx_interactions_customer ON customer_interactions(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_followups_customer ON follow_ups(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_svcrem_customer ON service_reminders(customer_id);
 `);
 
 // Ensure one settings row always exists
 db.prepare(`INSERT OR IGNORE INTO settings (id) VALUES (1)`).run();
+
+// Migrate: add status and tags to customers
+const custCols = db.prepare(`PRAGMA table_info(customers)`).all().map(c => c.name);
+if (!custCols.includes('status')) db.prepare(`ALTER TABLE customers ADD COLUMN status TEXT DEFAULT 'Active'`).run();
+if (!custCols.includes('tags'))   db.prepare(`ALTER TABLE customers ADD COLUMN tags TEXT DEFAULT ''`).run();
 
 // Migrate: add new columns for users upgrading from earlier versions
 const existingCols = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);

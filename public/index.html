@@ -71,6 +71,18 @@ tr:hover td{background:#fafaf8;}
 .b-red{background:#FCEBEB;color:#A32D2D;}
 .b-blue{background:#E6F1FB;color:#185FA5;}
 .b-gray{background:#f0f0ec;color:#666;}
+.b-gold{background:#FFF3CD;color:#856404;}
+.b-purple{background:#F0E6FB;color:#6B3FA0;}
+
+/* CRM */
+.crm-section{margin-bottom:1.5rem;}
+.crm-section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid #e8e8e4;}
+.crm-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;}
+.crm-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f5f5f0;}
+.crm-row:last-child{border-bottom:none;}
+.crm-dot{width:8px;height:8px;border-radius:50%;background:#378ADD;flex-shrink:0;margin-top:5px;}
+.overdue-text{color:#A32D2D;font-weight:600;}
+.tag-chip{display:inline-block;font-size:10px;padding:2px 8px;border-radius:999px;background:#f0f0ec;color:#555;margin:2px 2px 0 0;}
 
 /* Avatar */
 .avatar{border-radius:50%;background:#E6F1FB;display:flex;align-items:center;justify-content:center;font-weight:600;color:#185FA5;flex-shrink:0;}
@@ -494,6 +506,14 @@ tr:hover td{background:#fafaf8;}
     </div>
     <div class="fr"><label>Address</label><input id="cf-addr" placeholder="123 Main St, City, State"></div>
     <div class="fr"><label>Notes</label><input id="cf-notes" placeholder="Anything to remember..."></div>
+    <div class="f2">
+      <div class="fr"><label>Status</label>
+        <select id="cf-status">
+          <option>Active</option><option>VIP</option><option>Inactive</option><option>Prospect</option><option>Lead</option>
+        </select>
+      </div>
+      <div class="fr"><label>Tags <span style="font-weight:400;color:#aaa;">(comma-separated)</span></label><input id="cf-tags" placeholder="fleet, referral, vip..."></div>
+    </div>
     <div class="mfooter">
       <div id="cf-del"></div>
       <div class="mfooter-r">
@@ -759,6 +779,61 @@ tr:hover td{background:#fafaf8;}
   </div>
 </div>
 
+<!-- MODAL: Log Interaction -->
+<div class="modal-overlay" id="m-interaction">
+  <div class="modal">
+    <h2>Log Interaction</h2>
+    <div class="f2">
+      <div class="fr"><label>Type</label>
+        <select id="if-type">
+          <option>Note</option><option>Call</option><option>Text</option><option>Email</option><option>Visit</option>
+        </select>
+      </div>
+      <div class="fr"><label>Date</label><input type="date" id="if-date"></div>
+    </div>
+    <div class="fr"><label>Summary</label><textarea id="if-summary" placeholder="What happened or was discussed..."></textarea></div>
+    <div class="fr"><label>Employee (optional)</label>
+      <select id="if-emp"><option value="">— Not assigned —</option></select>
+    </div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button class="btn" onclick="closeM('m-interaction')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveInteraction()">Save</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- MODAL: Add Follow-up -->
+<div class="modal-overlay" id="m-followup">
+  <div class="modal">
+    <h2>Add Follow-up</h2>
+    <div class="fr"><label>Due date</label><input type="date" id="fuf-date"></div>
+    <div class="fr"><label>Note</label><input id="fuf-note" placeholder="Call to check on repair, send estimate..."></div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button class="btn" onclick="closeM('m-followup')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveFollowup()">Save</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- MODAL: Service Reminder -->
+<div class="modal-overlay" id="m-svc-reminder">
+  <div class="modal">
+    <h2>Add Service Reminder</h2>
+    <div class="f2">
+      <div class="fr"><label>Vehicle (optional)</label>
+        <select id="srf-veh"><option value="">— Any / General —</option></select>
+      </div>
+      <div class="fr"><label>Service type</label><input id="srf-type" placeholder="Oil Change, Inspection, Tires..."></div>
+    </div>
+    <div class="fr"><label>Reminder date</label><input type="date" id="srf-date"></div>
+    <div class="fr"><label>Note (optional)</label><input id="srf-note" placeholder="Extra details..."></div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button class="btn" onclick="closeM('m-svc-reminder')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSvcReminder()">Save</button>
+    </div></div>
+  </div>
+</div>
+
 <!-- MODAL: Invoice -->
 <div class="modal-overlay" id="m-invoice">
   <div class="modal" style="width:680px;padding:0;">
@@ -772,7 +847,7 @@ tr:hover td{background:#fafaf8;}
 
 <script>
 const API = '';
-let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{} };
+let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[] };
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
 let detailCustId = null, detailTab = 'vehicles';
@@ -819,12 +894,15 @@ async function api(method, path, body){
 }
 
 async function loadAll(){
-  const [custs, vehs, jobs, pmts, plans, exps, settings, appts, emps] = await Promise.all([
+  const [custs, vehs, jobs, pmts, plans, exps, settings, appts, emps, interactions, followups, svcRem] = await Promise.all([
     api('GET','/api/customers'), api('GET','/api/vehicles'),
     api('GET','/api/jobs'), api('GET','/api/payments'),
     api('GET','/api/plans'), api('GET','/api/expenses'),
     api('GET','/api/settings'), api('GET','/api/appointments'),
-    api('GET','/api/employees')
+    api('GET','/api/employees'),
+    api('GET','/api/crm/interactions'),
+    api('GET','/api/crm/followups'),
+    api('GET','/api/crm/service-reminders')
   ]);
   state.customers = custs||[];
   state.vehicles = vehs||[];
@@ -835,6 +913,9 @@ async function loadAll(){
   state.settings = settings||{};
   state.appts = appts||[];
   state.employees = emps||[];
+  state.interactions = interactions||[];
+  state.followups = followups||[];
+  state.serviceReminders = svcRem||[];
   renderPage(currentPage);
 }
 
@@ -987,21 +1068,36 @@ function fmtTime(t){ const [h,m]=t.split(':').map(Number); return `${h%12||12}:$
 function changeMonth(d){ calMonth+=d; if(calMonth>11){calMonth=0;calYear++;}else if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
 function goToday(){ calMonth=new Date().getMonth(); calYear=new Date().getFullYear(); renderCalendar(); }
 
+function custStatusBadge(s){
+  const map={Active:'b-green',VIP:'b-gold',Inactive:'b-gray',Prospect:'b-blue',Lead:'b-purple'};
+  return `<span class="badge ${map[s]||'b-gray'}">${s||'Active'}</span>`;
+}
+
 function renderCustomers(){
   const q=(document.getElementById('cust-search')||{value:''}).value.toLowerCase();
   const tbody=document.getElementById('cust-tbody');
-  const filtered=state.customers.filter(c=>!q||(fullName(c).toLowerCase().includes(q)||c.phone.includes(q)));
+  const filtered=state.customers.filter(c=>!q||(fullName(c).toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.tags||'').toLowerCase().includes(q)));
   if(!filtered.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">No customers found</td></tr>`;return;}
+  const now=today();
   tbody.innerHTML=filtered.map(c=>{
     const vehs=state.vehicles.filter(v=>v.customer_id===c.id);
     const jobs=state.jobs.filter(j=>j.customer_id===c.id);
     const lastJob=jobs.sort((a,b)=>b.date.localeCompare(a.date))[0];
     const vPills=vehs.slice(0,2).map(v=>`<span class="vpill">${vLabel(v)}</span>`).join('');
     const more=vehs.length>2?`<span class="vpill">+${vehs.length-2}</span>`:'';
+    const hasOverdueFollowup=state.followups.some(f=>f.customer_id===c.id&&f.status==='pending'&&f.due_date<now);
+    const hasOverdueSvc=state.serviceReminders.some(r=>r.customer_id===c.id&&r.status==='pending'&&r.reminder_date<now);
+    const alert=(hasOverdueFollowup||hasOverdueSvc)?`<span title="${hasOverdueFollowup?'Overdue follow-up':''}${hasOverdueSvc?' Overdue service reminder':''}" style="color:#A32D2D;font-size:14px;margin-left:4px;">●</span>`:'';
+    const tagChips=(c.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3).map(t=>`<span class="tag-chip">${t}</span>`).join('');
     return `<tr style="cursor:pointer;" onclick="openCustDetail(${c.id})">
       <td><div style="display:flex;align-items:center;gap:10px;">
         <div class="avatar" style="width:32px;height:32px;font-size:11px;">${initials(c.first,c.last)}</div>
-        <div><div class="td-name">${fullName(c)}</div><div style="font-size:11px;color:#888;">${c.address||''}</div></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="td-name">${fullName(c)}</span>${custStatusBadge(c.status)}${alert}
+          </div>
+          <div style="font-size:11px;color:#888;">${c.address||''}${tagChips?'<br>'+tagChips:''}</div>
+        </div>
       </div></td>
       <td><div>${c.phone||'—'}</div><div style="font-size:11px;color:#888;">${c.email||''}</div></td>
       <td><div style="display:flex;gap:4px;flex-wrap:wrap;">${vPills}${more}</div></td>
@@ -1025,9 +1121,19 @@ function openCustDetail(id){
   detailCustId=id; detailTab='vehicles';
   document.getElementById('cust-list').style.display='none';
   document.getElementById('cust-detail').style.display='';
-  document.getElementById('pri-btn').textContent='+ Add Vehicle';
-  document.getElementById('pri-btn').onclick=()=>openVehModal(id,null);
+  updateCustDetailBtn();
   renderCustDetail();
+}
+
+function updateCustDetailBtn(){
+  const pri=document.getElementById('pri-btn');
+  if(detailTab==='crm'){
+    pri.textContent='+ Log Interaction';
+    pri.onclick=()=>openInteractionModal(detailCustId);
+  } else {
+    pri.textContent='+ Add Vehicle';
+    pri.onclick=()=>openVehModal(detailCustId,null);
+  }
 }
 
 function renderCustDetail(){
@@ -1038,15 +1144,28 @@ function renderCustDetail(){
   const pmts=state.payments.filter(p=>p.customer_id===c.id);
   const plans=state.plans.filter(p=>p.customer_id===c.id);
   const totalSpent=pmts.reduce((a,p)=>a+p.amount,0);
+  const interactions=state.interactions.filter(i=>i.customer_id===c.id);
+  const followups=state.followups.filter(f=>f.customer_id===c.id&&f.status==='pending');
+  const svcRems=state.serviceReminders.filter(r=>r.customer_id===c.id&&r.status==='pending');
+  const now=today();
+  const crmCount=interactions.length+followups.length+svcRems.length;
+  const tagChips=(c.tags||'').split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="tag-chip">${t}</span>`).join('');
+
+  const typeIcon={Call:'📞',Text:'💬',Email:'✉️',Visit:'🏠',Note:'📝'};
+
   const el=document.getElementById('cust-detail');
   el.innerHTML=`
     <div class="back-link" onclick="showCustList()">← Back to customers</div>
     <div class="profile-hdr">
       <div class="avatar" style="width:52px;height:52px;font-size:18px;">${initials(c.first,c.last)}</div>
       <div style="flex:1;">
-        <div style="font-size:18px;font-weight:600;">${fullName(c)}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:18px;font-weight:600;">${fullName(c)}</span>
+          ${custStatusBadge(c.status)}
+        </div>
         <div style="font-size:13px;color:#888;margin-top:2px;">${c.phone||''}${c.email?' · '+c.email:''}</div>
         ${c.address?`<div style="font-size:12px;color:#888;margin-top:2px;">${c.address}</div>`:''}
+        ${tagChips?`<div style="margin-top:6px;">${tagChips}</div>`:''}
         ${c.notes?`<div style="font-size:12px;background:#f5f5f0;padding:4px 10px;border-radius:6px;margin-top:6px;color:#666;">${c.notes}</div>`:''}
       </div>
       <button class="btn btn-sm" onclick="openCustModal(${c.id})">Edit</button>
@@ -1061,6 +1180,7 @@ function renderCustDetail(){
       <div class="tab ${detailTab==='vehicles'?'active':''}" onclick="switchTab('vehicles')">Vehicles (${vehs.length})</div>
       <div class="tab ${detailTab==='history'?'active':''}" onclick="switchTab('history')">Job history (${jobs.length})</div>
       <div class="tab ${detailTab==='payments'?'active':''}" onclick="switchTab('payments')">Payments (${pmts.length})</div>
+      <div class="tab ${detailTab==='crm'?'active':''}" onclick="switchTab('crm')">CRM${crmCount?` (${crmCount})`:''}</div>
     </div>
     <div class="tab-content ${detailTab==='vehicles'?'active':''}" id="tab-vehicles">
       <div class="vehicle-grid">
@@ -1097,10 +1217,81 @@ function renderCustDetail(){
         <div style="font-weight:600;color:#3B6D11;">${fmt$(p.amount)}</div>
       </div>`).join(''):'<div class="empty">No payments recorded</div>'}
     </div>
+    <div class="tab-content ${detailTab==='crm'?'active':''}">
+      <div style="margin-bottom:1rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <label style="font-size:12px;color:#666;font-weight:500;">Status:</label>
+          <select onchange="saveCustStatus(${c.id},this.value)" style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;">
+            ${['Active','VIP','Inactive','Prospect','Lead'].map(s=>`<option ${(c.status||'Active')===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex:1;">
+          <label style="font-size:12px;color:#666;font-weight:500;white-space:nowrap;">Tags:</label>
+          <input id="crm-tags-input" value="${(c.tags||'').replace(/"/g,'&quot;')}" placeholder="vip, fleet, referral..." style="flex:1;padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onblur="saveCustTags(${c.id},this.value)">
+        </div>
+      </div>
+
+      <div class="crm-section">
+        <div class="crm-section-hdr">
+          <span class="crm-section-title">Interactions (${interactions.length})</span>
+          <button class="btn btn-sm" onclick="openInteractionModal(${c.id})">+ Log</button>
+        </div>
+        ${interactions.length?interactions.map(i=>`
+          <div class="crm-row">
+            <span style="font-size:14px;">${typeIcon[i.type]||'📝'}</span>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="badge b-gray">${i.type}</span>
+                <span style="font-size:11px;color:#888;">${(i.created_at||'').slice(0,10)}${i.emp_first?' · '+i.emp_first+' '+i.emp_last:''}</span>
+              </div>
+              <div style="margin-top:3px;font-size:13px;">${i.summary}</div>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="deleteInteraction(${i.id})">×</button>
+          </div>`).join(''):'<div class="empty" style="padding:1rem;">No interactions logged yet</div>'}
+      </div>
+
+      <div class="crm-section">
+        <div class="crm-section-hdr">
+          <span class="crm-section-title">Follow-ups (${followups.length} pending)</span>
+          <button class="btn btn-sm" onclick="openFollowupModal(${c.id})">+ Add</button>
+        </div>
+        ${followups.length?followups.map(f=>`
+          <div class="crm-row">
+            <div class="crm-dot" style="background:${f.due_date<now?'#A32D2D':'#378ADD'};"></div>
+            <div style="flex:1;">
+              <div class="${f.due_date<now?'overdue-text':''}">${f.due_date}${f.due_date<now?' — overdue':''}</div>
+              ${f.note?`<div style="font-size:12px;color:#666;margin-top:2px;">${f.note}</div>`:''}
+            </div>
+            <button class="btn btn-sm btn-success" onclick="completeFollowup(${f.id})" style="font-size:11px;">Done</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteFollowup(${f.id})">×</button>
+          </div>`).join(''):'<div class="empty" style="padding:1rem;">No pending follow-ups</div>'}
+      </div>
+
+      <div class="crm-section">
+        <div class="crm-section-hdr">
+          <span class="crm-section-title">Service Reminders (${svcRems.length} pending)</span>
+          <button class="btn btn-sm" onclick="openSvcReminderModal(${c.id})">+ Add</button>
+        </div>
+        ${svcRems.length?svcRems.map(r=>`
+          <div class="crm-row">
+            <span style="font-size:14px;">🔧</span>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                ${r.service_type?`<strong>${r.service_type}</strong>`:''}
+                ${(r.year||r.make||r.model)?`<span class="badge b-gray">${vLabel(r)}</span>`:''}
+                <span class="${r.reminder_date<now?'overdue-text':''}" style="font-size:12px;">${r.reminder_date}${r.reminder_date<now?' — overdue':''}</span>
+              </div>
+              ${r.note?`<div style="font-size:12px;color:#666;margin-top:2px;">${r.note}</div>`:''}
+            </div>
+            <button class="btn btn-sm btn-success" onclick="completeSvcReminder(${r.id})" style="font-size:11px;">Done</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSvcReminder(${r.id})">×</button>
+          </div>`).join(''):'<div class="empty" style="padding:1rem;">No pending service reminders</div>'}
+      </div>
+    </div>
   `;
 }
 
-function switchTab(t){ detailTab=t; renderCustDetail(); }
+function switchTab(t){ detailTab=t; updateCustDetailBtn(); renderCustDetail(); }
 
 function renderVehicles(){
   const q=(document.getElementById('veh-search')||{value:''}).value.toLowerCase();
@@ -1534,16 +1725,19 @@ async function openCustModal(id){
     document.getElementById('cf-email').value=c.email||'';
     document.getElementById('cf-addr').value=c.address||'';
     document.getElementById('cf-notes').value=c.notes||'';
+    document.getElementById('cf-status').value=c.status||'Active';
+    document.getElementById('cf-tags').value=c.tags||'';
     document.getElementById('cf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCustomer(${id})">Delete</button>`;
   } else {
     document.getElementById('m-cust-title').textContent='New customer';
-    ['cf-first','cf-last','cf-phone','cf-email','cf-addr','cf-notes'].forEach(x=>document.getElementById(x).value='');
+    ['cf-first','cf-last','cf-phone','cf-email','cf-addr','cf-notes','cf-tags'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('cf-status').value='Active';
   }
   document.getElementById('m-cust').classList.add('open');
 }
 
 async function saveCustomer(){
-  const body={first:document.getElementById('cf-first').value||'New',last:document.getElementById('cf-last').value||'Customer',phone:document.getElementById('cf-phone').value,email:document.getElementById('cf-email').value,address:document.getElementById('cf-addr').value,notes:document.getElementById('cf-notes').value};
+  const body={first:document.getElementById('cf-first').value||'New',last:document.getElementById('cf-last').value||'Customer',phone:document.getElementById('cf-phone').value,email:document.getElementById('cf-email').value,address:document.getElementById('cf-addr').value,notes:document.getElementById('cf-notes').value,status:document.getElementById('cf-status').value||'Active',tags:document.getElementById('cf-tags').value};
   if(editCustId) await api('PUT',`/api/customers/${editCustId}`,body);
   else await api('POST','/api/customers',body);
   closeM('m-cust'); await loadAll(); toast(editCustId?'Customer updated':'Customer added');
@@ -2000,6 +2194,142 @@ async function saveQuickEntry(){
   closeM('m-quick');
   await loadAll();
   toast('Job saved successfully!');
+}
+
+// ── CRM ──
+
+async function saveCustStatus(custId, status){
+  const c=state.customers.find(x=>x.id===custId);
+  if(!c)return;
+  await api('PUT',`/api/customers/${custId}`,{...c,status,tags:c.tags||''});
+  c.status=status;
+  toast('Status updated');
+  renderCustomers();
+}
+
+async function saveCustTags(custId, tags){
+  const c=state.customers.find(x=>x.id===custId);
+  if(!c)return;
+  await api('PUT',`/api/customers/${custId}`,{...c,tags,status:c.status||'Active'});
+  c.tags=tags;
+  toast('Tags updated');
+  renderCustomers();
+}
+
+let crmCustId=null;
+
+function openInteractionModal(custId){
+  crmCustId=custId;
+  document.getElementById('if-date').value=today();
+  document.getElementById('if-type').value='Note';
+  document.getElementById('if-summary').value='';
+  const empSel=document.getElementById('if-emp');
+  empSel.innerHTML='<option value="">— Not assigned —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}</option>`).join('');
+  document.getElementById('m-interaction').classList.add('open');
+}
+
+async function saveInteraction(){
+  const summary=document.getElementById('if-summary').value.trim();
+  if(!summary){toast('Please enter a summary.');return;}
+  await api('POST','/api/crm/interactions',{
+    customer_id:crmCustId,
+    type:document.getElementById('if-type').value,
+    summary,
+    employee_id:parseInt(document.getElementById('if-emp').value)||null,
+    created_at:document.getElementById('if-date').value
+  });
+  closeM('m-interaction');
+  await loadAll();
+  toast('Interaction logged');
+}
+
+async function deleteInteraction(id){
+  await api('DELETE',`/api/crm/interactions/${id}`);
+  await loadAll();
+  toast('Interaction deleted');
+}
+
+function openFollowupModal(custId){
+  crmCustId=custId;
+  document.getElementById('fuf-date').value='';
+  document.getElementById('fuf-note').value='';
+  document.getElementById('m-followup').classList.add('open');
+}
+
+async function saveFollowup(){
+  const due=document.getElementById('fuf-date').value;
+  if(!due){toast('Please select a due date.');return;}
+  await api('POST','/api/crm/followups',{
+    customer_id:crmCustId,
+    due_date:due,
+    note:document.getElementById('fuf-note').value
+  });
+  closeM('m-followup');
+  await loadAll();
+  toast('Follow-up added');
+}
+
+async function completeFollowup(id){
+  await api('PUT',`/api/crm/followups/${id}`,{
+    status:'done',
+    completed_at:today(),
+    due_date:state.followups.find(f=>f.id===id)?.due_date||today(),
+    note:state.followups.find(f=>f.id===id)?.note||''
+  });
+  await loadAll();
+  toast('Follow-up marked done');
+}
+
+async function deleteFollowup(id){
+  await api('DELETE',`/api/crm/followups/${id}`);
+  await loadAll();
+  toast('Follow-up deleted');
+}
+
+function openSvcReminderModal(custId){
+  crmCustId=custId;
+  document.getElementById('srf-date').value='';
+  document.getElementById('srf-type').value='';
+  document.getElementById('srf-note').value='';
+  const vehs=state.vehicles.filter(v=>v.customer_id===custId);
+  const vehSel=document.getElementById('srf-veh');
+  vehSel.innerHTML='<option value="">— Any / General —</option>'+vehs.map(v=>`<option value="${v.id}">${vLabel(v)}${v.plate?' ('+v.plate+')':''}</option>`).join('');
+  document.getElementById('m-svc-reminder').classList.add('open');
+}
+
+async function saveSvcReminder(){
+  const date=document.getElementById('srf-date').value;
+  if(!date){toast('Please select a reminder date.');return;}
+  await api('POST','/api/crm/service-reminders',{
+    customer_id:crmCustId,
+    vehicle_id:parseInt(document.getElementById('srf-veh').value)||null,
+    service_type:document.getElementById('srf-type').value,
+    reminder_date:date,
+    note:document.getElementById('srf-note').value
+  });
+  closeM('m-svc-reminder');
+  await loadAll();
+  toast('Service reminder added');
+}
+
+async function completeSvcReminder(id){
+  const r=state.serviceReminders.find(x=>x.id===id);
+  if(!r)return;
+  await api('PUT',`/api/crm/service-reminders/${id}`,{
+    status:'done',
+    vehicle_id:r.vehicle_id||null,
+    service_type:r.service_type||'',
+    reminder_date:r.reminder_date,
+    note:r.note||''
+  });
+  await loadAll();
+  toast('Reminder marked done');
+}
+
+async function deleteSvcReminder(id){
+  await api('DELETE',`/api/crm/service-reminders/${id}`);
+  await loadAll();
+  toast('Reminder deleted');
 }
 
 // Close modals on overlay click
