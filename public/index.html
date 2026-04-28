@@ -223,6 +223,13 @@ tr:hover td{background:#fafaf8;}
 
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem;">
+        <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
+        <button class="btn" onclick="openCustModal()">+ New Customer</button>
+        <button class="btn" onclick="openPmtModal()">+ Record Payment</button>
+        <button class="btn" onclick="openApptModal(today())">+ Appointment</button>
+        <button class="btn" onclick="openQuickEntry()">⚡ Quick Entry</button>
+      </div>
       <div class="stats-grid">
         <div class="stat"><div class="stat-label">Active jobs</div><div class="stat-value" id="d-jobs">—</div></div>
         <div class="stat"><div class="stat-label">Revenue collected</div><div class="stat-value green" id="d-rev">—</div></div>
@@ -932,6 +939,7 @@ function sp(id, el){
   const sec = document.getElementById('sec-btn');
   sec.style.display = 'none';
   pri.style.display = '';
+  pri.onclick = priAction;
   if(id==='dashboard'){pri.textContent='+ New Job';}
   else if(id==='jobs'){pri.textContent='+ New Job';}
   else if(id==='customers'){ pri.textContent='+ New Customer'; showCustList(); }
