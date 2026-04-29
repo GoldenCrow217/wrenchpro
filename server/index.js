@@ -12,16 +12,23 @@ app.use(cors({ origin: /^(http:\/\/localhost(:\d+)?|null)$/ }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-app.use('/api/customers', require('./routes/customers'));
-app.use('/api/vehicles', require('./routes/vehicles'));
-app.use('/api/jobs', require('./routes/jobs'));
-app.use('/api/payments', require('./routes/payments'));
-app.use('/api/plans', require('./routes/plans'));
-app.use('/api/expenses', require('./routes/expenses'));
-app.use('/api/settings', require('./routes/settings'));
+app.use('/api/customers',    require('./routes/customers'));
+app.use('/api/vehicles',     require('./routes/vehicles'));
+app.use('/api/jobs',         require('./routes/jobs'));
+app.use('/api/payments',     require('./routes/payments'));
+app.use('/api/plans',        require('./routes/plans'));
+app.use('/api/expenses',     require('./routes/expenses'));
+app.use('/api/settings',     require('./routes/settings'));
 app.use('/api/appointments', require('./routes/appointments'));
-app.use('/api/employees', require('./routes/employees'));
-app.use('/api/crm', require('./routes/crm'));
+app.use('/api/employees',    require('./routes/employees'));
+app.use('/api/crm',          require('./routes/crm'));
+app.use('/api/estimates',    require('./routes/estimates'));
+app.use('/api/inventory',    require('./routes/inventory'));
+app.use('/api/catalog',      require('./routes/catalog'));
+app.use('/api/inspections',  require('./routes/inspections'));
+app.use('/api/warranties',   require('./routes/warranties'));
+app.use('/api/time',         require('./routes/time'));
+app.use('/api/leads',        require('./routes/leads'));
 
 app.get('/api/dashboard', (req, res) => {
   const totalRevenue = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM payments').get().total;

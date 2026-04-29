@@ -182,6 +182,37 @@ tr:hover td{background:#fafaf8;}
 .settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;}
 .settings-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:.75rem;}
 .settings-hint{font-size:11px;color:#aaa;margin-top:-8px;margin-bottom:8px;}
+
+/* Estimate builder */
+.est-item-row{display:grid;grid-template-columns:85px 1fr 60px 90px 80px 28px;gap:4px;padding:3px 0;align-items:center;}
+.est-item-row input,.est-item-row select{padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;font-family:inherit;}
+.est-item-amt{text-align:right;font-size:12px;font-weight:500;padding-right:2px;}
+
+/* Inspection */
+.insp-cat{margin-bottom:12px;}
+.insp-cat-hdr{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;border-bottom:1px solid #e8e8e4;padding-bottom:4px;margin-bottom:6px;}
+.insp-item-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:4px 0;border-bottom:1px solid #f5f5f0;align-items:center;}
+.cond-btn{padding:2px 7px;border-radius:4px;border:1px solid #d0d0cc;background:#fff;font-size:10px;cursor:pointer;font-weight:600;}
+.cond-pass{background:#EAF3DE;border-color:#3B6D11;color:#3B6D11;}
+.cond-advisory{background:#FAEEDA;border-color:#854F0B;color:#854F0B;}
+.cond-fail{background:#FCEBEB;border-color:#A32D2D;color:#A32D2D;}
+.cond-na{background:#f0f0ec;border-color:#bbb;color:#888;}
+
+/* Lead pipeline */
+.b-teal{background:#E0F5F5;color:#0D6E6E;}
+.b-indigo{background:#EBE9FB;color:#4338CA;}
+
+/* Inventory */
+.low-stock td{background:#FFF8F0;}
+
+/* Time tracking */
+.time-clock{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:2px;}
+.time-log-row{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0ec;font-size:13px;}
+
+/* Warranty */
+.warranty-exp{font-size:11px;}
+.warranty-expired{color:#A32D2D;font-weight:600;}
+.warranty-active{color:#3B6D11;font-weight:600;}
 </style>
 </head>
 <body>
@@ -192,15 +223,24 @@ tr:hover td{background:#fafaf8;}
   <div class="brand"><div class="brand-name">WrenchPro</div><div class="brand-sub">Mobile Mechanic Manager</div></div>
   <div class="nav-sect">Overview</div>
   <div class="nav-item active" onclick="sp('dashboard',this)"><span class="nav-icon">◈</span> Dashboard</div>
+  <div class="nav-sect">Pipeline</div>
+  <div class="nav-item" onclick="sp('leads',this)"><span class="nav-icon">◐</span> Leads</div>
+  <div class="nav-item" onclick="sp('estimates',this)"><span class="nav-icon">✎</span> Estimates</div>
   <div class="nav-sect">Operations</div>
   <div class="nav-item" onclick="sp('jobs',this)"><span class="nav-icon">⚙</span> Jobs</div>
   <div class="nav-item" onclick="sp('schedule',this)"><span class="nav-icon">◷</span> Schedule</div>
+  <div class="nav-item" onclick="sp('inspections',this)"><span class="nav-icon">✔</span> Inspections</div>
   <div class="nav-item" onclick="openQuickEntry()"><span class="nav-icon">✦</span> Quick entry</div>
   <div class="nav-sect">Customers</div>
   <div class="nav-item" onclick="sp('customers',this)"><span class="nav-icon">◉</span> Customers</div>
   <div class="nav-item" onclick="sp('vehicles',this)"><span class="nav-icon">▣</span> Vehicles</div>
+  <div class="nav-sect">Resources</div>
+  <div class="nav-item" onclick="sp('inventory',this)"><span class="nav-icon">▦</span> Parts / Inventory</div>
+  <div class="nav-item" onclick="sp('catalog',this)"><span class="nav-icon">☰</span> Service Catalog</div>
+  <div class="nav-item" onclick="sp('warranties',this)"><span class="nav-icon">⊛</span> Warranties</div>
   <div class="nav-sect">Team</div>
   <div class="nav-item" onclick="sp('employees',this)"><span class="nav-icon">◎</span> Employees</div>
+  <div class="nav-item" onclick="sp('time',this)"><span class="nav-icon">⏱</span> Time Tracking</div>
   <div class="nav-sect">Finance</div>
   <div class="nav-item" onclick="sp('finance',this)"><span class="nav-icon">$</span> Overview</div>
   <div class="nav-item" onclick="sp('plans',this)"><span class="nav-icon">◑</span> Payment plans</div>
@@ -385,17 +425,17 @@ tr:hover td{background:#fafaf8;}
         <div class="card">
           <div class="settings-section-title">Service defaults</div>
           <div class="f2">
-            <div class="fr"><label>Default labor rate ($/hr)</label><input type="number" id="s-labor" placeholder="75.00" step="0.01" min="0"></div>
             <div class="fr"><label>Default payment method</label>
               <select id="s-pay-method">
                 <option>Cash</option><option>Card</option><option>Venmo</option>
                 <option>CashApp</option><option>Check</option><option>Zelle</option>
               </select>
             </div>
+            <div class="fr"><label>Tax rate (%)</label><input type="number" id="s-tax" placeholder="0" step="0.01" min="0" max="100"></div>
           </div>
           <div class="f2">
-            <div class="fr"><label>Tax rate (%)</label><input type="number" id="s-tax" placeholder="0" step="0.01" min="0" max="100"></div>
             <div class="fr"><label>Currency symbol</label><input id="s-currency" placeholder="$" maxlength="3"></div>
+            <div class="fr"></div>
           </div>
         </div>
         <div class="card">
@@ -428,6 +468,29 @@ tr:hover td{background:#fafaf8;}
           <div class="fr"><label>Oil change warning threshold (miles before due)</label><input type="number" id="s-oil-warn" placeholder="1500" min="0"></div>
           <div class="settings-hint">Vehicles within this many miles of their next oil change will show an "Oil soon" badge.</div>
         </div>
+        <div class="card">
+          <div class="settings-section-title">Labor rates ($/hr)</div>
+          <div class="f2">
+            <div class="fr"><label>Standard labor rate</label><input type="number" id="s-labor" placeholder="75.00" step="0.01" min="0"></div>
+            <div class="fr"><label>Diagnostic rate</label><input type="number" id="s-diag" placeholder="99.00" step="0.01" min="0"></div>
+          </div>
+          <div class="f2">
+            <div class="fr"><label>Fleet rate</label><input type="number" id="s-fleet" placeholder="65.00" step="0.01" min="0"></div>
+            <div class="fr"><label>Emergency / after-hours rate</label><input type="number" id="s-emergency" placeholder="150.00" step="0.01" min="0"></div>
+          </div>
+          <div class="fr"><label>Mobile service / trip fee ($)</label><input type="number" id="s-service-fee" placeholder="50.00" step="0.01" min="0"></div>
+        </div>
+        <div class="card">
+          <div class="settings-section-title">Online presence</div>
+          <div class="fr"><label>Website</label><input id="s-website" placeholder="https://yourbusiness.com"></div>
+          <div class="fr"><label>Business hours</label><input id="s-hours" placeholder="Mon–Fri 8am–6pm, Sat 9am–3pm"></div>
+          <div class="fr"><label>Service area</label><input id="s-area" placeholder="Dallas, TX and surrounding 30 miles"></div>
+        </div>
+        <div class="card">
+          <div class="settings-section-title">Document terms</div>
+          <div class="fr"><label>Warranty terms</label><input id="s-warranty-terms" placeholder="12 months / 12,000 miles parts and labor"></div>
+          <div class="fr"><label>Estimate terms / expiration notice</label><input id="s-est-terms" placeholder="This estimate is valid for 30 days."></div>
+        </div>
       </div>
       <div style="margin-top:1rem;display:flex;gap:8px;align-items:center;">
         <button class="btn btn-primary" onclick="saveSettings()">Save settings</button>
@@ -446,6 +509,123 @@ tr:hover td{background:#fafaf8;}
         <button class="btn btn-sm" onclick="exportReport()">Export for accountant</button>
       </div>
       <div id="report-body"></div>
+    </div>
+
+    <!-- LEADS -->
+    <div class="page" id="page-leads">
+      <div class="search-bar">
+        <input type="text" id="lead-search" placeholder="Search leads..." oninput="renderLeads()">
+        <select id="lead-status-filter" onchange="renderLeads()">
+          <option value="">All statuses</option>
+          <option>New</option><option>Contacted</option><option>Quoted</option>
+          <option>Scheduled</option><option>Won</option><option>Lost</option>
+        </select>
+      </div>
+      <div class="stats-grid" id="lead-stats"></div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Lead</th><th>Contact</th><th>Vehicle</th><th>Service needed</th><th>Source</th><th>Follow-up</th><th>Value</th><th>Status</th><th></th></tr></thead>
+          <tbody id="leads-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTIMATES -->
+    <div class="page" id="page-estimates">
+      <div class="search-bar">
+        <input type="text" id="est-search" placeholder="Search estimates, customers..." oninput="renderEstimates()">
+        <select id="est-status-filter" onchange="renderEstimates()">
+          <option value="">All statuses</option>
+          <option>Draft</option><option>Sent</option><option>Approved</option><option>Declined</option><option>Expired</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Estimate #</th><th>Customer</th><th>Vehicle</th><th>Date</th><th>Expires</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody id="estimates-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSPECTIONS -->
+    <div class="page" id="page-inspections">
+      <div class="search-bar">
+        <input type="text" id="insp-search" placeholder="Search inspections..." oninput="renderInspections()">
+        <select id="insp-status-filter" onchange="renderInspections()">
+          <option value="">All</option><option>Draft</option><option>Complete</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Technician</th><th>Pass</th><th>Advisory</th><th>Fail</th><th>Status</th><th></th></tr></thead>
+          <tbody id="insp-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="page" id="page-inventory">
+      <div class="search-bar">
+        <input type="text" id="inv-search" placeholder="Search parts, part numbers, vendors..." oninput="renderInventory()">
+        <select id="inv-filter" onchange="renderInventory()">
+          <option value="">All parts</option>
+          <option value="low">Low stock only</option>
+        </select>
+      </div>
+      <div class="stats-grid-3" id="inv-stats"></div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Part name</th><th>Part #</th><th>Vendor</th><th>Cost</th><th>Retail</th><th>On hand</th><th>Reorder at</th><th>Location</th><th></th></tr></thead>
+          <tbody id="inv-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SERVICE CATALOG -->
+    <div class="page" id="page-catalog">
+      <div class="search-bar">
+        <input type="text" id="cat-search" placeholder="Search services..." oninput="renderCatalog()">
+        <select id="cat-category-filter" onchange="renderCatalog()">
+          <option value="">All categories</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Service name</th><th>Category</th><th>Default hrs</th><th>Default price</th><th>Taxable</th><th>Notes</th><th></th></tr></thead>
+          <tbody id="catalog-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- WARRANTIES -->
+    <div class="page" id="page-warranties">
+      <div class="search-bar">
+        <input type="text" id="warr-search" placeholder="Search warranties, customers..." oninput="renderWarranties()">
+        <select id="warr-filter" onchange="renderWarranties()">
+          <option value="">All</option><option value="Active">Active</option><option value="Expired">Expired</option><option value="Voided">Voided</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Customer</th><th>Vehicle</th><th>Description</th><th>Labor</th><th>Parts</th><th>Mileage limit</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+          <tbody id="warr-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIME TRACKING -->
+    <div class="page" id="page-time">
+      <div class="filter-bar">
+        <select id="time-emp-filter" onchange="renderTime()"><option value="">All employees</option></select>
+        <select id="time-date-filter" onchange="renderTime()"><option value="">All time</option></select>
+      </div>
+      <div class="stats-grid-3" id="time-stats"></div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table><thead><tr><th>Employee</th><th>Type</th><th>Clock in</th><th>Clock out</th><th>Duration</th><th>Job</th><th>Notes</th><th></th></tr></thead>
+          <tbody id="time-tbody"></tbody></table>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -467,13 +647,24 @@ tr:hover td{background:#fafaf8;}
         <select id="jf-veh"><option value="">— Select vehicle —</option></select>
       </div>
     </div>
-    <div class="fr"><label>Service description</label><textarea id="jf-service" placeholder="Oil change, brake pads, diagnostics..."></textarea></div>
+    <div class="fr"><label>Customer complaint / concern</label><textarea id="jf-complaint" placeholder="What does the customer say is wrong?" rows="2"></textarea></div>
+    <div class="fr"><label>Diagnosis / recommended services</label><textarea id="jf-diagnosis" placeholder="Technician findings..." rows="2"></textarea></div>
+    <div class="fr"><label>Approved services / description</label><textarea id="jf-service" placeholder="Work to be performed..."></textarea></div>
     <div class="f3">
       <div class="fr"><label>Date</label><input type="date" id="jf-date"></div>
       <div class="fr"><label>Mileage</label><input type="number" id="jf-miles" placeholder="45000"></div>
-      <div class="fr"><label>Status</label>
-        <select id="jf-status"><option>Pending</option><option>In Progress</option><option>Done</option></select>
+      <div class="fr"><label>Work order status</label>
+        <select id="jf-status">
+          <option>Pending</option><option>Confirmed</option><option>En Route</option>
+          <option>In Progress</option><option>Waiting on Parts</option><option>Done</option><option>Canceled</option>
+        </select>
       </div>
+    </div>
+    <div class="fr"><label>Invoice status</label>
+      <select id="jf-inv-status">
+        <option value="Unpaid">Unpaid</option><option value="Paid">Paid</option>
+        <option value="Partial">Partially paid</option><option value="Voided">Voided</option>
+      </select>
     </div>
     <div style="background:#f5f5f0;border-radius:8px;padding:.75rem;margin-bottom:12px;">
       <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Labor (flat-rate)</div>
@@ -511,7 +702,23 @@ tr:hover td{background:#fafaf8;}
       <div class="fr"><label>Phone</label><input id="cf-phone" placeholder="(555) 000-0000"></div>
       <div class="fr"><label>Email</label><input id="cf-email" placeholder="john@email.com"></div>
     </div>
-    <div class="fr"><label>Address</label><input id="cf-addr" placeholder="123 Main St, City, State"></div>
+    <div class="f2">
+      <div class="fr"><label>Service address</label><input id="cf-addr" placeholder="123 Main St, City, State"></div>
+      <div class="fr"><label>Billing address <span style="font-weight:400;color:#aaa;">(if different)</span></label><input id="cf-billing" placeholder="Same as service address"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Customer type</label>
+        <select id="cf-type">
+          <option value="Personal">Personal</option><option value="Fleet">Fleet</option>
+          <option value="Dealership">Dealership</option><option value="Commercial">Commercial</option>
+        </select>
+      </div>
+      <div class="fr"><label>Preferred contact</label>
+        <select id="cf-contact">
+          <option value="Phone">Phone</option><option value="Text">Text</option><option value="Email">Email</option>
+        </select>
+      </div>
+    </div>
     <div class="fr"><label>Notes</label><input id="cf-notes" placeholder="Anything to remember..."></div>
     <div class="f2">
       <div class="fr"><label>Status</label>
@@ -543,9 +750,24 @@ tr:hover td{background:#fafaf8;}
       <div class="fr"><label>Make</label><input id="vf-make" placeholder="Toyota"></div>
       <div class="fr"><label>Model</label><input id="vf-model" placeholder="Camry"></div>
     </div>
-    <div class="f2">
-      <div class="fr"><label>Trim / engine</label><input id="vf-trim" placeholder="LE 2.5L"></div>
+    <div class="f3">
+      <div class="fr"><label>Trim</label><input id="vf-trim" placeholder="LE 2WD"></div>
+      <div class="fr"><label>Engine</label><input id="vf-engine" placeholder="2.5L I4"></div>
       <div class="fr"><label>Color</label><input id="vf-color" placeholder="Silver"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Fuel type</label>
+        <select id="vf-fuel">
+          <option value="">— Select —</option><option>Gasoline</option><option>Diesel</option>
+          <option>Electric</option><option>Hybrid</option><option>Plug-in Hybrid</option>
+        </select>
+      </div>
+      <div class="fr"><label>Transmission</label>
+        <select id="vf-trans">
+          <option value="">— Select —</option><option>Automatic</option><option>Manual</option>
+          <option>CVT</option><option>DCT</option>
+        </select>
+      </div>
     </div>
     <div class="f2">
       <div class="fr"><label>License plate</label><input id="vf-plate" placeholder="ABC-1234"></div>
@@ -822,6 +1044,267 @@ tr:hover td{background:#fafaf8;}
   </div>
 </div>
 
+<!-- MODAL: Estimate -->
+<div class="modal-overlay" id="m-estimate">
+  <div class="modal" style="width:760px;">
+    <h2 id="m-est-title">New estimate</h2>
+    <div class="f2">
+      <div class="fr"><label>Customer</label>
+        <select id="estf-cust" onchange="loadVehiclesForEst()"><option value="">— Select —</option></select>
+      </div>
+      <div class="fr"><label>Vehicle</label>
+        <select id="estf-veh"><option value="">— Select vehicle —</option></select>
+      </div>
+    </div>
+    <div class="f3">
+      <div class="fr"><label>Date</label><input type="date" id="estf-date"></div>
+      <div class="fr"><label>Status</label>
+        <select id="estf-status"><option>Draft</option><option>Sent</option><option>Approved</option><option>Declined</option><option>Expired</option></select>
+      </div>
+      <div class="fr"><label>Expires</label><input type="date" id="estf-expires"></div>
+    </div>
+    <div class="fr"><label>Customer complaint / concern</label><textarea id="estf-complaint" rows="2" placeholder="What does the customer say is wrong?"></textarea></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#888;margin:8px 0 4px;">Line items</div>
+    <div style="display:grid;grid-template-columns:85px 1fr 60px 90px 78px 28px;gap:4px;padding:4px 0;font-size:10px;color:#888;font-weight:600;border-bottom:1px solid #e8e8e4;">
+      <div>Type</div><div>Description</div><div>Qty</div><div>Rate ($)</div><div style="text-align:right;">Amount</div><div></div>
+    </div>
+    <div id="est-items-container"><div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div></div>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="addEstItem()">+ Add item</button>
+      <button class="btn btn-sm" onclick="addEstItemFromCatalog()">+ From catalog</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+      <div style="min-width:270px;">
+        <div class="report-line"><span>Subtotal</span><span id="est-sub-val">$0.00</span></div>
+        <div class="report-line">
+          <span>Discount ($) <input type="number" id="est-discount" style="width:65px;padding:2px 6px;border:1px solid #d0d0cc;border-radius:4px;font-size:12px;" placeholder="0" min="0" step="0.01" oninput="_calcEst()"></span>
+          <span id="est-disc-val">$0.00</span>
+        </div>
+        <div class="report-line">
+          <span>Tax (%) <input type="number" id="est-taxrate" style="width:50px;padding:2px 6px;border:1px solid #d0d0cc;border-radius:4px;font-size:12px;" placeholder="0" min="0" step="0.1" oninput="_calcEst()"></span>
+          <span id="est-tax-val">$0.00</span>
+        </div>
+        <div class="report-total"><span>Total</span><span id="est-total-val">$0.00</span></div>
+      </div>
+    </div>
+    <div class="fr" style="margin-top:8px;"><label>Notes</label><input id="estf-notes" placeholder="Internal notes..."></div>
+    <div class="mfooter">
+      <div id="estf-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-estimate')">Cancel</button>
+        <button class="btn" id="estf-convert-btn" style="display:none;" onclick="convertEstToJob()">Convert to job ▸</button>
+        <button class="btn" onclick="printEstimate()">Print PDF</button>
+        <button class="btn btn-primary" onclick="saveEstimate()">Save estimate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Inspection -->
+<div class="modal-overlay" id="m-insp">
+  <div class="modal" style="width:680px;max-height:88vh;overflow-y:auto;">
+    <h2 id="m-insp-title">Vehicle Inspection</h2>
+    <div class="f2">
+      <div class="fr"><label>Customer</label>
+        <select id="if2-cust" onchange="loadVehiclesForInsp()"><option value="">— Select —</option></select>
+      </div>
+      <div class="fr"><label>Vehicle</label>
+        <select id="if2-veh"><option value="">— Select vehicle —</option></select>
+      </div>
+    </div>
+    <div class="f3">
+      <div class="fr"><label>Date</label><input type="date" id="if2-date"></div>
+      <div class="fr"><label>Technician</label>
+        <select id="if2-emp"><option value="">— Select —</option></select>
+      </div>
+      <div class="fr"><label>Status</label>
+        <select id="if2-status"><option>Draft</option><option>Complete</option></select>
+      </div>
+    </div>
+    <div id="insp-checklist" style="margin:12px 0;"></div>
+    <div class="fr"><label>Overall notes</label><textarea id="if2-notes" rows="2" placeholder="General observations..."></textarea></div>
+    <div class="mfooter">
+      <div id="if2-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-insp')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveInspection()">Save inspection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Part -->
+<div class="modal-overlay" id="m-part">
+  <div class="modal">
+    <h2 id="m-part-title">Add part</h2>
+    <div class="f2">
+      <div class="fr"><label>Part name</label><input id="prf-name" placeholder="Brake pad set — front"></div>
+      <div class="fr"><label>Part number</label><input id="prf-num" placeholder="BP-12345" style="font-family:monospace;font-size:12px;"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Vendor / supplier</label><input id="prf-vendor" placeholder="AutoZone, RockAuto..."></div>
+      <div class="fr"><label>Location</label><input id="prf-loc" placeholder="Truck bin 3, shelf A..."></div>
+    </div>
+    <div class="f3">
+      <div class="fr"><label>Cost ($)</label><input type="number" id="prf-cost" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fr"><label>Retail price ($)</label><input type="number" id="prf-retail" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fr"></div>
+    </div>
+    <div class="f3">
+      <div class="fr"><label>Qty on hand</label><input type="number" id="prf-qty" placeholder="0" min="0"></div>
+      <div class="fr"><label>Reorder at qty</label><input type="number" id="prf-reorder" placeholder="1" min="0"></div>
+      <div class="fr"></div>
+    </div>
+    <div class="fr"><label>Notes</label><input id="prf-notes" placeholder="Compatible vehicles, warranty info..."></div>
+    <div class="mfooter">
+      <div id="prf-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-part')">Cancel</button>
+        <button class="btn btn-primary" onclick="savePart()">Save part</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Catalog Item -->
+<div class="modal-overlay" id="m-catalog-item">
+  <div class="modal">
+    <h2 id="m-cat-title">Add service</h2>
+    <div class="f2">
+      <div class="fr"><label>Service name</label><input id="catf-name" placeholder="Oil Change — Full Synthetic"></div>
+      <div class="fr"><label>Category</label>
+        <select id="catf-category">
+          <option>Oil & Fluids</option><option>Brakes</option><option>Tires</option><option>Engine</option>
+          <option>Transmission</option><option>Suspension</option><option>Electrical</option>
+          <option>Diagnostic</option><option>Maintenance</option><option>General</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr"><label>Description</label><input id="catf-desc" placeholder="Drain and fill engine oil, replace filter..."></div>
+    <div class="f3">
+      <div class="fr"><label>Default hours</label><input type="number" id="catf-hours" placeholder="0.5" step="0.1" min="0"></div>
+      <div class="fr"><label>Default price ($)</label><input type="number" id="catf-price" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fr"><label>Taxable</label>
+        <select id="catf-taxable"><option value="1">Yes</option><option value="0">No</option></select>
+      </div>
+    </div>
+    <div class="fr"><label>Internal notes</label><input id="catf-notes" placeholder="Required parts, special instructions..."></div>
+    <div class="mfooter">
+      <div id="catf-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-catalog-item')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCatalogItem()">Save service</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Lead -->
+<div class="modal-overlay" id="m-lead">
+  <div class="modal">
+    <h2 id="m-lead-title">New lead</h2>
+    <div class="f2">
+      <div class="fr"><label>First name</label><input id="ldf-first" placeholder="John"></div>
+      <div class="fr"><label>Last name</label><input id="ldf-last" placeholder="Smith"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Phone</label><input id="ldf-phone" placeholder="(555) 000-0000"></div>
+      <div class="fr"><label>Email</label><input id="ldf-email" placeholder="john@email.com"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Lead source</label>
+        <select id="ldf-source">
+          <option value="">— Select —</option>
+          <option>Website</option><option>Google</option><option>Facebook</option><option>Referral</option>
+          <option>Repeat customer</option><option>Phone call</option><option>Walk-up</option><option>Other</option>
+        </select>
+      </div>
+      <div class="fr"><label>Status</label>
+        <select id="ldf-status">
+          <option>New</option><option>Contacted</option><option>Quoted</option>
+          <option>Scheduled</option><option>Won</option><option>Lost</option>
+        </select>
+      </div>
+    </div>
+    <div class="f3">
+      <div class="fr"><label>Vehicle year</label><input type="number" id="ldf-year" placeholder="2019"></div>
+      <div class="fr"><label>Make</label><input id="ldf-make" placeholder="Toyota"></div>
+      <div class="fr"><label>Model</label><input id="ldf-model" placeholder="Camry"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Service needed</label><input id="ldf-service" placeholder="Brake job, AC recharge..."></div>
+      <div class="fr"><label>Estimated value ($)</label><input type="number" id="ldf-value" placeholder="0.00" step="0.01" min="0"></div>
+    </div>
+    <div class="fr"><label>Follow-up date</label><input type="date" id="ldf-followup"></div>
+    <div class="fr"><label>Notes</label><textarea id="ldf-notes" placeholder="Any notes..."></textarea></div>
+    <div class="mfooter">
+      <div id="ldf-del" style="display:flex;gap:6px;"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-lead')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveLead()">Save lead</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Time entry -->
+<div class="modal-overlay" id="m-time">
+  <div class="modal">
+    <h2>Log time entry</h2>
+    <div class="f2">
+      <div class="fr"><label>Employee</label>
+        <select id="tmf-emp"><option value="">— Select —</option></select>
+      </div>
+      <div class="fr"><label>Type</label>
+        <select id="tmf-type">
+          <option value="general">General</option><option value="travel">Travel</option>
+          <option value="diagnostic">Diagnostic</option><option value="repair">Repair</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Clock in (date &amp; time)</label><input type="datetime-local" id="tmf-in"></div>
+      <div class="fr"><label>Clock out (date &amp; time)</label><input type="datetime-local" id="tmf-out"></div>
+    </div>
+    <div class="fr"><label>Job (optional)</label>
+      <select id="tmf-job"><option value="">— Not job-specific —</option></select>
+    </div>
+    <div class="fr"><label>Notes</label><input id="tmf-notes" placeholder="Optional notes..."></div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button class="btn" onclick="closeM('m-time')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTimeEntry()">Save entry</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- MODAL: Warranty -->
+<div class="modal-overlay" id="m-warranty">
+  <div class="modal">
+    <h2 id="m-warr-title">Add warranty</h2>
+    <div class="fr"><label>Description</label><input id="wrf-desc" placeholder="Brake pad replacement, engine rebuild..."></div>
+    <div class="f3">
+      <div class="fr"><label>Labor warranty (months)</label><input type="number" id="wrf-labor" value="12" min="0"></div>
+      <div class="fr"><label>Parts warranty (months)</label><input type="number" id="wrf-parts" value="12" min="0"></div>
+      <div class="fr"><label>Mileage limit</label><input type="number" id="wrf-miles" value="12000" min="0"></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Start date</label><input type="date" id="wrf-start"></div>
+      <div class="fr"><label>Status</label>
+        <select id="wrf-status"><option>Active</option><option>Expired</option><option>Voided</option></select>
+      </div>
+    </div>
+    <div class="fr"><label>Notes / terms</label><textarea id="wrf-notes" rows="2" placeholder="Any additional warranty terms..."></textarea></div>
+    <div class="mfooter">
+      <div id="wrf-del"></div>
+      <div class="mfooter-r">
+        <button class="btn" onclick="closeM('m-warranty')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveWarranty()">Save warranty</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Service Reminder -->
 <div class="modal-overlay" id="m-svc-reminder">
   <div class="modal">
@@ -854,7 +1337,7 @@ tr:hover td{background:#fafaf8;}
 
 <script>
 const API = '';
-let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[] };
+let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[], estimates:[], inventory:[], catalog:[], inspections:[], warranties:[], timeLogs:[], leads:[] };
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
 let detailCustId = null, detailTab = 'vehicles';
@@ -901,7 +1384,7 @@ async function api(method, path, body){
 }
 
 async function loadAll(){
-  const [custs, vehs, jobs, pmts, plans, exps, settings, appts, emps, interactions, followups, svcRem] = await Promise.all([
+  const [custs,vehs,jobs,pmts,plans,exps,settings,appts,emps,interactions,followups,svcRem,estimates,inventory,catalog,inspections,warranties,timeLogs,leads] = await Promise.all([
     api('GET','/api/customers'), api('GET','/api/vehicles'),
     api('GET','/api/jobs'), api('GET','/api/payments'),
     api('GET','/api/plans'), api('GET','/api/expenses'),
@@ -909,7 +1392,14 @@ async function loadAll(){
     api('GET','/api/employees'),
     api('GET','/api/crm/interactions'),
     api('GET','/api/crm/followups'),
-    api('GET','/api/crm/service-reminders')
+    api('GET','/api/crm/service-reminders'),
+    api('GET','/api/estimates'),
+    api('GET','/api/inventory'),
+    api('GET','/api/catalog'),
+    api('GET','/api/inspections'),
+    api('GET','/api/warranties'),
+    api('GET','/api/time'),
+    api('GET','/api/leads')
   ]);
   state.customers = custs||[];
   state.vehicles = vehs||[];
@@ -923,6 +1413,13 @@ async function loadAll(){
   state.interactions = interactions||[];
   state.followups = followups||[];
   state.serviceReminders = svcRem||[];
+  state.estimates = estimates||[];
+  state.inventory = inventory||[];
+  state.catalog = catalog||[];
+  state.inspections = inspections||[];
+  state.warranties = warranties||[];
+  state.timeLogs = timeLogs||[];
+  state.leads = leads||[];
   renderPage(currentPage);
 }
 
@@ -933,7 +1430,7 @@ function sp(id, el){
   document.getElementById('page-'+id).classList.add('active');
   if(el) el.classList.add('active');
   currentPage = id;
-  const titles = {dashboard:'Dashboard',jobs:'Jobs',schedule:'Schedule',customers:'Customers',vehicles:'Vehicles',employees:'Employees',finance:'Finance overview',plans:'Payment plans',expenses:'Expenses',report:'P&L report',settings:'Settings'};
+  const titles = {dashboard:'Dashboard',jobs:'Jobs',schedule:'Schedule',customers:'Customers',vehicles:'Vehicles',employees:'Employees',finance:'Finance overview',plans:'Payment plans',expenses:'Expenses',report:'P&L report',settings:'Settings',leads:'Leads',estimates:'Estimates',inspections:'Inspections',inventory:'Parts / Inventory',catalog:'Service Catalog',warranties:'Warranties',time:'Time Tracking'};
   document.getElementById('ptitle').textContent = titles[id]||id;
   const pri = document.getElementById('pri-btn');
   const sec = document.getElementById('sec-btn');
@@ -949,6 +1446,13 @@ function sp(id, el){
   else if(id==='plans'){pri.textContent='+ New Plan'; sec.style.display=''; sec.textContent='+ Record Payment';}
   else if(id==='employees'){pri.textContent='+ Add Employee';}
   else if(id==='expenses'){pri.textContent='+ Add Expense';}
+  else if(id==='leads'){pri.textContent='+ New Lead';}
+  else if(id==='estimates'){pri.textContent='+ New Estimate';}
+  else if(id==='inspections'){pri.textContent='+ New Inspection';}
+  else if(id==='inventory'){pri.textContent='+ Add Part';}
+  else if(id==='catalog'){pri.textContent='+ Add Service';}
+  else if(id==='warranties'){pri.textContent='+ Add Warranty';}
+  else if(id==='time'){pri.textContent='+ Log Time';}
   else if(id==='report'){pri.style.display='none';}
   else if(id==='settings'){pri.style.display='none';}
   renderPage(id);
@@ -964,6 +1468,13 @@ function priAction(){
   else if(p==='plans') openPlanModal();
   else if(p==='employees') openEmpModal();
   else if(p==='expenses') openExpModal();
+  else if(p==='leads') openLeadModal();
+  else if(p==='estimates') openEstimateModal();
+  else if(p==='inspections') openInspModal();
+  else if(p==='inventory') openPartModal();
+  else if(p==='catalog') openCatalogModal();
+  else if(p==='warranties') openWarrantyModal();
+  else if(p==='time') openTimeModal();
 }
 
 function secAction(){
@@ -984,6 +1495,13 @@ function renderPage(id){
   else if(id==='expenses') renderExpenses();
   else if(id==='report') renderReport();
   else if(id==='settings') renderSettings();
+  else if(id==='leads') renderLeads();
+  else if(id==='estimates') renderEstimates();
+  else if(id==='inspections') renderInspections();
+  else if(id==='inventory') renderInventory();
+  else if(id==='catalog') renderCatalog();
+  else if(id==='warranties') renderWarranties();
+  else if(id==='time') renderTime();
 }
 
 async function renderDashboard(){
@@ -1658,12 +2176,16 @@ async function openJobModal(id){
     document.getElementById('jf-labor-hrs').value=j.labor_hours||'';
     document.getElementById('jf-labor-rate').value=j.labor_rate||(state.settings.default_labor_rate||'');
     document.getElementById('jf-emp').value=j.employee_id||'';
+    document.getElementById('jf-complaint').value=j.complaint||'';
+    document.getElementById('jf-diagnosis').value=j.diagnosis||'';
+    document.getElementById('jf-inv-status').value=j.invoice_status||'Unpaid';
     document.getElementById('jf-labor-hint').textContent='';
     document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${id})">Delete job</button>`;
   } else {
     document.getElementById('m-job-title').textContent='New job';
-    ['jf-service','jf-miles','jf-labor','jf-labor-hrs','jf-parts','jf-notes'].forEach(x=>document.getElementById(x).value='');
+    ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-labor','jf-labor-hrs','jf-parts','jf-notes'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('jf-status').value='Pending';
+    document.getElementById('jf-inv-status').value='Unpaid';
     document.getElementById('jf-labor-hint').textContent='';
     document.getElementById('jf-labor-rate').value=state.settings.default_labor_rate>0?state.settings.default_labor_rate:'';
   }
@@ -1683,7 +2205,7 @@ async function saveJob(){
   const vehId=parseInt(document.getElementById('jf-veh').value);
   if(!custId||!vehId){toast('Please select a customer and vehicle.');return;}
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
-  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,labor:parseFloat(document.getElementById('jf-labor').value)||0,labor_hours:parseFloat(document.getElementById('jf-labor-hrs').value)||0,labor_rate:parseFloat(document.getElementById('jf-labor-rate').value)||0,parts:parseFloat(document.getElementById('jf-parts').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId};
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,labor:parseFloat(document.getElementById('jf-labor').value)||0,labor_hours:parseFloat(document.getElementById('jf-labor-hrs').value)||0,labor_rate:parseFloat(document.getElementById('jf-labor-rate').value)||0,parts:parseFloat(document.getElementById('jf-parts').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value};
   if(editJobId) await api('PUT',`/api/jobs/${editJobId}`,body);
   else await api('POST','/api/jobs',body);
   closeM('m-job'); await loadAll(); toast(editJobId?'Job updated':'Job saved');
@@ -1735,17 +2257,22 @@ async function openCustModal(id){
     document.getElementById('cf-notes').value=c.notes||'';
     document.getElementById('cf-status').value=c.status||'Active';
     document.getElementById('cf-tags').value=c.tags||'';
+    document.getElementById('cf-billing').value=c.billing_address||'';
+    document.getElementById('cf-type').value=c.customer_type||'Personal';
+    document.getElementById('cf-contact').value=c.preferred_contact||'Phone';
     document.getElementById('cf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCustomer(${id})">Delete</button>`;
   } else {
     document.getElementById('m-cust-title').textContent='New customer';
-    ['cf-first','cf-last','cf-phone','cf-email','cf-addr','cf-notes','cf-tags'].forEach(x=>document.getElementById(x).value='');
+    ['cf-first','cf-last','cf-phone','cf-email','cf-addr','cf-billing','cf-notes','cf-tags'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('cf-status').value='Active';
+    document.getElementById('cf-type').value='Personal';
+    document.getElementById('cf-contact').value='Phone';
   }
   document.getElementById('m-cust').classList.add('open');
 }
 
 async function saveCustomer(){
-  const body={first:document.getElementById('cf-first').value||'New',last:document.getElementById('cf-last').value||'Customer',phone:document.getElementById('cf-phone').value,email:document.getElementById('cf-email').value,address:document.getElementById('cf-addr').value,notes:document.getElementById('cf-notes').value,status:document.getElementById('cf-status').value||'Active',tags:document.getElementById('cf-tags').value};
+  const body={first:document.getElementById('cf-first').value||'New',last:document.getElementById('cf-last').value||'Customer',phone:document.getElementById('cf-phone').value,email:document.getElementById('cf-email').value,address:document.getElementById('cf-addr').value,billing_address:document.getElementById('cf-billing').value,notes:document.getElementById('cf-notes').value,status:document.getElementById('cf-status').value||'Active',tags:document.getElementById('cf-tags').value,customer_type:document.getElementById('cf-type').value||'Personal',preferred_contact:document.getElementById('cf-contact').value||'Phone'};
   if(editCustId) await api('PUT',`/api/customers/${editCustId}`,body);
   else await api('POST','/api/customers',body);
   closeM('m-cust'); await loadAll(); toast(editCustId?'Customer updated':'Customer added');
@@ -1786,10 +2313,15 @@ function openVehModal(custId, vehId){
     document.getElementById('vf-miles').value=v.miles||'';
     document.getElementById('vf-oilmi').value=v.oil_change_miles||'';
     document.getElementById('vf-notes').value=v.notes||'';
+    document.getElementById('vf-engine').value=v.engine||'';
+    document.getElementById('vf-fuel').value=v.fuel_type||'';
+    document.getElementById('vf-trans').value=v.transmission||'';
     document.getElementById('vf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteVehicle(${vehId})">Remove vehicle</button>`;
   } else {
     document.getElementById('m-veh-title').textContent='Add vehicle';
-    ['vf-year','vf-make','vf-model','vf-trim','vf-color','vf-plate','vf-state','vf-vin','vf-miles','vf-oilmi','vf-notes'].forEach(x=>document.getElementById(x).value='');
+    ['vf-year','vf-make','vf-model','vf-trim','vf-engine','vf-color','vf-plate','vf-state','vf-vin','vf-miles','vf-oilmi','vf-notes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('vf-fuel').value='';
+    document.getElementById('vf-trans').value='';
   }
   document.getElementById('m-veh').classList.add('open');
 }
@@ -1797,7 +2329,7 @@ function openVehModal(custId, vehId){
 async function saveVehicle(){
   const custId = editVehCustId || parseInt(document.getElementById('vf-cust').value)||null;
   if(!custId){toast('Please select a customer.');return;}
-  const body={customer_id:custId,year:parseInt(document.getElementById('vf-year').value)||0,make:document.getElementById('vf-make').value||'Unknown',model:document.getElementById('vf-model').value||'',trim:document.getElementById('vf-trim').value,color:document.getElementById('vf-color').value,plate:document.getElementById('vf-plate').value,state:document.getElementById('vf-state').value,vin:document.getElementById('vf-vin').value,miles:parseInt(document.getElementById('vf-miles').value)||0,oil_change_miles:parseInt(document.getElementById('vf-oilmi').value)||0,notes:document.getElementById('vf-notes').value};
+  const body={customer_id:custId,year:parseInt(document.getElementById('vf-year').value)||0,make:document.getElementById('vf-make').value||'Unknown',model:document.getElementById('vf-model').value||'',trim:document.getElementById('vf-trim').value,engine:document.getElementById('vf-engine').value,color:document.getElementById('vf-color').value,plate:document.getElementById('vf-plate').value,state:document.getElementById('vf-state').value,vin:document.getElementById('vf-vin').value,miles:parseInt(document.getElementById('vf-miles').value)||0,oil_change_miles:parseInt(document.getElementById('vf-oilmi').value)||0,fuel_type:document.getElementById('vf-fuel').value,transmission:document.getElementById('vf-trans').value,notes:document.getElementById('vf-notes').value};
   if(editVehId) await api('PUT',`/api/vehicles/${editVehId}`,body);
   else await api('POST','/api/vehicles',body);
   closeM('m-veh'); await loadAll(); toast(editVehId?'Vehicle updated':'Vehicle added');
@@ -1912,6 +2444,10 @@ function renderSettings(){
   document.getElementById('s-email').value    = s.email||'';
   document.getElementById('s-addr').value     = s.address||'';
   document.getElementById('s-labor').value    = s.default_labor_rate||'';
+  document.getElementById('s-diag').value     = s.diagnostic_rate||'';
+  document.getElementById('s-fleet').value    = s.fleet_rate||'';
+  document.getElementById('s-emergency').value= s.emergency_rate||'';
+  document.getElementById('s-service-fee').value = s.service_fee||'';
   document.getElementById('s-pay-method').value = s.default_pay_method||'Cash';
   document.getElementById('s-tax').value      = s.tax_rate||'';
   document.getElementById('s-oil-warn').value = s.oil_warn_miles||1500;
@@ -1919,6 +2455,11 @@ function renderSettings(){
   document.getElementById('s-tax-id').value   = s.tax_id||'';
   document.getElementById('s-inv-terms').value= s.invoice_terms||'Due on receipt';
   document.getElementById('s-inv-footer').value = s.invoice_footer||'Thank you for your business!';
+  document.getElementById('s-website').value  = s.website||'';
+  document.getElementById('s-hours').value    = s.business_hours||'';
+  document.getElementById('s-area').value     = s.service_area||s.address||'';
+  document.getElementById('s-warranty-terms').value = s.warranty_terms||'12 months / 12,000 miles';
+  document.getElementById('s-est-terms').value= s.estimate_terms||'';
   // Logo preview
   const preview = document.getElementById('s-logo-preview');
   const clearBtn = document.getElementById('s-logo-clear');
@@ -1959,7 +2500,13 @@ async function saveSettings(){
     phone:               document.getElementById('s-phone').value,
     email:               document.getElementById('s-email').value,
     address:             document.getElementById('s-addr').value,
+    website:             document.getElementById('s-website').value,
+    business_hours:      document.getElementById('s-hours').value,
     default_labor_rate:  parseFloat(document.getElementById('s-labor').value)||0,
+    diagnostic_rate:     parseFloat(document.getElementById('s-diag').value)||0,
+    fleet_rate:          parseFloat(document.getElementById('s-fleet').value)||0,
+    emergency_rate:      parseFloat(document.getElementById('s-emergency').value)||0,
+    service_fee:         parseFloat(document.getElementById('s-service-fee').value)||0,
     default_pay_method:  document.getElementById('s-pay-method').value,
     tax_rate:            parseFloat(document.getElementById('s-tax').value)||0,
     oil_warn_miles:      parseInt(document.getElementById('s-oil-warn').value)||1500,
@@ -1968,6 +2515,8 @@ async function saveSettings(){
     invoice_terms:       document.getElementById('s-inv-terms').value,
     invoice_footer:      document.getElementById('s-inv-footer').value,
     invoice_logo:        logo,
+    warranty_terms:      document.getElementById('s-warranty-terms').value,
+    estimate_terms:      document.getElementById('s-est-terms').value,
   };
   await api('PUT','/api/settings',body);
   state.settings = {...state.settings, ...body};
@@ -2338,6 +2887,723 @@ async function deleteSvcReminder(id){
   await api('DELETE',`/api/crm/service-reminders/${id}`);
   await loadAll();
   toast('Reminder deleted');
+}
+
+// ── Leads ──────────────────────────────────────────────────────────────────────
+let editLeadId = null;
+
+function leadStatusBadge(s){
+  const m={New:'b-blue',Contacted:'b-amber',Quoted:'b-purple',Scheduled:'b-teal',Won:'b-green',Lost:'b-gray'};
+  return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
+}
+
+function renderLeads(){
+  const q=(document.getElementById('lead-search')||{value:''}).value.toLowerCase();
+  const sf=(document.getElementById('lead-status-filter')||{value:''}).value;
+  const filtered=state.leads.filter(l=>{
+    const name=`${l.first||''} ${l.last||''}`.toLowerCase();
+    return (!q||name.includes(q)||(l.service_needed||'').toLowerCase().includes(q)||(l.phone||'').includes(q))&&(!sf||l.status===sf);
+  });
+  const now=today();
+  const byStatus={New:0,Contacted:0,Quoted:0,Scheduled:0,Won:0,Lost:0};
+  state.leads.forEach(l=>{if(byStatus[l.status]!==undefined)byStatus[l.status]++;});
+  document.getElementById('lead-stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Total leads</div><div class="stat-value">${state.leads.length}</div></div>
+    <div class="stat"><div class="stat-label">Active (not won/lost)</div><div class="stat-value blue">${state.leads.filter(l=>l.status!=='Won'&&l.status!=='Lost').length}</div></div>
+    <div class="stat"><div class="stat-label">Won</div><div class="stat-value green">${byStatus.Won}</div></div>
+    <div class="stat"><div class="stat-label">Pipeline value</div><div class="stat-value amber">${fmt$(state.leads.filter(l=>l.status!=='Lost').reduce((a,l)=>a+(l.estimated_value||0),0))}</div></div>
+  `;
+  const tbody=document.getElementById('leads-tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="9" class="empty">No leads found</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(l=>`<tr>
+    <td><div class="td-name">${l.first||''} ${l.last||''}</div></td>
+    <td><div>${l.phone||'—'}</div><div style="font-size:11px;color:#888;">${l.email||''}</div></td>
+    <td style="font-size:12px;">${l.vehicle_year||''} ${l.vehicle_make||''} ${l.vehicle_model||''}</td>
+    <td style="font-size:12px;max-width:140px;">${(l.service_needed||'').slice(0,50)}</td>
+    <td style="font-size:12px;color:#888;">${l.source||'—'}</td>
+    <td style="font-size:12px;${l.follow_up_date&&l.follow_up_date<now?'color:#A32D2D;font-weight:600;':''}">${l.follow_up_date||'—'}</td>
+    <td style="font-weight:500;">${l.estimated_value?fmt$(l.estimated_value):'—'}</td>
+    <td>${leadStatusBadge(l.status)}</td>
+    <td style="display:flex;gap:4px;">
+      <button class="btn btn-sm" onclick="openLeadModal(${l.id})">Edit</button>
+      ${l.status!=='Won'?`<button class="btn btn-sm btn-success" onclick="convertLeadToCustomer(${l.id})" style="font-size:10px;">Convert</button>`:''}
+    </td>
+  </tr>`).join('');
+}
+
+function openLeadModal(id){
+  editLeadId=id||null;
+  document.getElementById('ldf-del').innerHTML='';
+  if(id){
+    const l=state.leads.find(x=>x.id===id);
+    if(!l)return;
+    document.getElementById('m-lead-title').textContent='Edit lead';
+    document.getElementById('ldf-first').value=l.first||'';
+    document.getElementById('ldf-last').value=l.last||'';
+    document.getElementById('ldf-phone').value=l.phone||'';
+    document.getElementById('ldf-email').value=l.email||'';
+    document.getElementById('ldf-source').value=l.source||'';
+    document.getElementById('ldf-status').value=l.status||'New';
+    document.getElementById('ldf-year').value=l.vehicle_year||'';
+    document.getElementById('ldf-make').value=l.vehicle_make||'';
+    document.getElementById('ldf-model').value=l.vehicle_model||'';
+    document.getElementById('ldf-service').value=l.service_needed||'';
+    document.getElementById('ldf-value').value=l.estimated_value||'';
+    document.getElementById('ldf-followup').value=l.follow_up_date||'';
+    document.getElementById('ldf-notes').value=l.notes||'';
+    document.getElementById('ldf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteLead(${id})">Delete</button>`;
+  } else {
+    document.getElementById('m-lead-title').textContent='New lead';
+    ['ldf-first','ldf-last','ldf-phone','ldf-email','ldf-year','ldf-make','ldf-model','ldf-service','ldf-value','ldf-followup','ldf-notes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('ldf-status').value='New';
+    document.getElementById('ldf-source').value='';
+  }
+  document.getElementById('m-lead').classList.add('open');
+}
+
+async function saveLead(){
+  const first=document.getElementById('ldf-first').value.trim();
+  if(!first){toast('Please enter a first name.');return;}
+  const body={first,last:document.getElementById('ldf-last').value,phone:document.getElementById('ldf-phone').value,email:document.getElementById('ldf-email').value,source:document.getElementById('ldf-source').value,status:document.getElementById('ldf-status').value,vehicle_year:parseInt(document.getElementById('ldf-year').value)||null,vehicle_make:document.getElementById('ldf-make').value,vehicle_model:document.getElementById('ldf-model').value,service_needed:document.getElementById('ldf-service').value,estimated_value:parseFloat(document.getElementById('ldf-value').value)||0,follow_up_date:document.getElementById('ldf-followup').value||null,notes:document.getElementById('ldf-notes').value};
+  if(editLeadId) await api('PUT',`/api/leads/${editLeadId}`,body);
+  else await api('POST','/api/leads',body);
+  closeM('m-lead'); await loadAll(); toast(editLeadId?'Lead updated':'Lead added');
+}
+
+async function deleteLead(id){
+  if(!confirm('Delete this lead?'))return;
+  await api('DELETE',`/api/leads/${id}`);
+  closeM('m-lead'); await loadAll(); toast('Lead deleted');
+}
+
+async function convertLeadToCustomer(id){
+  if(!confirm('Convert this lead to a customer? A new customer record will be created.'))return;
+  const r=await api('POST',`/api/leads/${id}/convert`);
+  await loadAll();
+  toast('Lead converted to customer!');
+  if(r.customer_id){ sp('customers',document.querySelector('.nav-item[onclick*="customers"]')); openCustDetail(r.customer_id); }
+}
+
+// ── Estimates ─────────────────────────────────────────────────────────────────
+let editEstId = null;
+let estItems = [];
+
+function estStatusBadge(s){
+  const m={Draft:'b-gray',Sent:'b-blue',Approved:'b-green',Declined:'b-red',Expired:'b-amber'};
+  return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
+}
+
+function renderEstimates(){
+  const q=(document.getElementById('est-search')||{value:''}).value.toLowerCase();
+  const sf=(document.getElementById('est-status-filter')||{value:''}).value;
+  const filtered=state.estimates.filter(e=>{
+    const name=`${e.first||''} ${e.last||''}`.toLowerCase();
+    return (!q||name.includes(q)||(e.estimate_number||'').toLowerCase().includes(q))&&(!sf||e.status===sf);
+  });
+  const tbody=document.getElementById('estimates-tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="8" class="empty">No estimates found</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(e=>`<tr>
+    <td style="font-family:monospace;font-size:12px;">${e.estimate_number||'—'}</td>
+    <td class="td-name">${e.first||''} ${e.last||''}</td>
+    <td style="font-size:12px;">${e.year||''} ${e.make||''} ${e.model||''}</td>
+    <td style="color:#888;font-size:12px;">${e.date||'—'}</td>
+    <td style="font-size:12px;${e.expires_date&&e.expires_date<today()?'color:#A32D2D;':''}">${e.expires_date||'—'}</td>
+    <td style="font-weight:600;">${fmt$(e.total)}</td>
+    <td>${estStatusBadge(e.status)}</td>
+    <td style="display:flex;gap:4px;">
+      <button class="btn btn-sm" onclick="openEstimateModal(${e.id})">Edit</button>
+      <button class="btn btn-sm" onclick="openEstimateInvoice(${e.id})">Print</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function openEstimateModal(id){
+  editEstId=id||null; estItems=[];
+  await populateCustomerDropdown('estf-cust');
+  document.getElementById('estf-date').value=today();
+  document.getElementById('estf-expires').value='';
+  document.getElementById('estf-del').innerHTML='';
+  document.getElementById('estf-convert-btn').style.display='none';
+  document.getElementById('est-discount').value='';
+  document.getElementById('est-taxrate').value=state.settings.tax_rate||'';
+  if(id){
+    const e=state.estimates.find(x=>x.id===id);
+    if(!e)return;
+    document.getElementById('m-est-title').textContent='Edit estimate';
+    document.getElementById('estf-cust').value=e.customer_id;
+    await loadVehiclesForEst(e.vehicle_id);
+    document.getElementById('estf-status').value=e.status||'Draft';
+    document.getElementById('estf-date').value=e.date||today();
+    document.getElementById('estf-expires').value=e.expires_date||'';
+    document.getElementById('estf-complaint').value=e.customer_complaint||'';
+    document.getElementById('estf-notes').value=e.notes||'';
+    document.getElementById('est-discount').value=e.discount||'';
+    document.getElementById('est-taxrate').value=e.tax_rate||state.settings.tax_rate||'';
+    estItems=(e.items||[]).map(i=>({type:i.type||'labor',description:i.description||'',qty:i.qty||1,rate:i.rate||0,amount:i.amount||0}));
+    document.getElementById('estf-convert-btn').style.display=(e.status==='Approved'||e.status==='Draft'||e.status==='Sent')?'':'none';
+    document.getElementById('estf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEstimate(${id})">Delete</button>`;
+  } else {
+    document.getElementById('m-est-title').textContent='New estimate';
+    ['estf-complaint','estf-notes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('estf-status').value='Draft';
+    document.getElementById('estf-convert-btn').style.display='none';
+    const d=new Date(); d.setDate(d.getDate()+30);
+    document.getElementById('estf-expires').value=d.toISOString().split('T')[0];
+  }
+  renderEstItems();
+  document.getElementById('m-estimate').classList.add('open');
+}
+
+async function loadVehiclesForEst(selectId){
+  const custId=parseInt(document.getElementById('estf-cust').value);
+  const sel=document.getElementById('estf-veh');
+  if(isNaN(custId)){sel.innerHTML='<option value="">— Select vehicle —</option>';return;}
+  const vehs=state.vehicles.filter(v=>v.customer_id===custId);
+  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${v.id}" ${selectId===v.id?'selected':''}>${vLabel(v)}${v.plate?' · '+v.plate:''}</option>`).join('');
+}
+
+function addEstItem(type='labor',desc='',qty=1,rate=0){
+  estItems.push({type,description:desc,qty,rate,amount:qty*rate});
+  renderEstItems();
+}
+
+function addEstItemFromCatalog(){
+  if(!state.catalog.length){toast('No services in catalog yet. Add services under Service Catalog.');return;}
+  const names=state.catalog.map(s=>`${s.name} (${fmt$(s.default_price)})`).join('\n');
+  const pick=prompt('Enter service name to add (or cancel):\n\n'+state.catalog.map((s,i)=>`${i+1}. ${s.name} — ${fmt$(s.default_price)}`).join('\n'));
+  if(!pick)return;
+  const svc=state.catalog.find(s=>s.name.toLowerCase()===pick.toLowerCase())||state.catalog[parseInt(pick)-1];
+  if(svc) addEstItem('labor',svc.name,svc.default_hours||1,svc.default_hours?svc.default_price/(svc.default_hours||1):svc.default_price);
+}
+
+function renderEstItems(){
+  const c=document.getElementById('est-items-container');
+  if(!estItems.length){c.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div>';_calcEst();return;}
+  c.innerHTML=estItems.map((item,i)=>`
+    <div class="est-item-row">
+      <select style="padding:4px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onchange="estItems[${i}].type=this.value">
+        ${['labor','parts','fee','diagnostic','sublet'].map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t[0].toUpperCase()+t.slice(1)}</option>`).join('')}
+      </select>
+      <input style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${(item.description||'').replace(/"/g,'&quot;')}" placeholder="Description" oninput="estItems[${i}].description=this.value">
+      <input type="number" style="padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">
+      <input type="number" style="padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="estItems[${i}].rate=parseFloat(this.value)||0;_calcEst()">
+      <span class="est-item-amt">${fmt$((item.qty||0)*(item.rate||0))}</span>
+      <button class="btn btn-sm btn-danger" onclick="estItems.splice(${i},1);renderEstItems()">×</button>
+    </div>`).join('');
+  _calcEst();
+}
+
+function _calcEst(){
+  estItems.forEach((item,i)=>{
+    item.amount=+((item.qty||0)*(item.rate||0)).toFixed(2);
+    const spans=document.querySelectorAll('.est-item-amt');
+    if(spans[i]) spans[i].textContent=fmt$(item.amount);
+  });
+  const sub=estItems.reduce((a,i)=>a+(i.amount||0),0);
+  const disc=parseFloat(document.getElementById('est-discount')?.value)||0;
+  const taxRate=parseFloat(document.getElementById('est-taxrate')?.value)||0;
+  const afterDisc=Math.max(0,sub-disc);
+  const tax=afterDisc*taxRate/100;
+  const total=afterDisc+tax;
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set('est-sub-val',fmt$(sub));
+  set('est-disc-val',disc>0?'-'+fmt$(disc):'$0.00');
+  set('est-tax-val',fmt$(tax));
+  set('est-total-val',fmt$(total));
+}
+
+async function saveEstimate(){
+  const custId=parseInt(document.getElementById('estf-cust').value);
+  if(!custId){toast('Please select a customer.');return;}
+  const disc=parseFloat(document.getElementById('est-discount').value)||0;
+  const taxRate=parseFloat(document.getElementById('est-taxrate').value)||0;
+  const sub=estItems.reduce((a,i)=>a+(i.amount||0),0);
+  const total=Math.max(0,sub-disc)*(1+taxRate/100);
+  const body={customer_id:custId,vehicle_id:parseInt(document.getElementById('estf-veh').value)||null,date:document.getElementById('estf-date').value,status:document.getElementById('estf-status').value,customer_complaint:document.getElementById('estf-complaint').value,notes:document.getElementById('estf-notes').value,discount:disc,tax_rate:taxRate,expires_date:document.getElementById('estf-expires').value||null,total,items:estItems};
+  if(editEstId) await api('PUT',`/api/estimates/${editEstId}`,body);
+  else await api('POST','/api/estimates',body);
+  closeM('m-estimate'); await loadAll(); toast(editEstId?'Estimate updated':'Estimate saved');
+}
+
+async function deleteEstimate(id){
+  if(!confirm('Delete this estimate?'))return;
+  await api('DELETE',`/api/estimates/${id}`);
+  closeM('m-estimate'); await loadAll(); toast('Estimate deleted');
+}
+
+async function convertEstToJob(){
+  if(!editEstId){toast('Save the estimate first.');return;}
+  if(!confirm('Convert this estimate to a work order?'))return;
+  const r=await api('POST',`/api/estimates/${editEstId}/convert`);
+  closeM('m-estimate'); await loadAll();
+  toast('Estimate converted to job!');
+  if(r.job_id){ sp('jobs',document.querySelector('.nav-item[onclick*="\'jobs\'"]')); setTimeout(()=>openJobModal(r.job_id),300); }
+}
+
+function openEstimateInvoice(id){
+  const e=state.estimates.find(x=>x.id===id); if(!e)return;
+  const c=state.customers.find(x=>x.id===e.customer_id);
+  const v=state.vehicles.find(x=>x.id===e.vehicle_id);
+  const s=state.settings;
+  const disc=e.discount||0, taxRate=e.tax_rate||0;
+  const sub=e.total/(1+taxRate/100)+disc;
+  const tax=e.total-Math.max(0,sub-disc);
+  document.getElementById('invoice-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a1a1a;">
+      <div>${s.invoice_logo?`<img src="${s.invoice_logo}" style="max-height:60px;max-width:180px;margin-bottom:6px;display:block;">`:''}
+        <div style="font-size:18px;font-weight:700;">${s.business_name||'WrenchPro'}</div>
+        ${s.phone?`<div style="font-size:12px;color:#888;">${s.phone}</div>`:''}
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:20px;font-weight:700;color:#378ADD;">ESTIMATE</div>
+        <div style="font-size:12px;color:#555;">${e.estimate_number||''}</div>
+        <div style="font-size:12px;color:#888;">Date: ${e.date||'—'}</div>
+        ${e.expires_date?`<div style="font-size:12px;color:#888;">Expires: ${e.expires_date}</div>`:''}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:4px;">Bill To</div>
+        <div style="font-weight:600;">${c?fullName(c):'—'}</div>
+        ${c&&c.phone?`<div style="font-size:12px;color:#888;">${c.phone}</div>`:''}
+      </div>
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:4px;">Vehicle</div>
+        <div style="font-weight:600;">${vLabel(v)}</div>
+      </div>
+    </div>
+    ${e.customer_complaint?`<div style="background:#f5f5f0;padding:8px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px;"><strong>Customer concern:</strong> ${e.customer_complaint}</div>`:''}
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:1rem;">
+      <thead><tr style="border-bottom:2px solid #1a1a1a;">
+        <th style="text-align:left;padding:6px 0;font-size:11px;color:#888;text-transform:uppercase;">Description</th>
+        <th style="text-align:center;padding:6px 0;font-size:11px;color:#888;">Qty</th>
+        <th style="text-align:right;padding:6px 0;font-size:11px;color:#888;">Rate</th>
+        <th style="text-align:right;padding:6px 0;font-size:11px;color:#888;">Amount</th>
+      </tr></thead>
+      <tbody>${(e.items||[]).map(i=>`<tr><td style="padding:7px 0;border-bottom:1px solid #f0f0ec;">${i.description||''}<span style="color:#aaa;font-size:10px;margin-left:6px;">${i.type}</span></td><td style="text-align:center;padding:7px 0;border-bottom:1px solid #f0f0ec;">${i.qty}</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.rate)}</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.amount)}</td></tr>`).join('')}</tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;">
+      <div style="min-width:200px;">
+        ${disc>0?`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#888;"><span>Discount</span><span>-${fmt$(disc)}</span></div>`:''}
+        ${taxRate>0?`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#888;"><span>Tax (${taxRate}%)</span><span>${fmt$(tax)}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;"><span>Total</span><span>${fmt$(e.total)}</span></div>
+      </div>
+    </div>
+    ${s.estimate_terms?`<div style="margin-top:1rem;font-size:11px;color:#888;border-top:1px solid #e8e8e4;padding-top:8px;">${s.estimate_terms}</div>`:''}
+    ${s.invoice_footer?`<div style="margin-top:1rem;text-align:center;font-size:11px;color:#aaa;">${s.invoice_footer}</div>`:''}
+  `;
+  document.getElementById('m-invoice').classList.add('open');
+}
+
+function printEstimate(){ printInvoice(); }
+
+// ── Inspections ───────────────────────────────────────────────────────────────
+let editInspId = null;
+let inspItems = [];
+
+const INSP_TEMPLATE = [
+  {cat:'Brakes', items:['Brake pads — front','Brake pads — rear','Rotors — front','Rotors — rear','Brake fluid','Brake lines/hoses','Parking brake']},
+  {cat:'Tires', items:['Tread depth — FL','Tread depth — FR','Tread depth — RL','Tread depth — RR','Tire pressure','Tire sidewall condition','Spare tire']},
+  {cat:'Fluids', items:['Engine oil','Coolant','Transmission fluid','Power steering fluid','Windshield washer fluid']},
+  {cat:'Battery & Charging', items:['Battery condition','Battery terminals/cables','Alternator output']},
+  {cat:'Engine', items:['Oil leaks','Coolant leaks','Air filter','Check engine light','Engine mounts']},
+  {cat:'Belts & Hoses', items:['Serpentine belt','Coolant hoses','Fuel lines']},
+  {cat:'Suspension & Steering', items:['Shocks/struts','Ball joints','Tie rod ends','Wheel bearings','CV axles/boots']},
+  {cat:'Exhaust', items:['Exhaust pipes','Catalytic converter','Muffler']},
+  {cat:'Lights', items:['Headlights','Tail lights','Brake lights','Turn signals','Reverse lights']},
+  {cat:'Other', items:['Wiper blades','Horn','Seat belts','HVAC system']},
+];
+
+function renderInspections(){
+  const q=(document.getElementById('insp-search')||{value:''}).value.toLowerCase();
+  const sf=(document.getElementById('insp-status-filter')||{value:''}).value;
+  const filtered=state.inspections.filter(i=>{
+    const name=`${i.first||''} ${i.last||''}`.toLowerCase();
+    return (!q||name.includes(q))&&(!sf||i.status===sf);
+  });
+  const tbody=document.getElementById('insp-tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="9" class="empty">No inspections found</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(i=>{
+    const pass=(i.items||[]).filter(x=>x.condition==='pass').length;
+    const adv=(i.items||[]).filter(x=>x.condition==='advisory').length;
+    const fail=(i.items||[]).filter(x=>x.condition==='fail').length;
+    return `<tr>
+      <td style="color:#888;font-size:12px;">${i.date||'—'}</td>
+      <td class="td-name">${i.first||''} ${i.last||''}</td>
+      <td style="font-size:12px;">${i.year||''} ${i.make||''} ${i.model||''}</td>
+      <td style="font-size:12px;color:#555;">${i.emp_first?i.emp_first+' '+i.emp_last:'—'}</td>
+      <td style="color:#3B6D11;font-weight:600;">${pass}</td>
+      <td style="color:#854F0B;font-weight:600;">${adv}</td>
+      <td style="color:#A32D2D;font-weight:600;">${fail}</td>
+      <td>${i.status==='Complete'?'<span class="badge b-green">Complete</span>':'<span class="badge b-gray">Draft</span>'}</td>
+      <td><button class="btn btn-sm" onclick="openInspModal(${i.id})">Edit</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function openInspModal(id){
+  editInspId=id||null;
+  await populateCustomerDropdown('if2-cust');
+  document.getElementById('if2-date').value=today();
+  document.getElementById('if2-del').innerHTML='';
+  const empSel=document.getElementById('if2-emp');
+  empSel.innerHTML='<option value="">— Select —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}</option>`).join('');
+  if(id){
+    const insp=state.inspections.find(x=>x.id===id);
+    if(!insp)return;
+    document.getElementById('m-insp-title').textContent='Edit inspection';
+    document.getElementById('if2-cust').value=insp.customer_id;
+    await loadVehiclesForInsp(insp.vehicle_id);
+    document.getElementById('if2-date').value=insp.date||today();
+    document.getElementById('if2-emp').value=insp.employee_id||'';
+    document.getElementById('if2-status').value=insp.status||'Draft';
+    document.getElementById('if2-notes').value=insp.notes||'';
+    inspItems=(insp.items||[]).map(i=>({category:i.category,item_name:i.item_name,condition:i.condition||'pass',notes:i.notes||''}));
+    if(!inspItems.length) initInspChecklist();
+    document.getElementById('if2-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteInspection(${id})">Delete</button>`;
+  } else {
+    document.getElementById('m-insp-title').textContent='New inspection';
+    document.getElementById('if2-notes').value='';
+    document.getElementById('if2-status').value='Draft';
+    initInspChecklist();
+  }
+  renderInspChecklist();
+  document.getElementById('m-insp').classList.add('open');
+}
+
+async function loadVehiclesForInsp(selectId){
+  const custId=parseInt(document.getElementById('if2-cust').value);
+  const sel=document.getElementById('if2-veh');
+  if(isNaN(custId)){sel.innerHTML='<option value="">— Select vehicle —</option>';return;}
+  const vehs=state.vehicles.filter(v=>v.customer_id===custId);
+  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${v.id}" ${selectId===v.id?'selected':''}>${vLabel(v)}</option>`).join('');
+}
+
+function initInspChecklist(){
+  inspItems=[];
+  INSP_TEMPLATE.forEach(cat=>cat.items.forEach(name=>inspItems.push({category:cat.cat,item_name:name,condition:'pass',notes:''})));
+}
+
+function renderInspChecklist(){
+  const cats=[...new Set(inspItems.map(i=>i.category))];
+  document.getElementById('insp-checklist').innerHTML=cats.map(cat=>{
+    const catItems=inspItems.map((item,idx)=>({item,idx})).filter(({item})=>item.category===cat);
+    return `<div class="insp-cat">
+      <div class="insp-cat-hdr">${cat}</div>
+      ${catItems.map(({item,idx})=>`
+        <div class="insp-item-row">
+          <span style="font-size:13px;">${item.item_name}</span>
+          <div style="display:flex;gap:3px;">
+            <button class="cond-btn ${item.condition==='pass'?'cond-pass':''}" onclick="setInspCond(${idx},'pass')">Pass</button>
+            <button class="cond-btn ${item.condition==='advisory'?'cond-advisory':''}" onclick="setInspCond(${idx},'advisory')">Adv</button>
+            <button class="cond-btn ${item.condition==='fail'?'cond-fail':''}" onclick="setInspCond(${idx},'fail')">Fail</button>
+            <button class="cond-btn ${item.condition==='na'?'cond-na':''}" onclick="setInspCond(${idx},'na')">N/A</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function setInspCond(idx,cond){inspItems[idx].condition=cond;renderInspChecklist();}
+
+async function saveInspection(){
+  const custId=parseInt(document.getElementById('if2-cust').value);
+  if(!custId){toast('Please select a customer.');return;}
+  const body={customer_id:custId,vehicle_id:parseInt(document.getElementById('if2-veh').value)||null,employee_id:parseInt(document.getElementById('if2-emp').value)||null,date:document.getElementById('if2-date').value,notes:document.getElementById('if2-notes').value,status:document.getElementById('if2-status').value,items:inspItems};
+  if(editInspId) await api('PUT',`/api/inspections/${editInspId}`,body);
+  else await api('POST','/api/inspections',body);
+  closeM('m-insp'); await loadAll(); toast(editInspId?'Inspection updated':'Inspection saved');
+}
+
+async function deleteInspection(id){
+  if(!confirm('Delete this inspection?'))return;
+  await api('DELETE',`/api/inspections/${id}`);
+  closeM('m-insp'); await loadAll(); toast('Inspection deleted');
+}
+
+// ── Parts / Inventory ─────────────────────────────────────────────────────────
+let editPartId = null;
+
+function renderInventory(){
+  const q=(document.getElementById('inv-search')||{value:''}).value.toLowerCase();
+  const fl=(document.getElementById('inv-filter')||{value:''}).value;
+  let parts=state.inventory.filter(p=>{
+    const match=!q||(p.name||'').toLowerCase().includes(q)||(p.part_number||'').toLowerCase().includes(q)||(p.vendor||'').toLowerCase().includes(q);
+    const lowMatch=!fl||(fl==='low'&&p.quantity<=p.reorder_qty&&p.reorder_qty>0);
+    return match&&(fl?lowMatch:true);
+  });
+  const lowStock=state.inventory.filter(p=>p.quantity<=p.reorder_qty&&p.reorder_qty>0).length;
+  const totalValue=state.inventory.reduce((a,p)=>a+p.quantity*(p.retail_price||p.cost||0),0);
+  document.getElementById('inv-stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Total parts</div><div class="stat-value">${state.inventory.length}</div></div>
+    <div class="stat"><div class="stat-label">Low stock</div><div class="stat-value red">${lowStock}</div></div>
+    <div class="stat"><div class="stat-label">Inventory value</div><div class="stat-value green">${fmt$(totalValue)}</div></div>
+  `;
+  const tbody=document.getElementById('inv-tbody');
+  if(!parts.length){tbody.innerHTML=`<tr><td colspan="9" class="empty">No parts found</td></tr>`;return;}
+  tbody.innerHTML=parts.map(p=>{
+    const isLow=p.quantity<=p.reorder_qty&&p.reorder_qty>0;
+    return `<tr class="${isLow?'low-stock':''}">
+      <td class="td-name">${p.name}${isLow?'<span class="badge b-red" style="margin-left:6px;">Low</span>':''}</td>
+      <td style="font-size:11px;font-family:monospace;color:#888;">${p.part_number||'—'}</td>
+      <td style="font-size:12px;">${p.vendor||'—'}</td>
+      <td style="color:#888;">${p.cost?fmt$(p.cost):'—'}</td>
+      <td style="color:#3B6D11;font-weight:500;">${p.retail_price?fmt$(p.retail_price):'—'}</td>
+      <td style="font-weight:600;${isLow?'color:#A32D2D;':''}">${p.quantity}</td>
+      <td style="color:#888;">${p.reorder_qty||0}</td>
+      <td style="font-size:12px;color:#888;">${p.location||'—'}</td>
+      <td><button class="btn btn-sm" onclick="openPartModal(${p.id})">Edit</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openPartModal(id){
+  editPartId=id||null;
+  document.getElementById('prf-del').innerHTML='';
+  if(id){
+    const p=state.inventory.find(x=>x.id===id);
+    if(!p)return;
+    document.getElementById('m-part-title').textContent='Edit part';
+    document.getElementById('prf-name').value=p.name||'';
+    document.getElementById('prf-num').value=p.part_number||'';
+    document.getElementById('prf-vendor').value=p.vendor||'';
+    document.getElementById('prf-loc').value=p.location||'';
+    document.getElementById('prf-cost').value=p.cost||'';
+    document.getElementById('prf-retail').value=p.retail_price||'';
+    document.getElementById('prf-qty').value=p.quantity||0;
+    document.getElementById('prf-reorder').value=p.reorder_qty||0;
+    document.getElementById('prf-notes').value=p.notes||'';
+    document.getElementById('prf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deletePart(${id})">Delete</button>`;
+  } else {
+    document.getElementById('m-part-title').textContent='Add part';
+    ['prf-name','prf-num','prf-vendor','prf-loc','prf-cost','prf-retail','prf-notes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('prf-qty').value=0;
+    document.getElementById('prf-reorder').value=1;
+  }
+  document.getElementById('m-part').classList.add('open');
+}
+
+async function savePart(){
+  const name=document.getElementById('prf-name').value.trim();
+  if(!name){toast('Please enter a part name.');return;}
+  const body={name,part_number:document.getElementById('prf-num').value,vendor:document.getElementById('prf-vendor').value,location:document.getElementById('prf-loc').value,cost:parseFloat(document.getElementById('prf-cost').value)||0,retail_price:parseFloat(document.getElementById('prf-retail').value)||0,quantity:parseInt(document.getElementById('prf-qty').value)||0,reorder_qty:parseInt(document.getElementById('prf-reorder').value)||0,notes:document.getElementById('prf-notes').value};
+  if(editPartId) await api('PUT',`/api/inventory/${editPartId}`,body);
+  else await api('POST','/api/inventory',body);
+  closeM('m-part'); await loadAll(); toast(editPartId?'Part updated':'Part added');
+}
+
+async function deletePart(id){
+  if(!confirm('Delete this part?'))return;
+  await api('DELETE',`/api/inventory/${id}`);
+  closeM('m-part'); await loadAll(); toast('Part deleted');
+}
+
+// ── Service Catalog ───────────────────────────────────────────────────────────
+let editCatalogId = null;
+
+function renderCatalog(){
+  const q=(document.getElementById('cat-search')||{value:''}).value.toLowerCase();
+  const cf=(document.getElementById('cat-category-filter')||{value:''}).value;
+  const cats=[...new Set(state.catalog.map(s=>s.category))].sort();
+  const catSel=document.getElementById('cat-category-filter');
+  const curCat=catSel.value;
+  catSel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${c}" ${c===curCat?'selected':''}>${c}</option>`).join('');
+  const filtered=state.catalog.filter(s=>(!q||(s.name||'').toLowerCase().includes(q)||( s.category||'').toLowerCase().includes(q))&&(!cf||s.category===cf));
+  const tbody=document.getElementById('catalog-tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">No services found</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(s=>`<tr>
+    <td class="td-name">${s.name}</td>
+    <td><span class="badge b-gray">${s.category||'General'}</span></td>
+    <td style="color:#888;">${s.default_hours?s.default_hours+' hrs':'—'}</td>
+    <td style="font-weight:500;color:#3B6D11;">${s.default_price?fmt$(s.default_price):'—'}</td>
+    <td>${s.taxable?'<span class="badge b-green">Yes</span>':'<span class="badge b-gray">No</span>'}</td>
+    <td style="font-size:12px;color:#888;">${(s.notes||'').slice(0,40)}</td>
+    <td><button class="btn btn-sm" onclick="openCatalogModal(${s.id})">Edit</button></td>
+  </tr>`).join('');
+}
+
+function openCatalogModal(id){
+  editCatalogId=id||null;
+  document.getElementById('catf-del').innerHTML='';
+  if(id){
+    const s=state.catalog.find(x=>x.id===id);
+    if(!s)return;
+    document.getElementById('m-cat-title').textContent='Edit service';
+    document.getElementById('catf-name').value=s.name||'';
+    document.getElementById('catf-desc').value=s.description||'';
+    document.getElementById('catf-category').value=s.category||'General';
+    document.getElementById('catf-hours').value=s.default_hours||'';
+    document.getElementById('catf-price').value=s.default_price||'';
+    document.getElementById('catf-taxable').value=s.taxable?'1':'0';
+    document.getElementById('catf-notes').value=s.notes||'';
+    document.getElementById('catf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCatalogItem(${id})">Delete</button>`;
+  } else {
+    document.getElementById('m-cat-title').textContent='Add service';
+    ['catf-name','catf-desc','catf-hours','catf-price','catf-notes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('catf-category').value='General';
+    document.getElementById('catf-taxable').value='1';
+  }
+  document.getElementById('m-catalog-item').classList.add('open');
+}
+
+async function saveCatalogItem(){
+  const name=document.getElementById('catf-name').value.trim();
+  if(!name){toast('Please enter a service name.');return;}
+  const body={name,description:document.getElementById('catf-desc').value,category:document.getElementById('catf-category').value,default_hours:parseFloat(document.getElementById('catf-hours').value)||0,default_price:parseFloat(document.getElementById('catf-price').value)||0,taxable:document.getElementById('catf-taxable').value==='1',notes:document.getElementById('catf-notes').value};
+  if(editCatalogId) await api('PUT',`/api/catalog/${editCatalogId}`,body);
+  else await api('POST','/api/catalog',body);
+  closeM('m-catalog-item'); await loadAll(); toast(editCatalogId?'Service updated':'Service added');
+}
+
+async function deleteCatalogItem(id){
+  if(!confirm('Delete this service?'))return;
+  await api('DELETE',`/api/catalog/${id}`);
+  closeM('m-catalog-item'); await loadAll(); toast('Service deleted');
+}
+
+// ── Warranties ────────────────────────────────────────────────────────────────
+let editWarrId = null;
+let warrJobId = null, warrCustId = null, warrVehId = null;
+
+function renderWarranties(){
+  const q=(document.getElementById('warr-search')||{value:''}).value.toLowerCase();
+  const fl=(document.getElementById('warr-filter')||{value:''}).value;
+  const filtered=state.warranties.filter(w=>{
+    const name=`${w.first||''} ${w.last||''}`.toLowerCase();
+    return (!q||name.includes(q)||(w.description||'').toLowerCase().includes(q))&&(!fl||w.status===fl);
+  });
+  const tbody=document.getElementById('warr-tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="9" class="empty">No warranties found</td></tr>`;return;}
+  const now=today();
+  tbody.innerHTML=filtered.map(w=>{
+    const expired=w.expires_date&&w.expires_date<now;
+    return `<tr>
+      <td class="td-name">${w.first||''} ${w.last||''}</td>
+      <td style="font-size:12px;">${w.year||''} ${w.make||''} ${w.model||''}</td>
+      <td>${(w.description||'').slice(0,40)}</td>
+      <td style="font-size:12px;">${w.labor_months} mo</td>
+      <td style="font-size:12px;">${w.parts_months} mo</td>
+      <td style="font-size:12px;">${w.mileage_limit?Number(w.mileage_limit).toLocaleString()+' mi':'—'}</td>
+      <td class="${expired?'warranty-expired':'warranty-active'}">${w.expires_date||'—'}</td>
+      <td>${w.status==='Active'&&!expired?'<span class="badge b-green">Active</span>':w.status==='Voided'?'<span class="badge b-gray">Voided</span>':'<span class="badge b-red">Expired</span>'}</td>
+      <td><button class="btn btn-sm" onclick="openWarrantyModal(null,null,null,${w.id})">Edit</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openWarrantyModal(jobId,custId,vehId,warrId){
+  editWarrId=warrId||null; warrJobId=jobId; warrCustId=custId; warrVehId=vehId;
+  document.getElementById('wrf-del').innerHTML='';
+  if(warrId){
+    const w=state.warranties.find(x=>x.id===warrId);
+    if(!w)return;
+    document.getElementById('m-warr-title').textContent='Edit warranty';
+    document.getElementById('wrf-desc').value=w.description||'';
+    document.getElementById('wrf-labor').value=w.labor_months||12;
+    document.getElementById('wrf-parts').value=w.parts_months||12;
+    document.getElementById('wrf-miles').value=w.mileage_limit||12000;
+    document.getElementById('wrf-start').value=w.start_date||today();
+    document.getElementById('wrf-status').value=w.status||'Active';
+    document.getElementById('wrf-notes').value=w.notes||'';
+    document.getElementById('wrf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteWarranty(${warrId})">Delete</button>`;
+  } else {
+    document.getElementById('m-warr-title').textContent='Add warranty';
+    document.getElementById('wrf-desc').value='';
+    document.getElementById('wrf-labor').value=state.settings.warranty_terms?.match(/(\d+)\s*month/)?.[1]||12;
+    document.getElementById('wrf-parts').value=state.settings.warranty_terms?.match(/(\d+)\s*month/)?.[1]||12;
+    document.getElementById('wrf-miles').value=state.settings.warranty_terms?.match(/([\d,]+)\s*mile/)?.[1]?.replace(',','')||12000;
+    document.getElementById('wrf-start').value=today();
+    document.getElementById('wrf-status').value='Active';
+    document.getElementById('wrf-notes').value=state.settings.warranty_terms||'';
+  }
+  document.getElementById('m-warranty').classList.add('open');
+}
+
+async function saveWarranty(){
+  const desc=document.getElementById('wrf-desc').value.trim();
+  if(!desc&&!editWarrId){toast('Please enter a description.');return;}
+  const body={job_id:warrJobId||null,customer_id:warrCustId||(editWarrId?state.warranties.find(w=>w.id===editWarrId)?.customer_id:null),vehicle_id:warrVehId||null,description:desc,labor_months:parseInt(document.getElementById('wrf-labor').value)||12,parts_months:parseInt(document.getElementById('wrf-parts').value)||12,mileage_limit:parseInt(document.getElementById('wrf-miles').value)||12000,start_date:document.getElementById('wrf-start').value,status:document.getElementById('wrf-status').value,notes:document.getElementById('wrf-notes').value};
+  if(!body.customer_id&&!editWarrId){toast('No customer linked. Open from a job or customer record.');return;}
+  if(editWarrId) await api('PUT',`/api/warranties/${editWarrId}`,body);
+  else await api('POST','/api/warranties',body);
+  closeM('m-warranty'); await loadAll(); toast(editWarrId?'Warranty updated':'Warranty added');
+}
+
+async function deleteWarranty(id){
+  if(!confirm('Delete this warranty?'))return;
+  await api('DELETE',`/api/warranties/${id}`);
+  closeM('m-warranty'); await loadAll(); toast('Warranty deleted');
+}
+
+// ── Time Tracking ─────────────────────────────────────────────────────────────
+function renderTime(){
+  const empF=(document.getElementById('time-emp-filter')||{value:''}).value;
+  const dateF=(document.getElementById('time-date-filter')||{value:''}).value;
+  const empSel=document.getElementById('time-emp-filter');
+  const cur=empSel.value;
+  empSel.innerHTML='<option value="">All employees</option>'+state.employees.map(e=>`<option value="${e.id}" ${String(e.id)===cur?'selected':''}>${e.first} ${e.last}</option>`).join('');
+  const months=[...new Set(state.timeLogs.map(t=>(t.clock_in||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const dateSel=document.getElementById('time-date-filter');
+  const curDate=dateSel.value;
+  dateSel.innerHTML='<option value="">All time</option>'+months.map(m=>`<option value="${m}" ${m===curDate?'selected':''}>${m}</option>`).join('');
+  const filtered=state.timeLogs.filter(t=>(!empF||String(t.employee_id)===empF)&&(!dateF||(t.clock_in||'').startsWith(dateF)));
+  const totalMins=filtered.reduce((a,t)=>{
+    if(!t.clock_in||!t.clock_out)return a;
+    return a+Math.round((new Date(t.clock_out)-new Date(t.clock_in))/60000);
+  },0);
+  const totalHrs=(totalMins/60).toFixed(1);
+  document.getElementById('time-stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Entries</div><div class="stat-value">${filtered.length}</div></div>
+    <div class="stat"><div class="stat-label">Total hours (w/ clock-out)</div><div class="stat-value blue">${totalHrs} hrs</div></div>
+    <div class="stat"><div class="stat-label">Est. labor cost</div><div class="stat-value green">${fmt$(parseFloat(totalHrs)*(state.settings.default_labor_rate||0))}</div></div>
+  `;
+  const tbody=document.getElementById('time-tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="8" class="empty">No time entries found</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(t=>{
+    let dur='—';
+    if(t.clock_in&&t.clock_out){
+      const mins=Math.round((new Date(t.clock_out)-new Date(t.clock_in))/60000);
+      dur=`${Math.floor(mins/60)}h ${mins%60}m`;
+    }
+    return `<tr>
+      <td class="td-name">${t.first||''} ${t.last||''}</td>
+      <td><span class="badge b-gray">${t.type||'general'}</span></td>
+      <td style="font-size:12px;">${t.clock_in?t.clock_in.replace('T',' ').slice(0,16):'—'}</td>
+      <td style="font-size:12px;">${t.clock_out?t.clock_out.replace('T',' ').slice(0,16):'—'}</td>
+      <td style="font-weight:500;">${dur}</td>
+      <td style="font-size:12px;color:#888;">${t.job_service?(t.job_service||'').slice(0,30):'—'}</td>
+      <td style="font-size:12px;color:#888;">${t.notes||''}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteTimeLog(${t.id})">×</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openTimeModal(){
+  const empSel=document.getElementById('tmf-emp');
+  empSel.innerHTML='<option value="">— Select —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}</option>`).join('');
+  const jobSel=document.getElementById('tmf-job');
+  jobSel.innerHTML='<option value="">— Not job-specific —</option>'+state.jobs.map(j=>`<option value="${j.id}">${j.date} · ${j.first} ${j.last} · ${(j.service||'').slice(0,30)}</option>`).join('');
+  const now=new Date();
+  const localNow=new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('tmf-in').value=localNow;
+  document.getElementById('tmf-out').value='';
+  document.getElementById('tmf-type').value='general';
+  document.getElementById('tmf-notes').value='';
+  document.getElementById('m-time').classList.add('open');
+}
+
+async function saveTimeEntry(){
+  const empId=parseInt(document.getElementById('tmf-emp').value);
+  if(!empId){toast('Please select an employee.');return;}
+  const clockIn=document.getElementById('tmf-in').value;
+  if(!clockIn){toast('Please enter clock-in time.');return;}
+  const body={employee_id:empId,job_id:parseInt(document.getElementById('tmf-job').value)||null,type:document.getElementById('tmf-type').value,clock_in:clockIn,clock_out:document.getElementById('tmf-out').value||null,notes:document.getElementById('tmf-notes').value};
+  await api('POST','/api/time',body);
+  closeM('m-time'); await loadAll(); toast('Time entry saved');
+}
+
+async function deleteTimeLog(id){
+  if(!confirm('Delete this time entry?'))return;
+  await api('DELETE',`/api/time/${id}`);
+  await loadAll(); toast('Entry deleted');
 }
 
 // Close modals on overlay click

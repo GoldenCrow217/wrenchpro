@@ -195,40 +195,186 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_interactions_customer ON customer_interactions(customer_id);
   CREATE INDEX IF NOT EXISTS idx_followups_customer ON follow_ups(customer_id);
   CREATE INDEX IF NOT EXISTS idx_svcrem_customer ON service_reminders(customer_id);
+
+  CREATE TABLE IF NOT EXISTS estimates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    vehicle_id INTEGER,
+    employee_id INTEGER,
+    estimate_number TEXT,
+    date TEXT,
+    status TEXT DEFAULT 'Draft',
+    notes TEXT DEFAULT '',
+    customer_complaint TEXT DEFAULT '',
+    discount REAL DEFAULT 0,
+    tax_rate REAL DEFAULT 0,
+    expires_date TEXT,
+    total REAL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS estimate_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    estimate_id INTEGER NOT NULL,
+    type TEXT DEFAULT 'labor',
+    description TEXT DEFAULT '',
+    qty REAL DEFAULT 1,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0,
+    FOREIGN KEY (estimate_id) REFERENCES estimates(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS parts_inventory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    part_number TEXT DEFAULT '',
+    vendor TEXT DEFAULT '',
+    cost REAL DEFAULT 0,
+    retail_price REAL DEFAULT 0,
+    quantity INTEGER DEFAULT 0,
+    reorder_qty INTEGER DEFAULT 0,
+    location TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS service_catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    category TEXT DEFAULT 'General',
+    default_hours REAL DEFAULT 0,
+    default_price REAL DEFAULT 0,
+    taxable INTEGER DEFAULT 1,
+    notes TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS inspections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER,
+    customer_id INTEGER NOT NULL,
+    vehicle_id INTEGER,
+    employee_id INTEGER,
+    date TEXT,
+    notes TEXT DEFAULT '',
+    status TEXT DEFAULT 'Draft',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS inspection_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inspection_id INTEGER NOT NULL,
+    category TEXT DEFAULT '',
+    item_name TEXT DEFAULT '',
+    condition TEXT DEFAULT 'pass',
+    notes TEXT DEFAULT '',
+    FOREIGN KEY (inspection_id) REFERENCES inspections(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS warranties (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER,
+    customer_id INTEGER NOT NULL,
+    vehicle_id INTEGER,
+    description TEXT DEFAULT '',
+    labor_months INTEGER DEFAULT 12,
+    parts_months INTEGER DEFAULT 12,
+    mileage_limit INTEGER DEFAULT 12000,
+    notes TEXT DEFAULT '',
+    start_date TEXT,
+    expires_date TEXT,
+    status TEXT DEFAULT 'Active',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS time_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    job_id INTEGER,
+    type TEXT DEFAULT 'general',
+    clock_in TEXT,
+    clock_out TEXT,
+    notes TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS leads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first TEXT NOT NULL,
+    last TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
+    email TEXT DEFAULT '',
+    source TEXT DEFAULT '',
+    vehicle_year INTEGER,
+    vehicle_make TEXT DEFAULT '',
+    vehicle_model TEXT DEFAULT '',
+    service_needed TEXT DEFAULT '',
+    status TEXT DEFAULT 'New',
+    notes TEXT DEFAULT '',
+    follow_up_date TEXT,
+    estimated_value REAL DEFAULT 0,
+    converted_customer_id INTEGER,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_estimates_customer ON estimates(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_est_items_estimate ON estimate_items(estimate_id);
+  CREATE INDEX IF NOT EXISTS idx_inspections_customer ON inspections(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_insp_items_insp ON inspection_items(inspection_id);
+  CREATE INDEX IF NOT EXISTS idx_warranties_customer ON warranties(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_timelogs_employee ON time_logs(employee_id);
 `);
 
 // Ensure one settings row always exists
 db.prepare(`INSERT OR IGNORE INTO settings (id) VALUES (1)`).run();
 
-// Migrate: add status and tags to customers
+// Migrate: customers
 const custCols = db.prepare(`PRAGMA table_info(customers)`).all().map(c => c.name);
-if (!custCols.includes('status')) db.prepare(`ALTER TABLE customers ADD COLUMN status TEXT DEFAULT 'Active'`).run();
-if (!custCols.includes('tags'))   db.prepare(`ALTER TABLE customers ADD COLUMN tags TEXT DEFAULT ''`).run();
+if (!custCols.includes('status'))           db.prepare(`ALTER TABLE customers ADD COLUMN status TEXT DEFAULT 'Active'`).run();
+if (!custCols.includes('tags'))             db.prepare(`ALTER TABLE customers ADD COLUMN tags TEXT DEFAULT ''`).run();
+if (!custCols.includes('customer_type'))    db.prepare(`ALTER TABLE customers ADD COLUMN customer_type TEXT DEFAULT 'Personal'`).run();
+if (!custCols.includes('preferred_contact'))db.prepare(`ALTER TABLE customers ADD COLUMN preferred_contact TEXT DEFAULT 'Phone'`).run();
+if (!custCols.includes('billing_address'))  db.prepare(`ALTER TABLE customers ADD COLUMN billing_address TEXT DEFAULT ''`).run();
 
-// Migrate: add new columns for users upgrading from earlier versions
-const existingCols = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);
-const newCols = [
+// Migrate: jobs
+const jobCols = db.prepare(`PRAGMA table_info(jobs)`).all().map(c => c.name);
+if (!jobCols.includes('employee_id'))    db.prepare(`ALTER TABLE jobs ADD COLUMN employee_id INTEGER REFERENCES employees(id)`).run();
+if (!jobCols.includes('labor_hours'))    db.prepare(`ALTER TABLE jobs ADD COLUMN labor_hours REAL DEFAULT 0`).run();
+if (!jobCols.includes('labor_rate'))     db.prepare(`ALTER TABLE jobs ADD COLUMN labor_rate REAL DEFAULT 0`).run();
+if (!jobCols.includes('complaint'))      db.prepare(`ALTER TABLE jobs ADD COLUMN complaint TEXT DEFAULT ''`).run();
+if (!jobCols.includes('diagnosis'))      db.prepare(`ALTER TABLE jobs ADD COLUMN diagnosis TEXT DEFAULT ''`).run();
+if (!jobCols.includes('invoice_status')) db.prepare(`ALTER TABLE jobs ADD COLUMN invoice_status TEXT DEFAULT 'Unpaid'`).run();
+if (!jobCols.includes('estimate_id'))    db.prepare(`ALTER TABLE jobs ADD COLUMN estimate_id INTEGER`).run();
+
+// Migrate: vehicles
+const vehCols = db.prepare(`PRAGMA table_info(vehicles)`).all().map(c => c.name);
+if (!vehCols.includes('fuel_type'))     db.prepare(`ALTER TABLE vehicles ADD COLUMN fuel_type TEXT DEFAULT ''`).run();
+if (!vehCols.includes('transmission'))  db.prepare(`ALTER TABLE vehicles ADD COLUMN transmission TEXT DEFAULT ''`).run();
+if (!vehCols.includes('engine'))        db.prepare(`ALTER TABLE vehicles ADD COLUMN engine TEXT DEFAULT ''`).run();
+
+// Migrate: settings (new columns)
+const settCols = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);
+const newSettCols = [
   ['tax_id',          "TEXT DEFAULT ''"],
   ['invoice_terms',   "TEXT DEFAULT 'Due on receipt'"],
   ['invoice_footer',  "TEXT DEFAULT 'Thank you for your business!'"],
   ['invoice_logo',    "TEXT DEFAULT ''"],
+  ['diagnostic_rate', 'REAL DEFAULT 0'],
+  ['fleet_rate',      'REAL DEFAULT 0'],
+  ['emergency_rate',  'REAL DEFAULT 0'],
+  ['service_fee',     'REAL DEFAULT 0'],
+  ['website',         "TEXT DEFAULT ''"],
+  ['business_hours',  "TEXT DEFAULT ''"],
+  ['warranty_terms',  "TEXT DEFAULT '12 months / 12,000 miles'"],
+  ['estimate_terms',  "TEXT DEFAULT ''"],
 ];
-for (const [col, def] of newCols) {
-  if (!existingCols.includes(col)) {
-    db.prepare(`ALTER TABLE settings ADD COLUMN ${col} ${def}`).run();
-  }
-}
-
-// Migrate: add columns to jobs for existing installs
-const jobCols = db.prepare(`PRAGMA table_info(jobs)`).all().map(c => c.name);
-if (!jobCols.includes('employee_id')) {
-  db.prepare(`ALTER TABLE jobs ADD COLUMN employee_id INTEGER REFERENCES employees(id)`).run();
-}
-if (!jobCols.includes('labor_hours')) {
-  db.prepare(`ALTER TABLE jobs ADD COLUMN labor_hours REAL DEFAULT 0`).run();
-}
-if (!jobCols.includes('labor_rate')) {
-  db.prepare(`ALTER TABLE jobs ADD COLUMN labor_rate REAL DEFAULT 0`).run();
+for (const [col, def] of newSettCols) {
+  if (!settCols.includes(col)) db.prepare(`ALTER TABLE settings ADD COLUMN ${col} ${def}`).run();
 }
 
 module.exports = db;

@@ -13,20 +13,20 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, notes } = req.body;
+  const { customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes } = req.body;
   const result = db.prepare(`
-    INSERT INTO vehicles (customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(customer_id, year, make, model, trim || '', color || '', plate || '', state || '', vin || '', miles || 0, oil_change_miles || 0, notes || '');
+    INSERT INTO vehicles (customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(customer_id, year, make, model, trim || '', color || '', plate || '', state || '', vin || '', miles || 0, oil_change_miles || 0, fuel_type || '', transmission || '', engine || '', notes || '');
   res.json({ id: result.lastInsertRowid, ...req.body });
 });
 
 router.put('/:id', (req, res) => {
-  const { year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, notes } = req.body;
+  const { year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes } = req.body;
   db.prepare(`
-    UPDATE vehicles SET year=?, make=?, model=?, trim=?, color=?, plate=?, state=?, vin=?, miles=?, oil_change_miles=?, notes=?
+    UPDATE vehicles SET year=?, make=?, model=?, trim=?, color=?, plate=?, state=?, vin=?, miles=?, oil_change_miles=?, fuel_type=?, transmission=?, engine=?, notes=?
     WHERE id=?
-  `).run(year, make, model, trim || '', color || '', plate || '', state || '', vin || '', miles || 0, oil_change_miles || 0, notes || '', req.params.id);
+  `).run(year, make, model, trim || '', color || '', plate || '', state || '', vin || '', miles || 0, oil_change_miles || 0, fuel_type || '', transmission || '', engine || '', notes || '', req.params.id);
   res.json({ success: true });
 });
 

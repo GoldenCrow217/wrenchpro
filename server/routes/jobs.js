@@ -16,20 +16,20 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate, parts, status, notes, employee_id } = req.body;
+  const { customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate, parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id } = req.body;
   const result = db.prepare(`
-    INSERT INTO jobs (customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate, parts, status, notes, employee_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(customer_id, vehicle_id, service, date, miles || 0, labor || 0, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0, parts || 0, status || 'Pending', notes || '', employee_id || null);
+    INSERT INTO jobs (customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate, parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(customer_id, vehicle_id, service, date, miles || 0, labor || 0, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0, parts || 0, status || 'Pending', notes || '', employee_id || null, complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null);
   res.json({ id: result.lastInsertRowid, ...req.body });
 });
 
 router.put('/:id', (req, res) => {
-  const { service, date, miles, labor, labor_hours, labor_rate, parts, status, notes, employee_id } = req.body;
+  const { service, date, miles, labor, labor_hours, labor_rate, parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id } = req.body;
   db.prepare(`
-    UPDATE jobs SET service=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?, status=?, notes=?, employee_id=?
+    UPDATE jobs SET service=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?, status=?, notes=?, employee_id=?, complaint=?, diagnosis=?, invoice_status=?, estimate_id=?
     WHERE id=?
-  `).run(service, date, miles || 0, labor || 0, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0, parts || 0, status || 'Pending', notes || '', employee_id || null, req.params.id);
+  `).run(service, date, miles || 0, labor || 0, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0, parts || 0, status || 'Pending', notes || '', employee_id || null, complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null, req.params.id);
   res.json({ success: true });
 });
 
