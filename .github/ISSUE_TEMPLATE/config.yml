@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Private beta support
+    url: https://github.com/GoldenCrow217/wrenchpro
+    about: During early testing, use the approved private support channel for sensitive business/customer data.

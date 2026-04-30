@@ -7,11 +7,13 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
-    "electron:dev": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "electron:dev": "electron .",
     "electron:build": "electron-builder --win",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux",
-    "rebuild-native": "electron-builder install-app-deps"
+    "rebuild-native": "electron-builder install-app-deps",
+    "smoke": "node scripts/smoke.js",
+    "test": "npm run smoke"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
@@ -85,5 +87,6 @@
       "repo": "wrenchpro",
       "releaseType": "release"
     }
-  }
+  },
+  "license": "UNLICENSED"
 }
