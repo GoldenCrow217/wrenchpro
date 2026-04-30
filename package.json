@@ -13,7 +13,9 @@
     "electron:build:linux": "electron-builder --linux",
     "rebuild-native": "electron-builder install-app-deps",
     "smoke": "node scripts/smoke.js",
-    "test": "npm run smoke"
+    "test": "npm run smoke",
+    "qa:api": "node scripts/api-qa.js",
+    "rebuild-node": "npm rebuild better-sqlite3"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",

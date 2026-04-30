@@ -50,6 +50,8 @@ npm run dev            # Start server with nodemon
 npm run electron:dev   # Start Electron app locally
 npm run smoke          # Start server with temp data and check /api/dashboard
 npm test               # Alias for smoke test
+npm run qa:api         # API workflow QA: lead -> customer/vehicle -> estimate -> job
+npm run rebuild-node   # Rebuild better-sqlite3 for local Node after Electron builds
 npm run electron:build # Build Windows installer
 npm run rebuild-native # Rebuild native deps for Electron packaging
 ```
@@ -88,7 +90,14 @@ Release candidates should pass at minimum:
 
 ```bash
 npm test
+npm run qa:api
 npm run electron:build
+```
+
+Note: `npm run electron:build` may rebuild native modules for Electron. If local `npm start`, `npm test`, or `npm run qa:api` fails afterward with a `better-sqlite3` Node ABI mismatch, run:
+
+```bash
+npm run rebuild-node
 ```
 
 ## License

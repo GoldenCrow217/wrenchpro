@@ -22,6 +22,9 @@ npm run electron:build
 npm run electron:build:mac
 npm run electron:build:linux
 npm run rebuild-native
+npm run rebuild-node
+npm run smoke
+npm run qa:api
 ```
 
 ## Repo Notes
@@ -45,6 +48,23 @@ As of initial workflow setup, the repo had active uncommitted changes in multipl
 - Keep route changes focused.
 - Avoid large frontend rewrites unless needed.
 - Run at least a smoke test before claiming a fix is complete.
+
+## Native Dependency Note
+
+`better-sqlite3` is a native dependency. Electron packaging may rebuild it for Electron's runtime ABI, while plain `node server/index.js` needs it built for the active local Node ABI.
+
+If local Node-based checks fail after an Electron build, run:
+
+```bash
+npm run rebuild-node
+```
+
+Then rerun:
+
+```bash
+npm test
+npm run qa:api
+```
 
 ## Future Technical Improvements To Consider
 

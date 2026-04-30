@@ -10,6 +10,12 @@ Use this for manual QA before releases.
 - [ ] Confirm database location and test data safety.
 - [ ] Use test records unless Brandon confirms real data can be edited.
 
+## Automated Local Checks
+
+- [ ] `npm test` passes.
+- [ ] `npm run qa:api` passes.
+- [ ] If either fails after `electron:build` with a `better-sqlite3` ABI error, run `npm run rebuild-node` and retry.
+
 ## Smoke Test
 
 - [ ] App launches without errors.
