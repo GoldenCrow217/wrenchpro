@@ -1,6 +1,6 @@
 {
   "name": "wrenchpro",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "WrenchPro Mobile Mechanic Manager",
   "author": "GoldenCrow217",
   "main": "electron/main.js",
