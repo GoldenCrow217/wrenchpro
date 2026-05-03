@@ -7,7 +7,7 @@ router.get('/', (req, res) => {
     SELECT v.*, c.first, c.last
     FROM vehicles v
     JOIN customers c ON v.customer_id = c.id
-    WHERE v.deleted_at IS NULL
+    WHERE v.deleted_at IS NULL AND c.deleted_at IS NULL
     ORDER BY v.year DESC
   `).all();
   res.json(vehicles);
@@ -15,6 +15,9 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const { customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes } = req.body;
+  if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
+  const cust = db.prepare('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL').get(customer_id);
+  if (!cust) return res.status(400).json({ error: 'Customer not found' });
   const result = db.prepare(`
     INSERT INTO vehicles (customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

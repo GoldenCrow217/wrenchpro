@@ -21,6 +21,13 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.13 - 2026-05-03
+
+### Fixed
+
+- `POST /api/vehicles` now validates `customer_id` exists and is not soft-deleted before insert — returns `400 { "error": "Customer not found" }` instead of a raw FK constraint error
+- Soft-deleting a customer now cascades to their vehicles — vehicles whose customer is deleted no longer appear in `GET /api/vehicles` or any joined views
+
 ## v1.0.12 - 2026-05-03
 
 ### Fixed

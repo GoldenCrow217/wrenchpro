@@ -35,6 +35,7 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   db.prepare("UPDATE customers SET deleted_at = datetime('now') WHERE id = ?").run(req.params.id);
+  db.prepare("UPDATE vehicles SET deleted_at = datetime('now') WHERE customer_id = ? AND deleted_at IS NULL").run(req.params.id);
   res.json({ success: true });
 });
 
