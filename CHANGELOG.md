@@ -21,6 +21,27 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.10 - 2026-05-03
+
+### Fixed
+
+- API validation: `POST /customers` requires first/last name; `POST /jobs` requires customer, vehicle, and date — all return `400 JSON` instead of SQLite stack traces
+- Global JSON error handler: unhandled server errors now always return `{ "error": "..." }` instead of HTML
+- Frontend `api()` helper: checks `response.ok`, toasts the server error message, and halts the save flow without closing the modal
+- Estimate convert: returns `400` with a clear message when no vehicle is set on the estimate
+- Job status standardized: `Done` renamed to `Complete` throughout UI, status filter, calendar, quick entry, and badge map; existing `Done` rows backfilled automatically on startup
+- `Canceled` jobs now receive `closed_at` timestamp (same as `Complete`)
+- Dashboard no longer counts soft-deleted customers, vehicles, or jobs; active job count excludes `Complete` and `Canceled`
+- Recent jobs panel on dashboard filters soft-deleted records
+
+### Added
+
+- Service address and travel/trip fee fields on job create/edit modal; service address auto-fills from customer address on new jobs
+- Travel fee appears as a line item on invoices and is included in the tax base and total
+- Service address shown in the Bill To section of invoices
+- Window focus refresh: app reloads data automatically when the window regains focus (covers import/API changes without restart)
+- `Canceled` status badge now renders as gray; `Partial` payment badge renders as amber
+
 ## v1.0.9 - 2026-05-03
 
 ### Added

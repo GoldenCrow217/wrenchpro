@@ -31,16 +31,17 @@ app.use('/api/time',         require('./routes/time'));
 app.use('/api/leads',        require('./routes/leads'));
 
 app.get('/api/dashboard', (req, res) => {
-  const totalRevenue = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM payments').get().total;
-  const totalExpenses = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM expenses').get().total;
-  const activeJobs = db.prepare("SELECT COUNT(*) as count FROM jobs WHERE status != 'Done'").get().count;
-  const totalCustomers = db.prepare('SELECT COUNT(*) as count FROM customers').get().count;
-  const totalVehicles = db.prepare('SELECT COUNT(*) as count FROM vehicles').get().count;
+  const totalRevenue   = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM payments').get().total;
+  const totalExpenses  = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM expenses').get().total;
+  const activeJobs     = db.prepare("SELECT COUNT(*) as count FROM jobs WHERE status NOT IN ('Complete','Canceled') AND deleted_at IS NULL").get().count;
+  const totalCustomers = db.prepare('SELECT COUNT(*) as count FROM customers WHERE deleted_at IS NULL').get().count;
+  const totalVehicles  = db.prepare('SELECT COUNT(*) as count FROM vehicles WHERE deleted_at IS NULL').get().count;
   const recentJobs = db.prepare(`
     SELECT j.*, c.first, c.last, v.year, v.make, v.model
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
-    JOIN vehicles v ON j.vehicle_id = v.id
+    JOIN vehicles v  ON j.vehicle_id  = v.id
+    WHERE j.deleted_at IS NULL
     ORDER BY j.date DESC LIMIT 5
   `).all();
   const recentPayments = db.prepare(`
@@ -49,6 +50,12 @@ app.get('/api/dashboard', (req, res) => {
     ORDER BY p.date DESC LIMIT 5
   `).all();
   res.json({ totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses, activeJobs, totalCustomers, totalVehicles, recentJobs, recentPayments });
+});
+
+// Global JSON error handler — prevents SQLite/Express stack traces reaching the client
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+  console.error(err.message);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 app.get(/^(?!\/api).*$/, (req, res) => {

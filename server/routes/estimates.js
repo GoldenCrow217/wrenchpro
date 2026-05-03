@@ -96,6 +96,7 @@ router.delete('/:id', (req, res) => {
 router.post('/:id/convert', (req, res) => {
   const est = db.prepare('SELECT * FROM estimates WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
   if (!est) return res.status(404).json({ error: 'Not found' });
+  if (!est.vehicle_id) return res.status(400).json({ error: 'A vehicle must be selected on the estimate before converting to a job' });
   const items = db.prepare('SELECT * FROM estimate_items WHERE estimate_id = ?').all(est.id);
   const labor = items.filter(i => i.type === 'labor').reduce((a, i) => a + i.amount, 0);
   const parts = items.filter(i => i.type !== 'labor').reduce((a, i) => a + i.amount, 0);

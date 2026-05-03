@@ -17,6 +17,8 @@ router.get('/:id', (req, res) => {
 
 router.post('/', (req, res) => {
   const { first, last, phone, email, address, billing_address, notes, status, tags, customer_type, preferred_contact } = req.body;
+  if (!first || !first.trim()) return res.status(400).json({ error: 'Customer first name is required' });
+  if (!last  || !last.trim())  return res.status(400).json({ error: 'Customer last name is required' });
   const result = db.prepare(
     'INSERT INTO customers (first, last, phone, email, address, billing_address, notes, status, tags, customer_type, preferred_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(first, last, phone || '', email || '', address || '', billing_address || '', notes || '', status || 'Active', tags || '', customer_type || 'Personal', preferred_contact || 'Phone');

@@ -30,6 +30,9 @@ router.post('/', (req, res) => {
     parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
     service_address, travel_fee
   } = req.body;
+  if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
+  if (!vehicle_id)  return res.status(400).json({ error: 'Vehicle is required' });
+  if (!date)        return res.status(400).json({ error: 'Date is required' });
   const result = db.prepare(`
     INSERT INTO jobs
       (customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
@@ -54,7 +57,8 @@ router.put('/:id', (req, res) => {
   } = req.body;
 
   const current = db.prepare('SELECT closed_at FROM jobs WHERE id = ?').get(req.params.id);
-  const closedAt = (status === 'Complete' && !(current && current.closed_at))
+  const isTerminal = status === 'Complete' || status === 'Canceled';
+  const closedAt = (isTerminal && !(current && current.closed_at))
     ? new Date().toISOString().replace('T', ' ').split('.')[0]
     : (current ? current.closed_at : null);
 
