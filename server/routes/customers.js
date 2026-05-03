@@ -3,15 +3,15 @@ const router = express.Router();
 const db = require('../database');
 
 router.get('/', (req, res) => {
-  const customers = db.prepare('SELECT * FROM customers ORDER BY last, first').all();
+  const customers = db.prepare('SELECT * FROM customers WHERE deleted_at IS NULL ORDER BY last, first').all();
   res.json(customers);
 });
 
 router.get('/:id', (req, res) => {
-  const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
+  const customer = db.prepare('SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
   if (!customer) return res.status(404).json({ error: 'Customer not found' });
-  const vehicles = db.prepare('SELECT * FROM vehicles WHERE customer_id = ?').all(req.params.id);
-  const jobs = db.prepare('SELECT * FROM jobs WHERE customer_id = ? ORDER BY date DESC').all(req.params.id);
+  const vehicles = db.prepare('SELECT * FROM vehicles WHERE customer_id = ? AND deleted_at IS NULL').all(req.params.id);
+  const jobs = db.prepare('SELECT * FROM jobs WHERE customer_id = ? AND deleted_at IS NULL ORDER BY date DESC').all(req.params.id);
   res.json({ ...customer, vehicles, jobs });
 });
 
@@ -32,7 +32,7 @@ router.put('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM customers WHERE id = ?').run(req.params.id);
+  db.prepare("UPDATE customers SET deleted_at = datetime('now') WHERE id = ?").run(req.params.id);
   res.json({ success: true });
 });
 

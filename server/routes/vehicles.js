@@ -4,9 +4,10 @@ const db = require('../database');
 
 router.get('/', (req, res) => {
   const vehicles = db.prepare(`
-    SELECT v.*, c.first, c.last 
-    FROM vehicles v 
+    SELECT v.*, c.first, c.last
+    FROM vehicles v
     JOIN customers c ON v.customer_id = c.id
+    WHERE v.deleted_at IS NULL
     ORDER BY v.year DESC
   `).all();
   res.json(vehicles);
@@ -31,7 +32,7 @@ router.put('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM vehicles WHERE id = ?').run(req.params.id);
+  db.prepare("UPDATE vehicles SET deleted_at = datetime('now') WHERE id = ?").run(req.params.id);
   res.json({ success: true });
 });
 

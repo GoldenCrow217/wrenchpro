@@ -340,22 +340,28 @@ if (!custCols.includes('tags'))             db.prepare(`ALTER TABLE customers AD
 if (!custCols.includes('customer_type'))    db.prepare(`ALTER TABLE customers ADD COLUMN customer_type TEXT DEFAULT 'Personal'`).run();
 if (!custCols.includes('preferred_contact'))db.prepare(`ALTER TABLE customers ADD COLUMN preferred_contact TEXT DEFAULT 'Phone'`).run();
 if (!custCols.includes('billing_address'))  db.prepare(`ALTER TABLE customers ADD COLUMN billing_address TEXT DEFAULT ''`).run();
+if (!custCols.includes('deleted_at'))       db.prepare(`ALTER TABLE customers ADD COLUMN deleted_at TEXT`).run();
 
 // Migrate: jobs
 const jobCols = db.prepare(`PRAGMA table_info(jobs)`).all().map(c => c.name);
-if (!jobCols.includes('employee_id'))    db.prepare(`ALTER TABLE jobs ADD COLUMN employee_id INTEGER REFERENCES employees(id)`).run();
-if (!jobCols.includes('labor_hours'))    db.prepare(`ALTER TABLE jobs ADD COLUMN labor_hours REAL DEFAULT 0`).run();
-if (!jobCols.includes('labor_rate'))     db.prepare(`ALTER TABLE jobs ADD COLUMN labor_rate REAL DEFAULT 0`).run();
-if (!jobCols.includes('complaint'))      db.prepare(`ALTER TABLE jobs ADD COLUMN complaint TEXT DEFAULT ''`).run();
-if (!jobCols.includes('diagnosis'))      db.prepare(`ALTER TABLE jobs ADD COLUMN diagnosis TEXT DEFAULT ''`).run();
-if (!jobCols.includes('invoice_status')) db.prepare(`ALTER TABLE jobs ADD COLUMN invoice_status TEXT DEFAULT 'Unpaid'`).run();
-if (!jobCols.includes('estimate_id'))    db.prepare(`ALTER TABLE jobs ADD COLUMN estimate_id INTEGER`).run();
+if (!jobCols.includes('employee_id'))      db.prepare(`ALTER TABLE jobs ADD COLUMN employee_id INTEGER REFERENCES employees(id)`).run();
+if (!jobCols.includes('labor_hours'))      db.prepare(`ALTER TABLE jobs ADD COLUMN labor_hours REAL DEFAULT 0`).run();
+if (!jobCols.includes('labor_rate'))       db.prepare(`ALTER TABLE jobs ADD COLUMN labor_rate REAL DEFAULT 0`).run();
+if (!jobCols.includes('complaint'))        db.prepare(`ALTER TABLE jobs ADD COLUMN complaint TEXT DEFAULT ''`).run();
+if (!jobCols.includes('diagnosis'))        db.prepare(`ALTER TABLE jobs ADD COLUMN diagnosis TEXT DEFAULT ''`).run();
+if (!jobCols.includes('invoice_status'))   db.prepare(`ALTER TABLE jobs ADD COLUMN invoice_status TEXT DEFAULT 'Unpaid'`).run();
+if (!jobCols.includes('estimate_id'))      db.prepare(`ALTER TABLE jobs ADD COLUMN estimate_id INTEGER`).run();
+if (!jobCols.includes('service_address'))  db.prepare(`ALTER TABLE jobs ADD COLUMN service_address TEXT DEFAULT ''`).run();
+if (!jobCols.includes('travel_fee'))       db.prepare(`ALTER TABLE jobs ADD COLUMN travel_fee REAL DEFAULT 0`).run();
+if (!jobCols.includes('closed_at'))        db.prepare(`ALTER TABLE jobs ADD COLUMN closed_at TEXT`).run();
+if (!jobCols.includes('deleted_at'))       db.prepare(`ALTER TABLE jobs ADD COLUMN deleted_at TEXT`).run();
 
 // Migrate: vehicles
 const vehCols = db.prepare(`PRAGMA table_info(vehicles)`).all().map(c => c.name);
 if (!vehCols.includes('fuel_type'))     db.prepare(`ALTER TABLE vehicles ADD COLUMN fuel_type TEXT DEFAULT ''`).run();
 if (!vehCols.includes('transmission'))  db.prepare(`ALTER TABLE vehicles ADD COLUMN transmission TEXT DEFAULT ''`).run();
 if (!vehCols.includes('engine'))        db.prepare(`ALTER TABLE vehicles ADD COLUMN engine TEXT DEFAULT ''`).run();
+if (!vehCols.includes('deleted_at'))    db.prepare(`ALTER TABLE vehicles ADD COLUMN deleted_at TEXT`).run();
 
 // Migrate: settings (new columns)
 const settCols = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);
@@ -376,5 +382,24 @@ const newSettCols = [
 for (const [col, def] of newSettCols) {
   if (!settCols.includes(col)) db.prepare(`ALTER TABLE settings ADD COLUMN ${col} ${def}`).run();
 }
+
+// Migrate: estimates
+const estCols = db.prepare(`PRAGMA table_info(estimates)`).all().map(c => c.name);
+if (!estCols.includes('approved_at'))     db.prepare(`ALTER TABLE estimates ADD COLUMN approved_at TEXT`).run();
+if (!estCols.includes('approved_by'))     db.prepare(`ALTER TABLE estimates ADD COLUMN approved_by TEXT DEFAULT ''`).run();
+if (!estCols.includes('approval_notes'))  db.prepare(`ALTER TABLE estimates ADD COLUMN approval_notes TEXT DEFAULT ''`).run();
+if (!estCols.includes('deleted_at'))      db.prepare(`ALTER TABLE estimates ADD COLUMN deleted_at TEXT`).run();
+
+// Migrate: estimate_items
+const estItemCols = db.prepare(`PRAGMA table_info(estimate_items)`).all().map(c => c.name);
+if (!estItemCols.includes('inventory_id')) db.prepare(`ALTER TABLE estimate_items ADD COLUMN inventory_id INTEGER REFERENCES parts_inventory(id)`).run();
+
+// Migrate: appointments
+const apptCols = db.prepare(`PRAGMA table_info(appointments)`).all().map(c => c.name);
+if (!apptCols.includes('customer_id'))  db.prepare(`ALTER TABLE appointments ADD COLUMN customer_id INTEGER REFERENCES customers(id)`).run();
+if (!apptCols.includes('vehicle_id'))   db.prepare(`ALTER TABLE appointments ADD COLUMN vehicle_id INTEGER REFERENCES vehicles(id)`).run();
+if (!apptCols.includes('address'))      db.prepare(`ALTER TABLE appointments ADD COLUMN address TEXT DEFAULT ''`).run();
+if (!apptCols.includes('notes'))        db.prepare(`ALTER TABLE appointments ADD COLUMN notes TEXT DEFAULT ''`).run();
+if (!apptCols.includes('estimate_id'))  db.prepare(`ALTER TABLE appointments ADD COLUMN estimate_id INTEGER`).run();
 
 module.exports = db;
