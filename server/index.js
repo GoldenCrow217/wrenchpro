@@ -42,6 +42,7 @@ app.get('/api/dashboard', (req, res) => {
     JOIN customers c ON j.customer_id = c.id
     JOIN vehicles v  ON j.vehicle_id  = v.id
     WHERE j.deleted_at IS NULL
+      AND j.status NOT IN ('Complete', 'Canceled')
     ORDER BY j.date DESC LIMIT 5
   `).all();
   const recentPayments = db.prepare(`

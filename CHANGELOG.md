@@ -21,6 +21,15 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.11 - 2026-05-03
+
+### Fixed
+
+- `POST /api/jobs` now validates that `customer_id` and `vehicle_id` exist in the database (and are not soft-deleted, and vehicle belongs to the customer) before inserting — returns `400 { "error": "Customer not found" }` or `"Vehicle not found"` instead of leaking raw SQLite foreign key wording
+- `POST /api/jobs` now stamps `closed_at` when creating a job with `Complete` or `Canceled` status (previously only the PUT path stamped it)
+- Backfill migration: existing `Complete`/`Canceled` jobs with null `closed_at` are stamped on startup
+- Dashboard recent jobs widget now only shows active statuses (excludes `Complete`, `Canceled`, and deleted rows)
+
 ## v1.0.10 - 2026-05-03
 
 ### Fixed

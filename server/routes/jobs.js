@@ -33,20 +33,30 @@ router.post('/', (req, res) => {
   if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
   if (!vehicle_id)  return res.status(400).json({ error: 'Vehicle is required' });
   if (!date)        return res.status(400).json({ error: 'Date is required' });
+
+  const cust = db.prepare('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL').get(customer_id);
+  if (!cust) return res.status(400).json({ error: 'Customer not found' });
+
+  const veh = db.prepare('SELECT id FROM vehicles WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(vehicle_id, customer_id);
+  if (!veh) return res.status(400).json({ error: 'Vehicle not found or does not belong to this customer' });
+
+  const isTerminal = (status === 'Complete' || status === 'Canceled');
+  const closedAt = isTerminal ? new Date().toISOString().replace('T', ' ').split('.')[0] : null;
+
   const result = db.prepare(`
     INSERT INTO jobs
       (customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
        parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
-       service_address, travel_fee)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       service_address, travel_fee, closed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     customer_id, vehicle_id, service, date, miles || 0,
     labor || 0, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
     parts || 0, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
-    service_address || '', travel_fee || 0
+    service_address || '', travel_fee || 0, closedAt
   );
-  res.json({ id: result.lastInsertRowid, ...req.body });
+  res.json({ id: result.lastInsertRowid, closed_at: closedAt, ...req.body });
 });
 
 router.put('/:id', (req, res) => {

@@ -336,6 +336,9 @@ db.prepare(`INSERT OR IGNORE INTO settings (id) VALUES (1)`).run();
 // Backfill: rename legacy 'Done' status to 'Complete' for consistency
 db.prepare(`UPDATE jobs SET status='Complete' WHERE status='Done'`).run();
 
+// Backfill: stamp closed_at for terminal jobs that were created before this field existed
+db.prepare(`UPDATE jobs SET closed_at=datetime('now') WHERE status IN ('Complete','Canceled') AND closed_at IS NULL`).run();
+
 // Migrate: customers
 const custCols = db.prepare(`PRAGMA table_info(customers)`).all().map(c => c.name);
 if (!custCols.includes('status'))           db.prepare(`ALTER TABLE customers ADD COLUMN status TEXT DEFAULT 'Active'`).run();
