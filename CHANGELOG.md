@@ -21,6 +21,13 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.12 - 2026-05-03
+
+### Fixed
+
+- Migration ordering bug: `closed_at` backfill ran before the `ALTER TABLE` that adds the column, crashing fresh database startup with `SqliteError: no such column: closed_at`. Data backfills are now ordered after all schema migrations.
+- `npm test` and `npm run qa:api` now pass on fresh databases.
+
 ## v1.0.11 - 2026-05-03
 
 ### Fixed

@@ -333,12 +333,6 @@ db.exec(`
 // Ensure one settings row always exists
 db.prepare(`INSERT OR IGNORE INTO settings (id) VALUES (1)`).run();
 
-// Backfill: rename legacy 'Done' status to 'Complete' for consistency
-db.prepare(`UPDATE jobs SET status='Complete' WHERE status='Done'`).run();
-
-// Backfill: stamp closed_at for terminal jobs that were created before this field existed
-db.prepare(`UPDATE jobs SET closed_at=datetime('now') WHERE status IN ('Complete','Canceled') AND closed_at IS NULL`).run();
-
 // Migrate: customers
 const custCols = db.prepare(`PRAGMA table_info(customers)`).all().map(c => c.name);
 if (!custCols.includes('status'))           db.prepare(`ALTER TABLE customers ADD COLUMN status TEXT DEFAULT 'Active'`).run();
@@ -407,5 +401,9 @@ if (!apptCols.includes('vehicle_id'))   db.prepare(`ALTER TABLE appointments ADD
 if (!apptCols.includes('address'))      db.prepare(`ALTER TABLE appointments ADD COLUMN address TEXT DEFAULT ''`).run();
 if (!apptCols.includes('notes'))        db.prepare(`ALTER TABLE appointments ADD COLUMN notes TEXT DEFAULT ''`).run();
 if (!apptCols.includes('estimate_id'))  db.prepare(`ALTER TABLE appointments ADD COLUMN estimate_id INTEGER`).run();
+
+// Data backfills — run after all schema migrations so columns are guaranteed to exist
+db.prepare(`UPDATE jobs SET status='Complete' WHERE status='Done'`).run();
+db.prepare(`UPDATE jobs SET closed_at=datetime('now') WHERE status IN ('Complete','Canceled') AND closed_at IS NULL`).run();
 
 module.exports = db;
