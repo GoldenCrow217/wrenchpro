@@ -22,10 +22,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* Main */
 .main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0;}
-.topbar{background:#fff;border-bottom:1px solid #e8e8e4;padding:.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:10;}
-.topbar h1{font-size:17px;font-weight:600;}
+.topbar{background:#fff;border-bottom:1px solid #e8e8e4;padding:.8rem 1.5rem;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:10;}
 .top-actions{display:flex;gap:8px;}
 .content{padding:1.5rem;flex:1;}
+/* Global search */
+.topbar-search{flex:1;max-width:500px;position:relative;display:flex;align-items:center;gap:6px;background:#f5f5f0;border:1px solid #e0e0dc;border-radius:8px;padding:0 10px;height:36px;}
+.topbar-search:focus-within{border-color:#378ADD;background:#fff;}
+.topbar-search input{flex:1;border:none;background:transparent;outline:none;font-size:13px;color:#1a1a1a;min-width:0;}
+.topbar-search input::placeholder{color:#9a9a94;}
+.search-kbd{font-size:11px;color:#aaa;background:#eee;border:1px solid #ddd;border-radius:3px;padding:1px 6px;white-space:nowrap;flex-shrink:0;font-family:inherit;}
+.gsearch-drop{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1px solid #e0e0dc;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:200;overflow:hidden;max-height:400px;overflow-y:auto;}
+.gsearch-section{padding:4px 0;}
+.gsearch-section+.gsearch-section{border-top:1px solid #f0f0ec;}
+.gsearch-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#aaa;font-weight:600;padding:6px 14px 2px;}
+.gsearch-item{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;color:#1a1a1a;}
+.gsearch-item:hover{background:#f5f5f0;}
+.gsearch-item-icon{color:#888;width:14px;text-align:center;flex-shrink:0;}
+.gsearch-item-label{font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gsearch-item-sub{font-size:12px;color:#888;flex-shrink:0;margin-left:8px;}
+.gsearch-empty{padding:16px 14px;text-align:center;color:#888;font-size:13px;}
 
 /* Buttons */
 .btn{padding:7px 14px;border-radius:8px;border:1px solid #d0d0cc;background:#fff;color:#1a1a1a;font-size:13px;cursor:pointer;font-family:inherit;transition:all .12s;}
@@ -213,11 +228,52 @@ tr:hover td{background:#fafaf8;}
 .warranty-exp{font-size:11px;}
 .warranty-expired{color:#A32D2D;font-weight:600;}
 .warranty-active{color:#3B6D11;font-weight:600;}
+
+/* SaaS auth */
+.auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#111827,#1f2937);padding:24px;}
+.auth-card{width:100%;max-width:420px;background:#fff;border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.28);padding:28px;}
+.auth-brand{font-size:26px;font-weight:800;margin-bottom:4px;color:#111827;}
+.auth-sub{font-size:13px;color:#6b7280;margin-bottom:20px;}
+.auth-tabs{display:flex;background:#f3f4f6;border-radius:12px;padding:4px;margin-bottom:16px;}
+.auth-tab{flex:1;border:0;background:transparent;border-radius:9px;padding:9px;font-weight:700;color:#6b7280;cursor:pointer;}
+.auth-tab.active{background:#fff;color:#111827;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.auth-form{display:none;}
+.auth-form.active{display:block;}
+.auth-msg{font-size:12px;margin-top:12px;color:#A32D2D;min-height:18px;}
+.auth-foot{font-size:11px;color:#9ca3af;margin-top:14px;line-height:1.4;}
+.app.authed{display:flex;}
+.app.locked{display:none;}
+.account-chip{font-size:12px;color:#666;margin-right:8px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 </style>
 </head>
 <body>
 
-<div class="app">
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">WrenchPro</div>
+    <div class="auth-sub">Sign in to your shop workspace.</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="login-tab" onclick="showAuthMode('login')">Log in</button>
+      <button class="auth-tab" id="signup-tab" onclick="showAuthMode('signup')">Create account</button>
+    </div>
+    <div class="auth-form active" id="login-form">
+      <div class="fr"><label>Email</label><input id="login-email" type="email" autocomplete="email"></div>
+      <div class="fr"><label>Password</label><input id="login-password" type="password" autocomplete="current-password"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="login()">Log in</button>
+    </div>
+    <div class="auth-form" id="signup-form">
+      <div class="fr"><label>Shop name</label><input id="signup-shop" autocomplete="organization" placeholder="Brandon's Mobile Repair"></div>
+      <div class="fr"><label>Your name</label><input id="signup-owner" autocomplete="name"></div>
+      <div class="fr"><label>Email</label><input id="signup-email" type="email" autocomplete="email"></div>
+      <div class="fr"><label>Password</label><input id="signup-password" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="signup()">Create shop</button>
+    </div>
+    <div class="auth-msg" id="auth-msg"></div>
+    <div class="auth-foot">Private SaaS pilot. Each account is isolated to its assigned shop.</div>
+  </div>
+</div>
+
+<div class="app locked" id="app-shell">
 <!-- SIDEBAR -->
 <div class="sidebar">
   <div class="brand"><div class="brand-name">WrenchPro</div><div class="brand-sub">Mobile Mechanic Manager</div></div>
@@ -253,8 +309,16 @@ tr:hover td{background:#fafaf8;}
 <!-- MAIN -->
 <div class="main">
   <div class="topbar">
-    <h1 id="ptitle">Dashboard</h1>
+    <div class="topbar-search" id="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#999;flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="global-search" placeholder="Search customers, vehicles, jobs, VINs..." autocomplete="off" oninput="runGlobalSearch(this.value)" onkeydown="handleSearchKey(event)">
+      <span class="search-kbd">⌘K</span>
+      <div id="gsearch-drop" class="gsearch-drop" style="display:none;"></div>
+    </div>
+    <span id="ptitle" style="display:none;">Dashboard</span>
     <div class="top-actions">
+      <span class="account-chip" id="account-chip"></span>
+      <button class="btn" onclick="logout()">Log out</button>
       <button class="btn" id="sec-btn" style="display:none;" onclick="secAction()"></button>
       <button class="btn btn-primary" id="pri-btn" onclick="priAction()">+ New Job</button>
     </div>
@@ -264,7 +328,6 @@ tr:hover td{background:#fafaf8;}
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem;">
-        <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
         <button class="btn" onclick="openCustModal()">+ New Customer</button>
         <button class="btn" onclick="openPmtModal()">+ Record Payment</button>
         <button class="btn" onclick="openApptModal(today())">+ Appointment</button>
@@ -1341,6 +1404,8 @@ tr:hover td{background:#fafaf8;}
 
 <script>
 const API = '';
+const AUTH_KEY = 'wrenchpro.auth.v1';
+let authState = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
 let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[], estimates:[], inventory:[], catalog:[], inspections:[], warranties:[], timeLogs:[], leads:[] };
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
@@ -1374,28 +1439,112 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'), 2500);
 }
 
+function setAuthMsg(msg){ document.getElementById('auth-msg').textContent = msg || ''; }
+function showAuthMode(mode){
+  document.getElementById('login-tab').classList.toggle('active', mode==='login');
+  document.getElementById('signup-tab').classList.toggle('active', mode==='signup');
+  document.getElementById('login-form').classList.toggle('active', mode==='login');
+  document.getElementById('signup-form').classList.toggle('active', mode==='signup');
+  setAuthMsg('');
+}
+function saveAuth(data){
+  authState = data;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(authState));
+}
+function clearAuth(){
+  authState = null;
+  localStorage.removeItem(AUTH_KEY);
+}
+function authToken(){ return authState?.session?.access_token || ''; }
+function refreshToken(){ return authState?.session?.refresh_token || ''; }
+function tokenExpiresSoon(){
+  const expiresAt = authState?.session?.expires_at;
+  if(!expiresAt) return false;
+  return (expiresAt * 1000) - Date.now() < 120000;
+}
+async function refreshAuthSession(){
+  if(!refreshToken()) return false;
+  try{
+    const data = await api('POST','/api/auth/refresh',{refreshToken:refreshToken()}, { skipAuth:true, silent:true });
+    saveAuth(data);
+    return true;
+  }catch(e){
+    clearAuth();
+    return false;
+  }
+}
+function showApp(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app-shell').classList.remove('locked');
+  document.getElementById('app-shell').classList.add('authed');
+  const email = authState?.user?.email || '';
+  const shop = authState?.membership?.shop_name || 'Shop';
+  document.getElementById('account-chip').textContent = email ? `${shop} · ${email}` : shop;
+}
+function showLogin(){
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('app-shell').classList.add('locked');
+  document.getElementById('app-shell').classList.remove('authed');
+}
+async function login(){
+  setAuthMsg('');
+  try{
+    const data = await api('POST','/api/auth/login',{email:document.getElementById('login-email').value,password:document.getElementById('login-password').value}, { skipAuth:true });
+    saveAuth(data); showApp(); await loadAll(); toast('Logged in');
+  }catch(e){ setAuthMsg(e.message); }
+}
+async function signup(){
+  setAuthMsg('');
+  try{
+    const data = await api('POST','/api/auth/signup',{shopName:document.getElementById('signup-shop').value,ownerName:document.getElementById('signup-owner').value,email:document.getElementById('signup-email').value,password:document.getElementById('signup-password').value}, { skipAuth:true });
+    if(data.emailConfirmationRequired){ setAuthMsg('Account created. Check your email to confirm, then log in.'); showAuthMode('login'); return; }
+    saveAuth(data); showApp(); await loadAll(); toast('Shop created');
+  }catch(e){ setAuthMsg(e.message); }
+}
+async function logout(){
+  try{ await api('POST','/api/auth/logout',null,{ skipAuth:true }); }catch(e){}
+  clearAuth(); showLogin();
+}
+async function initAuth(){
+  if(!authToken()){ showLogin(); return; }
+  try{
+    if(tokenExpiresSoon()) await refreshAuthSession();
+    const me = await api('GET','/api/auth/me');
+    authState.user = me.user; authState.membership = me.membership; saveAuth(authState);
+    showApp(); await loadAll();
+  }catch(e){ clearAuth(); showLogin(); }
+}
+
 function addDays(d, n){
   const dt = new Date(d); dt.setDate(dt.getDate()+n);
   return dt.toISOString().split('T')[0];
 }
 
 // ── API calls ──
-async function api(method, path, body){
+async function api(method, path, body, options={}){
+  if(!options.skipAuth && tokenExpiresSoon()) await refreshAuthSession();
   const opts = { method, headers:{'Content-Type':'application/json'} };
-  if(body) opts.body = JSON.stringify(body);
-  const r = await fetch(API+path, opts);
+  if(!options.skipAuth && authToken()) opts.headers.Authorization = `Bearer ${authToken()}`;
+  if(body !== undefined && body !== null) opts.body = JSON.stringify(body);
+  let r = await fetch(API+path, opts);
+  if(r.status===401 && !options.skipAuth && !options.retried && await refreshAuthSession()){
+    opts.headers.Authorization = `Bearer ${authToken()}`;
+    r = await fetch(API+path, opts);
+  }
   if(!r.ok){
     const err = await r.json().catch(()=>({error:'Request failed'}));
     const msg = err.error || 'Request failed';
-    toast(msg);
+    if(r.status===401 && !options.skipAuth){ clearAuth(); showLogin(); }
+    if(!options.silent) toast(msg);
     throw new Error(msg);
   }
-  return r.json();
+  return r.status===204 ? null : r.json();
 }
 
 // Refresh data when window regains focus (e.g. after import or external API change)
 let _focusRefreshTimer = null;
 window.addEventListener('focus', ()=>{
+  if(!authToken()) return;
   clearTimeout(_focusRefreshTimer);
   _focusRefreshTimer = setTimeout(()=>loadAll(), 400);
 });
@@ -3633,13 +3782,122 @@ async function deleteTimeLog(id){
   await loadAll(); toast('Entry deleted');
 }
 
+// ── Global Search ──
+function htmlEnc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function runGlobalSearch(q){
+  const drop=document.getElementById('gsearch-drop');
+  if(!q.trim()){drop.style.display='none';return;}
+  const t=q.toLowerCase();
+  const custMatches=state.customers.filter(c=>{
+    const name=`${c.first||''} ${c.last||''}`.toLowerCase();
+    return name.includes(t)||(c.phone||'').toLowerCase().includes(t)||(c.email||'').toLowerCase().includes(t);
+  }).slice(0,5);
+  const vehMatches=state.vehicles.filter(v=>{
+    const desc=`${v.year||''} ${v.make||''} ${v.model||''}`.toLowerCase();
+    return desc.includes(t)||(v.plate||'').toLowerCase().includes(t)||(v.vin||'').toLowerCase().includes(t);
+  }).slice(0,5);
+  const jobMatches=state.jobs.filter(j=>{
+    const svc=(j.service||'').toLowerCase();
+    const name=`${j.first||''} ${j.last||''}`.toLowerCase();
+    const veh=`${j.year||''} ${j.make||''} ${j.model||''}`.toLowerCase();
+    return svc.includes(t)||name.includes(t)||veh.includes(t)||(j.plate||'').toLowerCase().includes(t);
+  }).slice(0,5);
+  if(!custMatches.length&&!vehMatches.length&&!jobMatches.length){
+    drop.innerHTML=`<div class="gsearch-empty">No results for "${htmlEnc(q)}"</div>`;
+    drop.style.display='';return;
+  }
+  let html='';
+  if(custMatches.length){
+    html+='<div class="gsearch-section"><div class="gsearch-section-title">Customers</div>';
+    html+=custMatches.map(c=>{
+      const name=`${c.first||''} ${c.last||''}`.trim()||'(no name)';
+      const sub=c.phone||c.email||'';
+      return `<div class="gsearch-item" onclick="gotoCustomer(${c.id})"><span class="gsearch-item-icon">◉</span><span class="gsearch-item-label">${htmlEnc(name)}</span>${sub?`<span class="gsearch-item-sub">${htmlEnc(sub)}</span>`:''}</div>`;
+    }).join('');
+    html+='</div>';
+  }
+  if(vehMatches.length){
+    html+='<div class="gsearch-section"><div class="gsearch-section-title">Vehicles</div>';
+    html+=vehMatches.map(v=>{
+      const desc=`${v.year||''} ${v.make||''} ${v.model||''}`.trim();
+      const sub=v.plate||(v.vin?'…'+v.vin.slice(-6):'');
+      return `<div class="gsearch-item" onclick="gotoVehicle(${v.id})"><span class="gsearch-item-icon">▣</span><span class="gsearch-item-label">${htmlEnc(desc)}</span>${sub?`<span class="gsearch-item-sub">${htmlEnc(sub)}</span>`:''}</div>`;
+    }).join('');
+    html+='</div>';
+  }
+  if(jobMatches.length){
+    html+='<div class="gsearch-section"><div class="gsearch-section-title">Jobs</div>';
+    html+=jobMatches.map(j=>{
+      const svc=j.service||`Job #${j.id}`;
+      const name=`${j.first||''} ${j.last||''}`.trim();
+      return `<div class="gsearch-item" onclick="gotoJob(${j.id})"><span class="gsearch-item-icon">⚙</span><span class="gsearch-item-label">${htmlEnc(svc)}</span>${name?`<span class="gsearch-item-sub">${htmlEnc(name)}</span>`:''}</div>`;
+    }).join('');
+    html+='</div>';
+  }
+  drop.innerHTML=html;
+  drop.style.display='';
+}
+
+function closeGlobalSearch(){
+  document.getElementById('global-search').value='';
+  document.getElementById('gsearch-drop').style.display='none';
+}
+
+function handleSearchKey(e){
+  if(e.key==='Escape') closeGlobalSearch();
+}
+
+function navEl(page){ return document.querySelector(`.nav-item[onclick="sp('${page}',this)"]`); }
+
+function gotoCustomer(id){
+  closeGlobalSearch();
+  sp('customers', navEl('customers'));
+  openCustDetail(id);
+}
+
+function gotoVehicle(id){
+  closeGlobalSearch();
+  sp('vehicles', navEl('vehicles'));
+  const v=state.vehicles.find(x=>x.id===id);
+  if(v){
+    const inp=document.getElementById('veh-search');
+    if(inp){inp.value=v.plate||(v.vin||'');renderVehicles();}
+  }
+}
+
+function gotoJob(id){
+  closeGlobalSearch();
+  sp('jobs', navEl('jobs'));
+  const j=state.jobs.find(x=>x.id===id);
+  if(j){
+    const inp=document.getElementById('job-search');
+    if(inp){inp.value=j.service||'';renderJobs();}
+  }
+}
+
+// ⌘K / Ctrl+K to focus global search
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){
+    e.preventDefault();
+    const inp=document.getElementById('global-search');
+    inp.focus();inp.select();
+  }
+});
+
+// Close search dropdown on outside click
+document.addEventListener('click',e=>{
+  const wrap=document.getElementById('topbar-search');
+  if(wrap&&!wrap.contains(e.target)) document.getElementById('gsearch-drop').style.display='none';
+});
+
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(o=>{
   o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
 });
 
 // Boot
-loadAll();
+initAuth();
 </script>
 </body>
 </html>
