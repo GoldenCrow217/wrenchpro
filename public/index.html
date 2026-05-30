@@ -228,52 +228,11 @@ tr:hover td{background:#fafaf8;}
 .warranty-exp{font-size:11px;}
 .warranty-expired{color:#A32D2D;font-weight:600;}
 .warranty-active{color:#3B6D11;font-weight:600;}
-
-/* SaaS auth */
-.auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#111827,#1f2937);padding:24px;}
-.auth-card{width:100%;max-width:420px;background:#fff;border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.28);padding:28px;}
-.auth-brand{font-size:26px;font-weight:800;margin-bottom:4px;color:#111827;}
-.auth-sub{font-size:13px;color:#6b7280;margin-bottom:20px;}
-.auth-tabs{display:flex;background:#f3f4f6;border-radius:12px;padding:4px;margin-bottom:16px;}
-.auth-tab{flex:1;border:0;background:transparent;border-radius:9px;padding:9px;font-weight:700;color:#6b7280;cursor:pointer;}
-.auth-tab.active{background:#fff;color:#111827;box-shadow:0 1px 4px rgba(0,0,0,.08);}
-.auth-form{display:none;}
-.auth-form.active{display:block;}
-.auth-msg{font-size:12px;margin-top:12px;color:#A32D2D;min-height:18px;}
-.auth-foot{font-size:11px;color:#9ca3af;margin-top:14px;line-height:1.4;}
-.app.authed{display:flex;}
-.app.locked{display:none;}
-.account-chip{font-size:12px;color:#666;margin-right:8px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 </style>
 </head>
 <body>
 
-<div class="auth-screen" id="auth-screen">
-  <div class="auth-card">
-    <div class="auth-brand">WrenchPro</div>
-    <div class="auth-sub">Sign in to your shop workspace.</div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="login-tab" onclick="showAuthMode('login')">Log in</button>
-      <button class="auth-tab" id="signup-tab" onclick="showAuthMode('signup')">Create account</button>
-    </div>
-    <div class="auth-form active" id="login-form">
-      <div class="fr"><label>Email</label><input id="login-email" type="email" autocomplete="email"></div>
-      <div class="fr"><label>Password</label><input id="login-password" type="password" autocomplete="current-password"></div>
-      <button class="btn btn-primary" style="width:100%;" onclick="login()">Log in</button>
-    </div>
-    <div class="auth-form" id="signup-form">
-      <div class="fr"><label>Shop name</label><input id="signup-shop" autocomplete="organization" placeholder="Brandon's Mobile Repair"></div>
-      <div class="fr"><label>Your name</label><input id="signup-owner" autocomplete="name"></div>
-      <div class="fr"><label>Email</label><input id="signup-email" type="email" autocomplete="email"></div>
-      <div class="fr"><label>Password</label><input id="signup-password" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
-      <button class="btn btn-primary" style="width:100%;" onclick="signup()">Create shop</button>
-    </div>
-    <div class="auth-msg" id="auth-msg"></div>
-    <div class="auth-foot">Private SaaS pilot. Each account is isolated to its assigned shop.</div>
-  </div>
-</div>
-
-<div class="app locked" id="app-shell">
+<div class="app">
 <!-- SIDEBAR -->
 <div class="sidebar">
   <div class="brand"><div class="brand-name">WrenchPro</div><div class="brand-sub">Mobile Mechanic Manager</div></div>
@@ -317,8 +276,6 @@ tr:hover td{background:#fafaf8;}
     </div>
     <span id="ptitle" style="display:none;">Dashboard</span>
     <div class="top-actions">
-      <span class="account-chip" id="account-chip"></span>
-      <button class="btn" onclick="logout()">Log out</button>
       <button class="btn" id="sec-btn" style="display:none;" onclick="secAction()"></button>
       <button class="btn btn-primary" id="pri-btn" onclick="priAction()">+ New Job</button>
     </div>
@@ -1404,8 +1361,6 @@ tr:hover td{background:#fafaf8;}
 
 <script>
 const API = '';
-const AUTH_KEY = 'wrenchpro.auth.v1';
-let authState = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
 let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[], estimates:[], inventory:[], catalog:[], inspections:[], warranties:[], timeLogs:[], leads:[] };
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
@@ -1439,112 +1394,28 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'), 2500);
 }
 
-function setAuthMsg(msg){ document.getElementById('auth-msg').textContent = msg || ''; }
-function showAuthMode(mode){
-  document.getElementById('login-tab').classList.toggle('active', mode==='login');
-  document.getElementById('signup-tab').classList.toggle('active', mode==='signup');
-  document.getElementById('login-form').classList.toggle('active', mode==='login');
-  document.getElementById('signup-form').classList.toggle('active', mode==='signup');
-  setAuthMsg('');
-}
-function saveAuth(data){
-  authState = data;
-  localStorage.setItem(AUTH_KEY, JSON.stringify(authState));
-}
-function clearAuth(){
-  authState = null;
-  localStorage.removeItem(AUTH_KEY);
-}
-function authToken(){ return authState?.session?.access_token || ''; }
-function refreshToken(){ return authState?.session?.refresh_token || ''; }
-function tokenExpiresSoon(){
-  const expiresAt = authState?.session?.expires_at;
-  if(!expiresAt) return false;
-  return (expiresAt * 1000) - Date.now() < 120000;
-}
-async function refreshAuthSession(){
-  if(!refreshToken()) return false;
-  try{
-    const data = await api('POST','/api/auth/refresh',{refreshToken:refreshToken()}, { skipAuth:true, silent:true });
-    saveAuth(data);
-    return true;
-  }catch(e){
-    clearAuth();
-    return false;
-  }
-}
-function showApp(){
-  document.getElementById('auth-screen').style.display='none';
-  document.getElementById('app-shell').classList.remove('locked');
-  document.getElementById('app-shell').classList.add('authed');
-  const email = authState?.user?.email || '';
-  const shop = authState?.membership?.shop_name || 'Shop';
-  document.getElementById('account-chip').textContent = email ? `${shop} · ${email}` : shop;
-}
-function showLogin(){
-  document.getElementById('auth-screen').style.display='flex';
-  document.getElementById('app-shell').classList.add('locked');
-  document.getElementById('app-shell').classList.remove('authed');
-}
-async function login(){
-  setAuthMsg('');
-  try{
-    const data = await api('POST','/api/auth/login',{email:document.getElementById('login-email').value,password:document.getElementById('login-password').value}, { skipAuth:true });
-    saveAuth(data); showApp(); await loadAll(); toast('Logged in');
-  }catch(e){ setAuthMsg(e.message); }
-}
-async function signup(){
-  setAuthMsg('');
-  try{
-    const data = await api('POST','/api/auth/signup',{shopName:document.getElementById('signup-shop').value,ownerName:document.getElementById('signup-owner').value,email:document.getElementById('signup-email').value,password:document.getElementById('signup-password').value}, { skipAuth:true });
-    if(data.emailConfirmationRequired){ setAuthMsg('Account created. Check your email to confirm, then log in.'); showAuthMode('login'); return; }
-    saveAuth(data); showApp(); await loadAll(); toast('Shop created');
-  }catch(e){ setAuthMsg(e.message); }
-}
-async function logout(){
-  try{ await api('POST','/api/auth/logout',null,{ skipAuth:true }); }catch(e){}
-  clearAuth(); showLogin();
-}
-async function initAuth(){
-  if(!authToken()){ showLogin(); return; }
-  try{
-    if(tokenExpiresSoon()) await refreshAuthSession();
-    const me = await api('GET','/api/auth/me');
-    authState.user = me.user; authState.membership = me.membership; saveAuth(authState);
-    showApp(); await loadAll();
-  }catch(e){ clearAuth(); showLogin(); }
-}
-
 function addDays(d, n){
   const dt = new Date(d); dt.setDate(dt.getDate()+n);
   return dt.toISOString().split('T')[0];
 }
 
 // ── API calls ──
-async function api(method, path, body, options={}){
-  if(!options.skipAuth && tokenExpiresSoon()) await refreshAuthSession();
+async function api(method, path, body){
   const opts = { method, headers:{'Content-Type':'application/json'} };
-  if(!options.skipAuth && authToken()) opts.headers.Authorization = `Bearer ${authToken()}`;
-  if(body !== undefined && body !== null) opts.body = JSON.stringify(body);
-  let r = await fetch(API+path, opts);
-  if(r.status===401 && !options.skipAuth && !options.retried && await refreshAuthSession()){
-    opts.headers.Authorization = `Bearer ${authToken()}`;
-    r = await fetch(API+path, opts);
-  }
+  if(body) opts.body = JSON.stringify(body);
+  const r = await fetch(API+path, opts);
   if(!r.ok){
     const err = await r.json().catch(()=>({error:'Request failed'}));
     const msg = err.error || 'Request failed';
-    if(r.status===401 && !options.skipAuth){ clearAuth(); showLogin(); }
-    if(!options.silent) toast(msg);
+    toast(msg);
     throw new Error(msg);
   }
-  return r.status===204 ? null : r.json();
+  return r.json();
 }
 
 // Refresh data when window regains focus (e.g. after import or external API change)
 let _focusRefreshTimer = null;
 window.addEventListener('focus', ()=>{
-  if(!authToken()) return;
   clearTimeout(_focusRefreshTimer);
   _focusRefreshTimer = setTimeout(()=>loadAll(), 400);
 });
@@ -3844,9 +3715,7 @@ function closeGlobalSearch(){
   document.getElementById('gsearch-drop').style.display='none';
 }
 
-function handleSearchKey(e){
-  if(e.key==='Escape') closeGlobalSearch();
-}
+function handleSearchKey(e){ if(e.key==='Escape') closeGlobalSearch(); }
 
 function navEl(page){ return document.querySelector(`.nav-item[onclick="sp('${page}',this)"]`); }
 
@@ -3860,32 +3729,20 @@ function gotoVehicle(id){
   closeGlobalSearch();
   sp('vehicles', navEl('vehicles'));
   const v=state.vehicles.find(x=>x.id===id);
-  if(v){
-    const inp=document.getElementById('veh-search');
-    if(inp){inp.value=v.plate||(v.vin||'');renderVehicles();}
-  }
+  if(v){ const inp=document.getElementById('veh-search'); if(inp){inp.value=v.plate||(v.vin||'');renderVehicles();} }
 }
 
 function gotoJob(id){
   closeGlobalSearch();
   sp('jobs', navEl('jobs'));
   const j=state.jobs.find(x=>x.id===id);
-  if(j){
-    const inp=document.getElementById('job-search');
-    if(inp){inp.value=j.service||'';renderJobs();}
-  }
+  if(j){ const inp=document.getElementById('job-search'); if(inp){inp.value=j.service||'';renderJobs();} }
 }
 
-// ⌘K / Ctrl+K to focus global search
 document.addEventListener('keydown',e=>{
-  if((e.metaKey||e.ctrlKey)&&e.key==='k'){
-    e.preventDefault();
-    const inp=document.getElementById('global-search');
-    inp.focus();inp.select();
-  }
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); const inp=document.getElementById('global-search'); inp.focus(); inp.select(); }
 });
 
-// Close search dropdown on outside click
 document.addEventListener('click',e=>{
   const wrap=document.getElementById('topbar-search');
   if(wrap&&!wrap.contains(e.target)) document.getElementById('gsearch-drop').style.display='none';
@@ -3897,7 +3754,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 });
 
 // Boot
-initAuth();
+loadAll();
 </script>
 </body>
 </html>
