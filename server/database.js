@@ -322,12 +322,45 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS shops (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    owner_email TEXT DEFAULT '',
+    plan_status TEXT DEFAULT 'trial',
+    supabase_org_id TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS shop_memberships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL,
+    email TEXT NOT NULL,
+    role TEXT DEFAULT 'mechanic',
+    display_name TEXT DEFAULT '',
+    supabase_user_id TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (shop_id) REFERENCES shops(id),
+    UNIQUE (shop_id, email)
+  );
+
+  CREATE TABLE IF NOT EXISTS inspection_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inspection_item_id INTEGER NOT NULL,
+    file_path TEXT,
+    caption TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (inspection_item_id) REFERENCES inspection_items(id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_estimates_customer ON estimates(customer_id);
   CREATE INDEX IF NOT EXISTS idx_est_items_estimate ON estimate_items(estimate_id);
   CREATE INDEX IF NOT EXISTS idx_inspections_customer ON inspections(customer_id);
   CREATE INDEX IF NOT EXISTS idx_insp_items_insp ON inspection_items(inspection_id);
+  CREATE INDEX IF NOT EXISTS idx_insp_photos_item ON inspection_photos(inspection_item_id);
   CREATE INDEX IF NOT EXISTS idx_warranties_customer ON warranties(customer_id);
   CREATE INDEX IF NOT EXISTS idx_timelogs_employee ON time_logs(employee_id);
+  CREATE INDEX IF NOT EXISTS idx_shop_memberships_shop ON shop_memberships(shop_id);
+  CREATE INDEX IF NOT EXISTS idx_shop_memberships_email ON shop_memberships(email);
 `);
 
 // Ensure one settings row always exists
@@ -355,6 +388,7 @@ if (!jobCols.includes('service_address'))  db.prepare(`ALTER TABLE jobs ADD COLU
 if (!jobCols.includes('travel_fee'))       db.prepare(`ALTER TABLE jobs ADD COLUMN travel_fee REAL DEFAULT 0`).run();
 if (!jobCols.includes('closed_at'))        db.prepare(`ALTER TABLE jobs ADD COLUMN closed_at TEXT`).run();
 if (!jobCols.includes('deleted_at'))       db.prepare(`ALTER TABLE jobs ADD COLUMN deleted_at TEXT`).run();
+if (!jobCols.includes('notify_en_route'))  db.prepare(`ALTER TABLE jobs ADD COLUMN notify_en_route INTEGER DEFAULT 1`).run();
 
 // Migrate: vehicles
 const vehCols = db.prepare(`PRAGMA table_info(vehicles)`).all().map(c => c.name);
