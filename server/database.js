@@ -101,6 +101,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
     date TEXT,
     description TEXT,
     category TEXT,
@@ -225,8 +226,24 @@ db.exec(`
     FOREIGN KEY (estimate_id) REFERENCES estimates(id)
   );
 
+  CREATE TABLE IF NOT EXISTS job_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL,
+    type TEXT DEFAULT 'labor',
+    description TEXT DEFAULT '',
+    qty REAL DEFAULT 1,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0,
+    taxable INTEGER DEFAULT 0,
+    inventory_id INTEGER REFERENCES parts_inventory(id),
+    FOREIGN KEY (job_id) REFERENCES jobs(id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_job_items_job ON job_items(job_id);
+
   CREATE TABLE IF NOT EXISTS parts_inventory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
     name TEXT NOT NULL,
     part_number TEXT DEFAULT '',
     vendor TEXT DEFAULT '',
@@ -241,6 +258,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS service_catalog (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
     name TEXT NOT NULL,
     description TEXT DEFAULT '',
     category TEXT DEFAULT 'General',
@@ -305,6 +323,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS leads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
     first TEXT NOT NULL,
     last TEXT DEFAULT '',
     phone TEXT DEFAULT '',
@@ -322,16 +341,93 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS shops (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    owner_email TEXT DEFAULT '',
+    plan_status TEXT DEFAULT 'trial',
+    supabase_org_id TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS shop_memberships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL,
+    email TEXT NOT NULL,
+    role TEXT DEFAULT 'mechanic',
+    display_name TEXT DEFAULT '',
+    supabase_user_id TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (shop_id) REFERENCES shops(id),
+    UNIQUE (shop_id, email)
+  );
+
+  CREATE TABLE IF NOT EXISTS inspection_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inspection_item_id INTEGER NOT NULL,
+    file_path TEXT,
+    caption TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (inspection_item_id) REFERENCES inspection_items(id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_estimates_customer ON estimates(customer_id);
   CREATE INDEX IF NOT EXISTS idx_est_items_estimate ON estimate_items(estimate_id);
   CREATE INDEX IF NOT EXISTS idx_inspections_customer ON inspections(customer_id);
   CREATE INDEX IF NOT EXISTS idx_insp_items_insp ON inspection_items(inspection_id);
+  CREATE INDEX IF NOT EXISTS idx_insp_photos_item ON inspection_photos(inspection_item_id);
   CREATE INDEX IF NOT EXISTS idx_warranties_customer ON warranties(customer_id);
   CREATE INDEX IF NOT EXISTS idx_timelogs_employee ON time_logs(employee_id);
+  CREATE INDEX IF NOT EXISTS idx_shop_memberships_shop ON shop_memberships(shop_id);
+  CREATE INDEX IF NOT EXISTS idx_shop_memberships_email ON shop_memberships(email);
+
+  CREATE TABLE IF NOT EXISTS shop_settings (
+    shop_id INTEGER PRIMARY KEY,
+    business_name TEXT DEFAULT '',
+    owner_name TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
+    email TEXT DEFAULT '',
+    address TEXT DEFAULT '',
+    service_area TEXT DEFAULT '',
+    website TEXT DEFAULT '',
+    business_hours TEXT DEFAULT '',
+    default_labor_rate REAL DEFAULT 0,
+    diagnostic_rate REAL DEFAULT 0,
+    fleet_rate REAL DEFAULT 0,
+    emergency_rate REAL DEFAULT 0,
+    service_fee REAL DEFAULT 0,
+    default_pay_method TEXT DEFAULT 'Cash',
+    tax_rate REAL DEFAULT 0,
+    oil_warn_miles INTEGER DEFAULT 1500,
+    currency_symbol TEXT DEFAULT '$',
+    tax_id TEXT DEFAULT '',
+    invoice_terms TEXT DEFAULT 'Due on receipt',
+    invoice_footer TEXT DEFAULT 'Thank you for your business!',
+    invoice_logo TEXT DEFAULT '',
+    warranty_terms TEXT DEFAULT '12 months / 12,000 miles',
+    estimate_terms TEXT DEFAULT '',
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (shop_id) REFERENCES shops(id)
+  );
 `);
 
 // Ensure one settings row always exists
 db.prepare(`INSERT OR IGNORE INTO settings (id) VALUES (1)`).run();
+
+// Migrate: shops and hosted SaaS memberships
+const shopCols = db.prepare(`PRAGMA table_info(shops)`).all().map(c => c.name);
+if (!shopCols.includes('owner_email'))     db.prepare(`ALTER TABLE shops ADD COLUMN owner_email TEXT DEFAULT ''`).run();
+if (!shopCols.includes('plan_status'))     db.prepare(`ALTER TABLE shops ADD COLUMN plan_status TEXT DEFAULT 'trial'`).run();
+if (!shopCols.includes('supabase_org_id')) db.prepare(`ALTER TABLE shops ADD COLUMN supabase_org_id TEXT DEFAULT ''`).run();
+if (!shopCols.includes('created_at'))      db.prepare(`ALTER TABLE shops ADD COLUMN created_at TEXT DEFAULT ''`).run();
+
+const memberCols = db.prepare(`PRAGMA table_info(shop_memberships)`).all().map(c => c.name);
+if (!memberCols.includes('role'))             db.prepare(`ALTER TABLE shop_memberships ADD COLUMN role TEXT DEFAULT 'mechanic'`).run();
+if (!memberCols.includes('display_name'))     db.prepare(`ALTER TABLE shop_memberships ADD COLUMN display_name TEXT DEFAULT ''`).run();
+if (!memberCols.includes('supabase_user_id')) db.prepare(`ALTER TABLE shop_memberships ADD COLUMN supabase_user_id TEXT DEFAULT ''`).run();
+if (!memberCols.includes('created_at'))       db.prepare(`ALTER TABLE shop_memberships ADD COLUMN created_at TEXT DEFAULT ''`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_shop_memberships_shop ON shop_memberships(shop_id)`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_shop_memberships_email ON shop_memberships(email)`).run();
 
 // Migrate: customers
 const custCols = db.prepare(`PRAGMA table_info(customers)`).all().map(c => c.name);
@@ -341,6 +437,8 @@ if (!custCols.includes('customer_type'))    db.prepare(`ALTER TABLE customers AD
 if (!custCols.includes('preferred_contact'))db.prepare(`ALTER TABLE customers ADD COLUMN preferred_contact TEXT DEFAULT 'Phone'`).run();
 if (!custCols.includes('billing_address'))  db.prepare(`ALTER TABLE customers ADD COLUMN billing_address TEXT DEFAULT ''`).run();
 if (!custCols.includes('deleted_at'))       db.prepare(`ALTER TABLE customers ADD COLUMN deleted_at TEXT`).run();
+if (!custCols.includes('shop_id'))          db.prepare(`ALTER TABLE customers ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_customers_shop ON customers(shop_id)`).run();
 
 // Migrate: jobs
 const jobCols = db.prepare(`PRAGMA table_info(jobs)`).all().map(c => c.name);
@@ -355,6 +453,7 @@ if (!jobCols.includes('service_address'))  db.prepare(`ALTER TABLE jobs ADD COLU
 if (!jobCols.includes('travel_fee'))       db.prepare(`ALTER TABLE jobs ADD COLUMN travel_fee REAL DEFAULT 0`).run();
 if (!jobCols.includes('closed_at'))        db.prepare(`ALTER TABLE jobs ADD COLUMN closed_at TEXT`).run();
 if (!jobCols.includes('deleted_at'))       db.prepare(`ALTER TABLE jobs ADD COLUMN deleted_at TEXT`).run();
+if (!jobCols.includes('notify_en_route'))  db.prepare(`ALTER TABLE jobs ADD COLUMN notify_en_route INTEGER DEFAULT 1`).run();
 
 // Migrate: vehicles
 const vehCols = db.prepare(`PRAGMA table_info(vehicles)`).all().map(c => c.name);
@@ -362,6 +461,11 @@ if (!vehCols.includes('fuel_type'))     db.prepare(`ALTER TABLE vehicles ADD COL
 if (!vehCols.includes('transmission'))  db.prepare(`ALTER TABLE vehicles ADD COLUMN transmission TEXT DEFAULT ''`).run();
 if (!vehCols.includes('engine'))        db.prepare(`ALTER TABLE vehicles ADD COLUMN engine TEXT DEFAULT ''`).run();
 if (!vehCols.includes('deleted_at'))    db.prepare(`ALTER TABLE vehicles ADD COLUMN deleted_at TEXT`).run();
+
+// Migrate: expenses
+const expCols = db.prepare(`PRAGMA table_info(expenses)`).all().map(c => c.name);
+if (!expCols.includes('shop_id')) db.prepare(`ALTER TABLE expenses ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_expenses_shop ON expenses(shop_id)`).run();
 
 // Migrate: settings (new columns)
 const settCols = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);
@@ -376,11 +480,18 @@ const newSettCols = [
   ['service_fee',     'REAL DEFAULT 0'],
   ['website',         "TEXT DEFAULT ''"],
   ['business_hours',  "TEXT DEFAULT ''"],
+  ['service_area',    "TEXT DEFAULT ''"],
   ['warranty_terms',  "TEXT DEFAULT '12 months / 12,000 miles'"],
   ['estimate_terms',  "TEXT DEFAULT ''"],
 ];
 for (const [col, def] of newSettCols) {
   if (!settCols.includes(col)) db.prepare(`ALTER TABLE settings ADD COLUMN ${col} ${def}`).run();
+}
+
+// Migrate: per-shop settings (mirrors global settings but scoped by shop)
+const shopSettCols = db.prepare(`PRAGMA table_info(shop_settings)`).all().map(c => c.name);
+for (const [col, def] of newSettCols) {
+  if (!shopSettCols.includes(col)) db.prepare(`ALTER TABLE shop_settings ADD COLUMN ${col} ${def}`).run();
 }
 
 // Migrate: estimates
@@ -396,11 +507,33 @@ if (!estItemCols.includes('inventory_id')) db.prepare(`ALTER TABLE estimate_item
 
 // Migrate: appointments
 const apptCols = db.prepare(`PRAGMA table_info(appointments)`).all().map(c => c.name);
+if (!apptCols.includes('shop_id'))      db.prepare(`ALTER TABLE appointments ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
 if (!apptCols.includes('customer_id'))  db.prepare(`ALTER TABLE appointments ADD COLUMN customer_id INTEGER REFERENCES customers(id)`).run();
 if (!apptCols.includes('vehicle_id'))   db.prepare(`ALTER TABLE appointments ADD COLUMN vehicle_id INTEGER REFERENCES vehicles(id)`).run();
 if (!apptCols.includes('address'))      db.prepare(`ALTER TABLE appointments ADD COLUMN address TEXT DEFAULT ''`).run();
 if (!apptCols.includes('notes'))        db.prepare(`ALTER TABLE appointments ADD COLUMN notes TEXT DEFAULT ''`).run();
 if (!apptCols.includes('estimate_id'))  db.prepare(`ALTER TABLE appointments ADD COLUMN estimate_id INTEGER`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_appointments_shop ON appointments(shop_id)`).run();
+
+// Migrate: employees
+const employeeCols = db.prepare(`PRAGMA table_info(employees)`).all().map(c => c.name);
+if (!employeeCols.includes('shop_id')) db.prepare(`ALTER TABLE employees ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_employees_shop ON employees(shop_id)`).run();
+
+// Migrate: inventory and catalog
+const inventoryCols = db.prepare(`PRAGMA table_info(parts_inventory)`).all().map(c => c.name);
+if (!inventoryCols.includes('shop_id')) db.prepare(`ALTER TABLE parts_inventory ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_parts_inventory_shop ON parts_inventory(shop_id)`).run();
+
+const catalogCols = db.prepare(`PRAGMA table_info(service_catalog)`).all().map(c => c.name);
+if (!catalogCols.includes('shop_id')) db.prepare(`ALTER TABLE service_catalog ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_service_catalog_shop ON service_catalog(shop_id)`).run();
+
+// Migrate: leads
+const leadCols = db.prepare(`PRAGMA table_info(leads)`).all().map(c => c.name);
+if (!leadCols.includes('shop_id')) db.prepare(`ALTER TABLE leads ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
+if (!leadCols.includes('vin'))     db.prepare(`ALTER TABLE leads ADD COLUMN vin TEXT DEFAULT ''`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_leads_shop ON leads(shop_id)`).run();
 
 // Data backfills — run after all schema migrations so columns are guaranteed to exist
 db.prepare(`UPDATE jobs SET status='Complete' WHERE status='Done'`).run();

@@ -11,6 +11,8 @@ permissions:
 jobs:
   release-windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -41,4 +43,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: dist/
+          path: |
+            dist/
+            npm-debug.log*
+          if-no-files-found: ignore

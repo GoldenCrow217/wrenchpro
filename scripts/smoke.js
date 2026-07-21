@@ -2,10 +2,47 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const Database = require('better-sqlite3');
+const pkg = require('../package.json');
 
 const port = process.env.SMOKE_PORT || String(3300 + Math.floor(Math.random() * 1000));
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-smoke-'));
 const serverPath = path.join(__dirname, '..', 'server', 'index.js');
+
+// Regression fixture: mimic a pre-SaaS local database where tables existed
+// before tenant columns were added. The app must migrate it without failing
+// during startup index creation.
+const legacyDb = new Database(path.join(dataDir, 'wrenchpro.db'));
+legacyDb.exec(`
+  CREATE TABLE expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT,
+    description TEXT,
+    category TEXT,
+    amount REAL,
+    note TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE TABLE leads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first TEXT NOT NULL,
+    last TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
+    email TEXT DEFAULT '',
+    source TEXT DEFAULT '',
+    vehicle_year INTEGER,
+    vehicle_make TEXT DEFAULT '',
+    vehicle_model TEXT DEFAULT '',
+    service_needed TEXT DEFAULT '',
+    status TEXT DEFAULT 'New',
+    notes TEXT DEFAULT '',
+    follow_up_date TEXT,
+    estimated_value REAL DEFAULT 0,
+    converted_customer_id INTEGER,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+legacyDb.close();
 
 const child = spawn(process.execPath, [serverPath], {
   cwd: path.join(__dirname, '..'),
@@ -26,7 +63,8 @@ const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 15000);
 const startedAt = Date.now();
 
 async function waitForDashboard() {
-  const url = `http://localhost:${port}/api/dashboard`;
+  const healthUrl = `http://localhost:${port}/api/health`;
+  const dashboardUrl = `http://localhost:${port}/api/dashboard`;
   let lastError;
 
   while (Date.now() - startedAt < timeoutMs) {
@@ -35,7 +73,30 @@ async function waitForDashboard() {
     }
 
     try {
-      const res = await fetch(url);
+      const healthRes = await fetch(healthUrl, { headers: { 'x-wrenchpro-shop-id': 'stale-local-context' } });
+      if (!healthRes.ok) throw new Error(`health HTTP ${healthRes.status}`);
+      const health = await healthRes.json();
+      if (!health.ok || health.version !== pkg.version || health.authRequired !== false || typeof health.supabaseConfigured !== 'boolean') {
+        throw new Error(`Unexpected health payload: ${JSON.stringify(health)}`);
+      }
+      if ('supabaseUrl' in health || 'supabaseAnonKey' in health) {
+        throw new Error('Health response must not expose Supabase connection details');
+      }
+      if (healthRes.headers.get('cache-control') !== 'no-store') {
+        throw new Error('Health response must not be cached');
+      }
+      const csp = healthRes.headers.get('content-security-policy') || '';
+      if (!csp.includes("default-src 'self'") || !csp.includes("frame-ancestors 'none'")) {
+        throw new Error('Health response should include SaaS-safe security headers');
+      }
+      if (healthRes.headers.get('permissions-policy') !== 'camera=(), microphone=(), geolocation=()') {
+        throw new Error('Health response should disable unnecessary browser permissions');
+      }
+      if (healthRes.headers.get('x-powered-by')) {
+        throw new Error('API responses should not expose Express x-powered-by fingerprinting');
+      }
+
+      const res = await fetch(dashboardUrl);
       if (res.ok) {
         const body = await res.json();
         const expected = ['totalRevenue', 'totalExpenses', 'netProfit', 'activeJobs', 'totalCustomers', 'totalVehicles'];
