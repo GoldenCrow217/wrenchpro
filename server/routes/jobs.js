@@ -1,8 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const { customerTenantWhere, shopTenantWhere } = require('../tenant');
+
+function employeeInTenant(req, employeeId) {
+  if (!employeeId) return true;
+  const tenant = shopTenantWhere(req, 'e');
+  return Boolean(db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
+}
 
 router.get('/', (req, res) => {
+  const tenant = customerTenantWhere(req, 'c');
   const jobs = db.prepare(`
     SELECT j.*, c.first, c.last, v.year, v.make, v.model, v.plate,
            e.first AS emp_first, e.last AS emp_last
@@ -10,38 +18,92 @@ router.get('/', (req, res) => {
     JOIN customers c ON j.customer_id = c.id
     JOIN vehicles  v ON j.vehicle_id  = v.id
     LEFT JOIN employees e ON j.employee_id = e.id
-    WHERE j.deleted_at IS NULL
+    WHERE j.deleted_at IS NULL AND c.deleted_at IS NULL AND v.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY j.date DESC
-  `).all();
+  `).all(...tenant.values);
+  const getItems = db.prepare('SELECT * FROM job_items WHERE job_id = ? ORDER BY id');
+  jobs.forEach(j => { j.items = getItems.all(j.id); });
   res.json(jobs);
 });
 
 router.get('/:id/balance', (req, res) => {
-  const job = db.prepare('SELECT labor, parts, travel_fee FROM jobs WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
+  const tenant = customerTenantWhere(req, 'c');
+  const job = db.prepare(`
+    SELECT j.labor, j.parts, j.travel_fee
+    FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+  `).get(req.params.id, ...tenant.values);
   if (!job) return res.status(404).json({ error: 'Not found' });
-  const paid = db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE job_id = ?').get(req.params.id).total;
-  const total = (job.labor || 0) + (job.parts || 0) + (job.travel_fee || 0);
-  res.json({ total, paid, balance: total - paid });
+  const paid = db.prepare(`
+    SELECT COALESCE(SUM(p.amount), 0) AS total
+    FROM payments p
+    JOIN customers c ON p.customer_id = c.id
+    WHERE p.job_id = ? AND c.deleted_at IS NULL AND ${tenant.clause}
+  `).get(req.params.id, ...tenant.values).total;
+
+  const items = db.prepare('SELECT * FROM job_items WHERE job_id = ?').all(req.params.id);
+  let laborTotal, partsTotal, tax;
+  if (items.length > 0) {
+    const taxRate = (db.prepare('SELECT tax_rate FROM settings WHERE id = 1').get()?.tax_rate) || 0;
+    laborTotal = items.filter(i => !i.taxable).reduce((a, i) => a + (i.amount || 0), 0);
+    partsTotal = items.filter(i => i.taxable).reduce((a, i) => a + (i.amount || 0), 0);
+    tax = partsTotal * taxRate / 100;
+  } else {
+    laborTotal = job.labor || 0;
+    partsTotal = job.parts || 0;
+    tax = 0;
+  }
+  const total = laborTotal + partsTotal + tax + (job.travel_fee || 0);
+  res.json({ total, paid, balance: total - paid, labor_total: laborTotal, parts_total: partsTotal, tax });
 });
+
+function itemTotals(items) {
+  let labor = 0, parts = 0;
+  (items || []).forEach(i => { if (i.taxable) parts += (i.amount || 0); else labor += (i.amount || 0); });
+  return { labor, parts };
+}
+
+function saveJobItems(jobId, items) {
+  db.prepare('DELETE FROM job_items WHERE job_id = ?').run(jobId);
+  if (!items || !items.length) return;
+  const ins = db.prepare(`INSERT INTO job_items (job_id, type, description, qty, rate, amount, taxable, inventory_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  items.forEach(i => ins.run(jobId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.taxable ? 1 : 0, i.inventory_id || null));
+}
 
 router.post('/', (req, res) => {
   const {
     customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
     parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
-    service_address, travel_fee
+    service_address, travel_fee, items
   } = req.body;
   if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
   if (!vehicle_id)  return res.status(400).json({ error: 'Vehicle is required' });
   if (!date)        return res.status(400).json({ error: 'Date is required' });
 
-  const cust = db.prepare('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL').get(customer_id);
+  const tenant = customerTenantWhere(req, 'c');
+  const cust = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
   if (!cust) return res.status(400).json({ error: 'Customer not found' });
 
   const veh = db.prepare('SELECT id FROM vehicles WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(vehicle_id, customer_id);
   if (!veh) return res.status(400).json({ error: 'Vehicle not found or does not belong to this customer' });
 
+  if (!employeeInTenant(req, employee_id)) {
+    return res.status(400).json({ error: 'Employee is outside the active shop context' });
+  }
+
+  if (estimate_id) {
+    const est = db.prepare('SELECT id FROM estimates WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(estimate_id, customer_id);
+    if (!est) return res.status(400).json({ error: 'Estimate not found or does not belong to this customer' });
+  }
+
   const isTerminal = (status === 'Complete' || status === 'Canceled');
   const closedAt = isTerminal ? new Date().toISOString().replace('T', ' ').split('.')[0] : null;
+
+  // Compute labor/parts from items if provided, else use direct values
+  const totals = (items && items.length) ? itemTotals(items) : null;
+  const laborVal = totals ? totals.labor : (labor || 0);
+  const partsVal = totals ? totals.parts : (parts || 0);
 
   const result = db.prepare(`
     INSERT INTO jobs
@@ -51,26 +113,49 @@ router.post('/', (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     customer_id, vehicle_id, service, date, miles || 0,
-    labor || 0, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
-    parts || 0, status || 'Pending', notes || '', employee_id || null,
+    laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
+    partsVal, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
     service_address || '', travel_fee || 0, closedAt
   );
-  res.json({ id: result.lastInsertRowid, closed_at: closedAt, ...req.body });
+  const jobId = result.lastInsertRowid;
+  if (items && items.length) saveJobItems(jobId, items);
+  res.json({ id: jobId, closed_at: closedAt, ...req.body });
 });
 
 router.put('/:id', (req, res) => {
   const {
     service, date, miles, labor, labor_hours, labor_rate, parts, status, notes,
     employee_id, complaint, diagnosis, invoice_status, estimate_id,
-    service_address, travel_fee
+    service_address, travel_fee, items
   } = req.body;
 
-  const current = db.prepare('SELECT closed_at FROM jobs WHERE id = ?').get(req.params.id);
+  const tenant = customerTenantWhere(req, 'c');
+  const current = db.prepare(`
+    SELECT j.closed_at, j.customer_id
+    FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+  `).get(req.params.id, ...tenant.values);
+  if (!current) return res.status(404).json({ error: 'Job not found' });
+
+  if (!employeeInTenant(req, employee_id)) {
+    return res.status(400).json({ error: 'Employee is outside the active shop context' });
+  }
+
+  if (estimate_id) {
+    const est = db.prepare('SELECT id FROM estimates WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(estimate_id, current.customer_id);
+    if (!est) return res.status(400).json({ error: 'Estimate not found or does not belong to this job customer' });
+  }
+
   const isTerminal = status === 'Complete' || status === 'Canceled';
-  const closedAt = (isTerminal && !(current && current.closed_at))
+  const closedAt = (isTerminal && !current.closed_at)
     ? new Date().toISOString().replace('T', ' ').split('.')[0]
-    : (current ? current.closed_at : null);
+    : current.closed_at;
+
+  const updatedTotals = items !== undefined ? (() => { saveJobItems(req.params.id, items || []); return itemTotals(items || []); })() : null;
+  const laborVal = updatedTotals ? updatedTotals.labor : (labor || 0);
+  const partsVal = updatedTotals ? updatedTotals.parts : (parts || 0);
 
   db.prepare(`
     UPDATE jobs
@@ -80,8 +165,8 @@ router.put('/:id', (req, res) => {
     WHERE id=?
   `).run(
     service, date, miles || 0,
-    labor || 0, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
-    parts || 0, status || 'Pending', notes || '', employee_id || null,
+    laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
+    partsVal, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
     service_address || '', travel_fee || 0, closedAt,
     req.params.id
@@ -90,7 +175,16 @@ router.put('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare("UPDATE jobs SET deleted_at = datetime('now') WHERE id = ?").run(req.params.id);
+  const tenant = customerTenantWhere(req, 'c');
+  const result = db.prepare(`
+    UPDATE jobs SET deleted_at = datetime('now')
+    WHERE id IN (
+      SELECT j.id FROM jobs j
+      JOIN customers c ON j.customer_id = c.id
+      WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+    )
+  `).run(req.params.id, ...tenant.values);
+  if (!result.changes) return res.status(404).json({ error: 'Job not found' });
   res.json({ success: true });
 });
 

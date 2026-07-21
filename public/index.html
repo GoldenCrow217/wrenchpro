@@ -227,6 +227,18 @@ tr:hover td{background:var(--bg-subtle);}
 .overdue-text{color:var(--danger-fg);font-weight:600;}
 .label-up{font-size:10px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.08em;font-weight:600;}
 .account-chip{font-size:12px;color:var(--fg-muted);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.saas-banner{display:none;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-elev);font-size:12px;color:var(--fg-muted);}
+.saas-banner.show{display:flex;}
+.saas-banner strong{color:var(--fg);font-weight:600;}
+.member-list{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.member-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);font-size:12px;}
+.auth-gate{display:none;position:fixed;inset:0;z-index:500;background:color-mix(in oklch,var(--bg) 92%,transparent);align-items:center;justify-content:center;padding:24px;}
+.auth-gate.show{display:flex;}
+.auth-card{width:min(420px,100%);background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:24px;}
+.auth-card h1{font-size:22px;letter-spacing:-.02em;margin-bottom:6px;}
+.auth-card p{color:var(--fg-muted);font-size:13px;margin-bottom:16px;line-height:1.4;}
+.auth-error{display:none;margin-top:10px;color:var(--danger-fg);font-size:12px;}
+.auth-error.show{display:block;}
 /* ── Customer detail ── */
 .back-link{font-size:13px;color:var(--accent);cursor:pointer;margin-bottom:1rem;display:inline-flex;align-items:center;gap:4px;}
 .profile-hdr{display:flex;align-items:flex-start;gap:16px;margin-bottom:1.5rem;}
@@ -457,6 +469,18 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
   </div>
   <div class="content">
+    <div class="saas-banner" id="saas-banner"></div>
+
+    <div class="auth-gate" id="auth-gate">
+      <form class="auth-card" onsubmit="login(event)">
+        <h1>Sign in to WrenchPro</h1>
+        <p>Hosted SaaS mode is enabled. Sign in with your Supabase account, then WrenchPro will verify your shop membership before loading shop data.</p>
+        <div class="fr"><label>Email</label><input id="auth-email" type="email" autocomplete="email" required></div>
+        <div class="fr"><label>Password</label><input id="auth-password" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" id="auth-submit" type="submit">Sign in</button>
+        <div class="auth-error" id="auth-error"></div>
+      </form>
+    </div>
 
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
@@ -658,7 +682,7 @@ tr:hover td{background:var(--bg-subtle);}
               <img id="s-logo-preview" style="max-height:60px;max-width:160px;border-radius:6px;border:1px solid #e8e8e4;display:none;">
               <div>
                 <input type="file" id="s-logo-file" accept="image/*" style="display:none;" onchange="handleLogoUpload(this)">
-                <button class="btn btn-sm" onclick="document.getElementById('s-logo-file').click()">Upload logo</button>
+                <button class="btn btn-sm" id="s-logo-upload" onclick="document.getElementById('s-logo-file').click()">Upload logo</button>
                 <button class="btn btn-sm btn-danger" id="s-logo-clear" style="display:none;margin-left:4px;" onclick="clearLogo()">Remove</button>
               </div>
             </div>
@@ -692,9 +716,30 @@ tr:hover td{background:var(--bg-subtle);}
           <div class="fr"><label>Warranty terms</label><input id="s-warranty-terms" placeholder="12 months / 12,000 miles parts and labor"></div>
           <div class="fr"><label>Estimate terms / expiration notice</label><input id="s-est-terms" placeholder="This estimate is valid for 30 days."></div>
         </div>
+        <div class="card">
+          <div class="settings-section-title">SaaS account readiness</div>
+          <div id="saas-settings-summary" class="settings-hint">Loading shop context...</div>
+          <div class="fr" style="margin-top:10px;"><label>Active shop context</label><select id="active-shop-select" onchange="switchShopContext()"><option value="">Latest/local default</option></select></div>
+          <div id="shop-management-panel">
+            <div class="f2">
+              <div class="fr"><label>Shop name</label><input id="shop-name" placeholder="Joe's Mobile Mechanic"></div>
+              <div class="fr"><label>Owner email</label><input id="shop-owner-email" placeholder="owner@example.com"></div>
+            </div>
+            <button class="btn btn-sm" id="shop-save-btn" onclick="saveShop()">Create / link local shop</button>
+            <div style="margin-top:14px;" class="settings-section-title">Team membership</div>
+            <div class="f3">
+              <div class="fr"><label>Member email</label><input id="member-email" placeholder="tech@example.com"></div>
+              <div class="fr"><label>Role</label><select id="member-role"><option>mechanic</option><option>advisor</option><option>admin</option><option>owner</option></select></div>
+              <div class="fr"><label>Display name</label><input id="member-name" placeholder="QA Tech"></div>
+            </div>
+            <button class="btn btn-sm" id="member-add-btn" onclick="addShopMember()">Add member</button>
+          </div>
+          <div id="shop-management-note" class="settings-hint" style="display:none;margin-top:14px;">You can view this shop, but only owners/admins can edit shop details or manage team membership.</div>
+          <div id="shop-members-list" class="member-list"></div>
+        </div>
       </div>
       <div style="margin-top:1rem;display:flex;gap:8px;align-items:center;">
-        <button class="btn btn-primary" onclick="saveSettings()">Save settings</button>
+        <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">Save settings</button>
         <span id="s-saved" style="font-size:12px;color:#3B6D11;display:none;">Saved!</span>
       </div>
       <div id="s-app-version" style="margin-top:1.5rem;font-size:11px;color:#bbb;"></div>
@@ -867,18 +912,25 @@ tr:hover td{background:var(--bg-subtle);}
         <option value="Partial">Partially paid</option><option value="Voided">Voided</option>
       </select>
     </div>
-    <div style="background:#f5f5f0;border-radius:8px;padding:.75rem;margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Labor (flat-rate)</div>
-      <div class="f3">
-        <div class="fr"><label>Book hours <span style="font-weight:400;color:#aaa;">(e.g. 1.2)</span></label><input type="number" id="jf-labor-hrs" placeholder="0.0" step="0.1" min="0" oninput="calcJobLabor()"></div>
-        <div class="fr"><label>Rate ($/hr)</label><input type="number" id="jf-labor-rate" placeholder="0.00" step="0.01" min="0" oninput="calcJobLabor()"></div>
-        <div class="fr"><label>Labor total ($)</label><input type="number" id="jf-labor" placeholder="0.00" step="0.01" oninput="jfLaborManual()"></div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Line items</div>
+      <div style="display:grid;grid-template-columns:85px 1fr 60px 90px 78px 28px;gap:4px;padding:4px 0;font-size:10px;color:#888;font-weight:600;border-bottom:1px solid var(--border);">
+        <div>Type</div><div>Description</div><div>Qty</div><div>Rate ($)</div><div style="text-align:right;">Amount</div><div></div>
       </div>
-      <div id="jf-labor-hint" style="font-size:11px;color:#888;margin-top:-4px;"></div>
-    </div>
-    <div class="f2">
-      <div class="fr"><label>Parts ($)</label><input type="number" id="jf-parts" placeholder="0.00" step="0.01"></div>
-      <div class="fr"><label>Travel / trip fee ($)</label><input type="number" id="jf-travel-fee" placeholder="0.00" step="0.01" min="0"></div>
+      <div id="job-items-container"><div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div></div>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <button class="btn btn-sm" onclick="addJobItem()">+ Add item</button>
+        <button class="btn btn-sm" onclick="addJobItemFromCatalog()">+ From catalog</button>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <div style="min-width:260px;font-size:13px;">
+          <div class="report-line"><span>Subtotal — Labor</span><span id="job-labor-val">$0.00</span></div>
+          <div class="report-line"><span>Subtotal — Parts</span><span id="job-parts-val">$0.00</span></div>
+          <div class="report-line" id="job-tax-line"><span id="job-tax-label">Sales Tax (0%)</span><span id="job-tax-val">$0.00</span></div>
+          <div class="report-line"><span>Travel / trip fee ($) <input type="number" id="jf-travel-fee" placeholder="0.00" step="0.01" min="0" style="width:70px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" oninput="_calcJob()"></span><span id="job-travel-val">$0.00</span></div>
+          <div class="report-total"><span>Total</span><span id="job-total-val">$0.00</span></div>
+        </div>
+      </div>
     </div>
     <div class="fr"><label>Service address <span style="font-weight:400;color:#aaa;">(defaults to customer address)</span></label><input id="jf-service-addr" placeholder="123 Main St, City, State"></div>
     <div class="fr"><label>Notes</label><input id="jf-notes" placeholder="Any notes..."></div>
@@ -932,6 +984,21 @@ tr:hover td{background:var(--bg-subtle);}
         </select>
       </div>
       <div class="fr"><label>Tags <span style="font-weight:400;color:#aaa;">(comma-separated)</span></label><input id="cf-tags" placeholder="fleet, referral, vip..."></div>
+    </div>
+    <div id="cf-veh-toggle" style="margin:4px 0 8px;">
+      <button class="btn btn-sm" onclick="toggleCustVehicle()" id="cf-veh-btn" type="button">+ Add vehicle</button>
+    </div>
+    <div id="cf-veh-section" style="display:none;background:var(--bg-subtle);border-radius:8px;padding:12px;margin-bottom:8px;">
+      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">New vehicle (optional)</div>
+      <div class="f3">
+        <div class="fr"><label>Year</label><input type="number" id="cf-veh-year" placeholder="2019"></div>
+        <div class="fr"><label>Make</label><input id="cf-veh-make" placeholder="Toyota"></div>
+        <div class="fr"><label>Model</label><input id="cf-veh-model" placeholder="Camry"></div>
+      </div>
+      <div class="f2">
+        <div class="fr"><label>VIN</label><input id="cf-veh-vin" placeholder="1HGCM82633A123456" style="font-family:monospace;font-size:12px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"></div>
+        <div class="fr"><label>License plate</label><input id="cf-veh-plate" placeholder="ABC-1234"></div>
+      </div>
     </div>
     <div class="mfooter">
       <div id="cf-del"></div>
@@ -1000,13 +1067,23 @@ tr:hover td{background:var(--bg-subtle);}
     <h2>Record payment</h2>
     <div class="f2">
       <div class="fr"><label>Customer</label>
-        <select id="pf-cust" onchange="loadPlansForPayment()"><option value="">— Select —</option></select>
+        <select id="pf-cust" onchange="loadJobsForPayment()"><option value="">— Select —</option></select>
       </div>
-      <div class="fr"><label>Apply to plan (optional)</label>
-        <select id="pf-plan"><option value="">— General payment —</option></select>
+      <div class="fr"><label>Work order <span style="font-weight:400;color:#aaa;">(optional)</span></label>
+        <select id="pf-job" onchange="loadJobBalance()"><option value="">— General payment —</option></select>
       </div>
     </div>
-    <div class="fr"><label>Description</label><input id="pf-desc" placeholder="Oil change, installment 2 of 4..."></div>
+    <div id="pf-balance-row" style="display:none;background:var(--bg-subtle);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;">
+      <span style="color:var(--fg-muted);">Job total: <strong id="pf-job-total">—</strong></span>
+      &nbsp;·&nbsp;
+      <span style="color:var(--fg-muted);">Paid: <strong id="pf-job-paid">—</strong></span>
+      &nbsp;·&nbsp;
+      <span style="color:var(--fg-muted);">Remaining: <strong id="pf-job-balance" style="color:var(--accent);">—</strong></span>
+    </div>
+    <div class="fr"><label>Apply to plan <span style="font-weight:400;color:#aaa;">(optional)</span></label>
+      <select id="pf-plan"><option value="">— No plan —</option></select>
+    </div>
+    <div class="fr"><label>Description</label><input id="pf-desc" placeholder="Oil change, brake job..."></div>
     <div class="f3">
       <div class="fr"><label>Amount ($)</label><input type="number" id="pf-amt" placeholder="0.00" step="0.01"></div>
       <div class="fr"><label>Date</label><input type="date" id="pf-date"></div>
@@ -1351,8 +1428,8 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="fr"><label>Location</label><input id="prf-loc" placeholder="Truck bin 3, shelf A..."></div>
     </div>
     <div class="f3">
-      <div class="fr"><label>Cost ($)</label><input type="number" id="prf-cost" placeholder="0.00" step="0.01" min="0"></div>
-      <div class="fr"><label>Retail price ($)</label><input type="number" id="prf-retail" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fr"><label>Cost ($)</label><input type="number" id="prf-cost" placeholder="0.00" step="0.01" min="0" oninput="calcPartMarkup()"></div>
+      <div class="fr"><label>Retail / list price ($) <span style="font-weight:400;color:#aaa;" id="prf-markup-hint"></span></label><input type="number" id="prf-retail" placeholder="0.00" step="0.01" min="0"></div>
       <div class="fr"></div>
     </div>
     <div class="f3">
@@ -1436,6 +1513,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="fr"><label>Make</label><input id="ldf-make" placeholder="Toyota"></div>
       <div class="fr"><label>Model</label><input id="ldf-model" placeholder="Camry"></div>
     </div>
+    <div class="fr"><label>VIN <span style="font-weight:400;color:#aaa;">(optional)</span></label><input id="ldf-vin" placeholder="1HGCM82633A123456" style="font-family:monospace;font-size:12px;letter-spacing:.04em;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"></div>
     <div class="f2">
       <div class="fr"><label>Service needed</label><input id="ldf-service" placeholder="Brake job, AC recharge..."></div>
       <div class="fr"><label>Estimated value ($)</label><input type="number" id="ldf-value" placeholder="0.00" step="0.01" min="0"></div>
@@ -1542,18 +1620,19 @@ tr:hover td{background:var(--bg-subtle);}
 
 <script>
 const API = '';
-let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[], estimates:[], inventory:[], catalog:[], inspections:[], warranties:[], timeLogs:[], leads:[], authConfig:{}, authSession:{} };
+let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[], estimates:[], inventory:[], catalog:[], inspections:[], warranties:[], timeLogs:[], leads:[], shops:[], authConfig:{}, authSession:{} };
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
 let detailCustId = null, detailTab = 'vehicles';
 let calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
 
 // ── Utilities ──
-const fmt$ = n => (state.settings.currency_symbol||'$') + Number(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const esc = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll("'",'&#39;');
+const fmt$ = n => esc(state.settings.currency_symbol||'$') + Number(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const today = () => new Date().toISOString().split('T')[0];
-const initials = (f,l) => ((f||'?')[0]+(l||'?')[0]).toUpperCase();
-const vLabel = v => v ? `${v.year||''} ${v.make||''} ${v.model||''}`.trim() : '—';
-const fullName = c => c ? `${c.first} ${c.last}` : '—';
+const initials = (f,l) => esc(((f||'?')[0]+(l||'?')[0]).toUpperCase());
+const vLabel = v => v ? esc(`${v.year||''} ${v.make||''} ${v.model||''}`.trim()) : '—';
+const fullName = c => c ? esc(`${c.first||''} ${c.last||''}`.trim()) : '—';
 
 function statusBadge(s){
   const m = {
@@ -1566,7 +1645,7 @@ function statusBadge(s){
     'New':'pill-blue','Contacted':'pill-blue','Quoted':'pill-amber','Scheduled':'pill-accent','Won':'pill-green','Lost':'pill-red',
   };
   const cls = m[s] !== undefined ? m[s] : '';
-  return `<span class="pill ${cls}">${s}</span>`;
+  return `<span class="pill ${cls}">${esc(s)}</span>`;
 }
 
 function navEl(page){ return document.querySelector(`.nav-item[onclick="sp('${page}',this)"]`); }
@@ -1592,17 +1671,104 @@ function addDays(d, n){
 }
 
 // ── API calls ──
-async function api(method, path, body){
+function activeShopId(){
+  return localStorage.getItem('wrenchpro_shop_id') || (state.authSession?.shop?.id ? String(state.authSession.shop.id) : '');
+}
+
+function supabaseAccessToken(){
+  return localStorage.getItem('wrenchpro_supabase_access_token') || '';
+}
+
+function supabaseRefreshToken(){
+  return localStorage.getItem('wrenchpro_supabase_refresh_token') || '';
+}
+
+function activeShopMembership(){
+  const shopId = activeShopId();
+  return (state.authSession?.memberships || []).find(m => String(m.shop_id) === String(shopId)) || state.authSession?.membership || null;
+}
+
+function canManageActiveShop(){
+  if(!state.authConfig?.authRequired) return true;
+  if(state.authSession?.authenticated && !state.authSession?.shop) return true;
+  return ['owner','admin'].includes(activeShopMembership()?.role);
+}
+
+function showAuthGate(message=''){
+  const gate = document.getElementById('auth-gate');
+  const err = document.getElementById('auth-error');
+  if(gate) gate.classList.add('show');
+  if(err){ err.textContent = message; err.classList.toggle('show', Boolean(message)); }
+  setTimeout(()=>document.getElementById('auth-email')?.focus(), 50);
+}
+
+function hideAuthGate(){
+  document.getElementById('auth-gate')?.classList.remove('show');
+  const err = document.getElementById('auth-error');
+  if(err){ err.textContent=''; err.classList.remove('show'); }
+}
+
+function storeSupabaseSession(session){
+  if(session?.accessToken) localStorage.setItem('wrenchpro_supabase_access_token', session.accessToken);
+  if(session?.refreshToken) localStorage.setItem('wrenchpro_supabase_refresh_token', session.refreshToken);
+}
+
+function clearShopWorkspaceState(){
+  state.customers = []; state.vehicles = []; state.jobs = []; state.payments = []; state.plans = []; state.expenses = [];
+  state.appts = []; state.employees = []; state.interactions = []; state.followups = []; state.serviceReminders = [];
+  state.estimates = []; state.inventory = []; state.catalog = []; state.inspections = []; state.warranties = []; state.timeLogs = []; state.leads = [];
+  state.settings = {}; state.shops = []; state.authSession = {};
+}
+
+async function refreshSupabaseSessionIfPossible(){
+  const refreshToken = supabaseRefreshToken();
+  if(!refreshToken) return false;
+  try{
+    const session = await api('POST','/api/auth/refresh',{refresh_token:refreshToken},{skipAuthGate:true});
+    storeSupabaseSession(session);
+    return Boolean(session?.accessToken);
+  }catch{
+    localStorage.removeItem('wrenchpro_supabase_access_token');
+    localStorage.removeItem('wrenchpro_supabase_refresh_token');
+    return false;
+  }
+}
+
+async function api(method, path, body, options={}){
   const opts = { method, headers:{'Content-Type':'application/json'} };
+  const shopId = activeShopId();
+  const token = supabaseAccessToken();
+  const publicAuthPath = ['/api/auth/config','/api/auth/login','/api/auth/refresh'].includes(path);
+  const bootstrapPath = ['/api/auth/session','/api/shops'].includes(path);
+  const shouldSendShopContext = shopId && !options.skipShopContext && !publicAuthPath && (!bootstrapPath || options.forceShopContext);
+  if(shouldSendShopContext) opts.headers['x-wrenchpro-shop-id'] = shopId;
+  if(token) opts.headers.Authorization = `Bearer ${token}`;
   if(body) opts.body = JSON.stringify(body);
   const r = await fetch(API+path, opts);
   if(!r.ok){
     const err = await r.json().catch(()=>({error:'Request failed'}));
     const msg = err.error || 'Request failed';
+    if((r.status === 401 || r.status === 403) && !options.skipAuthGate){
+      if(await refreshSupabaseSessionIfPossible()) return api(method, path, body, {...options, skipAuthGate:true});
+      showAuthGate(r.status === 403 ? 'Your account is not linked to this shop yet.' : 'Please sign in to continue.');
+    }
     toast(msg);
     throw new Error(msg);
   }
   return r.json();
+}
+
+async function loadAuthSession(){
+  const selectedShopId = localStorage.getItem('wrenchpro_shop_id') || '';
+  if(selectedShopId){
+    try{
+      return await api('GET','/api/auth/session', undefined, {forceShopContext:true, skipAuthGate:true});
+    }catch(error){
+      localStorage.removeItem('wrenchpro_shop_id');
+      toast('Saved shop context was unavailable; reset to your default shop');
+    }
+  }
+  return api('GET','/api/auth/session');
 }
 
 // Refresh data when window regains focus (e.g. after import or external API change)
@@ -1613,7 +1779,40 @@ window.addEventListener('focus', ()=>{
 });
 
 async function loadAll(){
-  const [custs,vehs,jobs,pmts,plans,exps,settings,appts,emps,interactions,followups,svcRem,estimates,inventory,catalog,inspections,warranties,timeLogs,leads] = await Promise.all([
+  const authConfig = await api('GET','/api/auth/config', undefined, {skipAuthGate:true});
+  state.authConfig = authConfig || {};
+  if(authConfig?.authRequired && !supabaseAccessToken()){
+    clearShopWorkspaceState();
+    showAuthGate('Please sign in to load your shop workspace.');
+    renderSaasBanner();
+    updateAccountChip();
+    renderPage(currentPage);
+    return;
+  }
+
+  // Verify/refresh the hosted session once before the bulk data load so an
+  // expired access token does not trigger many simultaneous refresh attempts.
+  const authSession = await loadAuthSession();
+  state.authSession = authSession || {};
+
+  if(authConfig?.authRequired && !authSession?.shop){
+    const shops = await api('GET','/api/shops', undefined, {skipShopContext:true});
+    state.shops = shops || [];
+    clearShopWorkspaceState();
+    state.authConfig = authConfig || {};
+    state.authSession = authSession || {};
+    state.shops = shops || [];
+    hideAuthGate();
+    updateSidebarFoot();
+    updateAccountChip();
+    renderSaasBanner();
+    currentPage = 'settings';
+    renderPage(currentPage);
+    toast('Create your first shop to finish SaaS setup');
+    return;
+  }
+
+  const [custs,vehs,jobs,pmts,plans,exps,settings,appts,emps,interactions,followups,svcRem,estimates,inventory,catalog,inspections,warranties,timeLogs,leads,shops] = await Promise.all([
     api('GET','/api/customers'), api('GET','/api/vehicles'),
     api('GET','/api/jobs'), api('GET','/api/payments'),
     api('GET','/api/plans'), api('GET','/api/expenses'),
@@ -1629,6 +1828,7 @@ async function loadAll(){
     api('GET','/api/warranties'),
     api('GET','/api/time'),
     api('GET','/api/leads'),
+    api('GET','/api/shops'),
   ]);
   state.customers = custs||[];
   state.vehicles = vehs||[];
@@ -1649,7 +1849,12 @@ async function loadAll(){
   state.warranties = warranties||[];
   state.timeLogs = timeLogs||[];
   state.leads = leads||[];
+  state.shops = shops||[];
+  state.authSession = authSession||{};
+  hideAuthGate();
   updateSidebarFoot();
+  updateAccountChip();
+  renderSaasBanner();
   renderPage(currentPage);
 }
 
@@ -1662,7 +1867,14 @@ function updateSidebarFoot(){
   if(av) av.textContent=(name[0]||'W').toUpperCase();
 }
 
-function renderSaasBanner(){ /* stripped — desktop local mode only */ }
+function updateAccountChip(){
+  const chip = document.getElementById('account-chip');
+  if(!chip) return;
+  const shop = state.authSession?.shop;
+  const email = state.authSession?.user?.email || '';
+  const mode = state.authConfig?.mode === 'supabase-configured' ? (state.authConfig?.authRequired ? 'SaaS signed in' : 'SaaS ready') : 'Local mode';
+  chip.textContent = shop?.name ? `${mode} - ${shop.name}` : (email ? `${mode} - ${email}` : mode);
+}
 
 function renderSaasBanner(){
   const el = document.getElementById('saas-banner');
@@ -1670,8 +1882,9 @@ function renderSaasBanner(){
   const cfg = state.authConfig || {};
   const session = state.authSession || {};
   if(cfg.mode === 'supabase-configured'){
-    const shopName = session.shop && session.shop.name ? session.shop.name : 'Shop not linked yet';
-    el.innerHTML = `<div><strong>SaaS mode ready</strong> <span class="muted">Supabase is configured. ${shopName}.</span></div><div>${cfg.authRequired ? 'Auth gate required' : 'Desktop compatibility mode'}</div>`;
+    const shopName = session.shop && session.shop.name ? esc(session.shop.name) : 'Shop not linked yet';
+    const authState = cfg.authRequired ? (supabaseAccessToken() ? 'Authenticated session' : 'Sign-in required') : 'Desktop compatibility mode';
+    el.innerHTML = `<div><strong>SaaS mode ready</strong> <span class="muted">Supabase is configured. ${shopName}.</span></div><div>${authState}</div>`;
     el.classList.add('show');
   } else {
     el.innerHTML = `<div><strong>Local desktop mode</strong> <span class="muted">Auth/shop membership scaffolding is installed; add Supabase public env config to enable SaaS mode.</span></div>`;
@@ -1866,7 +2079,7 @@ function goToday(){ calMonth=new Date().getMonth(); calYear=new Date().getFullYe
 
 function custStatusBadge(s){
   const map={Active:'b-green',VIP:'b-gold',Inactive:'b-gray',Prospect:'b-blue',Lead:'b-purple'};
-  return `<span class="badge ${map[s]||'b-gray'}">${s||'Active'}</span>`;
+  return `<span class="badge ${map[s]||'b-gray'}">${esc(s||'Active')}</span>`;
 }
 
 function renderCustomers(){
@@ -2422,10 +2635,72 @@ async function deleteEmployee(id){
 // ── Modals ──
 function closeM(id){ document.getElementById(id).classList.remove('open'); }
 
+let jobItems = [];
+
+function _calcJob(){
+  jobItems.forEach((item,i)=>{
+    item.amount = +((item.qty||0)*(item.rate||0)).toFixed(2);
+    const amtEl = document.querySelectorAll('.job-item-amt')[i];
+    if(amtEl) amtEl.textContent = fmt$(item.amount);
+  });
+  const laborTotal = jobItems.filter(i=>!i.taxable).reduce((a,i)=>a+(i.amount||0),0);
+  const partsTotal = jobItems.filter(i=>i.taxable).reduce((a,i)=>a+(i.amount||0),0);
+  const taxRate = state.settings.tax_rate || 0;
+  const tax = partsTotal * taxRate / 100;
+  const travel = parseFloat(document.getElementById('jf-travel-fee')?.value) || 0;
+  const total = laborTotal + partsTotal + tax + travel;
+  const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('job-labor-val', fmt$(laborTotal));
+  set('job-parts-val', fmt$(partsTotal));
+  set('job-tax-label', `Sales Tax (${taxRate}%)`);
+  set('job-tax-val', fmt$(tax));
+  set('job-travel-val', fmt$(travel));
+  set('job-total-val', fmt$(total));
+  const taxLine = document.getElementById('job-tax-line');
+  if(taxLine) taxLine.style.display = taxRate > 0 ? '' : 'none';
+}
+
+function renderJobItems(){
+  const c = document.getElementById('job-items-container');
+  if(!c) return;
+  if(!jobItems.length){ c.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div>'; _calcJob(); return; }
+  const TYPES = ['labor','part','diagnostic','shop_supply'];
+  c.innerHTML = jobItems.map((item,i)=>`
+    <div style="display:grid;grid-template-columns:85px 1fr 60px 90px 78px 28px;gap:4px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
+      <select style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);" onchange="jobItems[${i}].type=this.value;jobItems[${i}].taxable=(this.value==='part'||this.value==='shop_supply')?1:0;_calcJob();">
+        ${TYPES.map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t==='shop_supply'?'supply':t}</option>`).join('')}
+      </select>
+      <input style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${esc(item.description||'')}" placeholder="Description..." oninput="jobItems[${i}].description=this.value;">
+      <input type="number" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">
+      <input type="number" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="jobItems[${i}].rate=parseFloat(this.value)||0;_calcJob();">
+      <span class="job-item-amt" style="text-align:right;font-size:13px;font-variant-numeric:tabular-nums;">${fmt$(item.amount||0)}</span>
+      <button class="btn btn-sm btn-danger" style="padding:2px 6px;min-width:0;" onclick="jobItems.splice(${i},1);renderJobItems();">×</button>
+    </div>`).join('');
+  _calcJob();
+}
+
+function addJobItem(type){
+  const rate = type==='labor' ? (state.settings.default_labor_rate||0) : (type==='diagnostic'?(state.settings.diagnostic_rate||0):0);
+  const taxable = (type==='part'||type==='shop_supply') ? 1 : 0;
+  jobItems.push({type:type||'labor', description:'', qty:1, rate, amount:0, taxable});
+  renderJobItems();
+}
+
+function addJobItemFromCatalog(){
+  const cat = state.catalog;
+  if(!cat||!cat.length){toast('No catalog items found. Add services in the Catalog tab.');return;}
+  const sel = prompt('Catalog items:\n'+cat.map((s,i)=>`${i+1}. ${s.name} — ${fmt$(s.default_price)}`).join('\n')+'\n\nEnter item number:');
+  const idx = parseInt(sel)-1;
+  if(isNaN(idx)||!cat[idx])return;
+  const s = cat[idx];
+  const taxable = s.taxable ? 1 : 0;
+  jobItems.push({type:taxable?'part':'labor', description:s.name, qty:s.default_hours||1, rate:s.default_hours>0?s.default_price/s.default_hours:s.default_price, amount:s.default_price, taxable});
+  renderJobItems();
+}
+
 async function openJobModal(id){
   editJobId = id||null;
   await populateCustomerDropdown('jf-cust');
-  // Populate employee dropdown (active only)
   const empSel=document.getElementById('jf-emp');
   empSel.innerHTML='<option value="">— Unassigned —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}${e.role?' ('+e.role+')':''}</option>`).join('');
   document.getElementById('jf-date').value=today();
@@ -2440,27 +2715,27 @@ async function openJobModal(id){
     document.getElementById('jf-date').value=j.date||today();
     document.getElementById('jf-miles').value=j.miles||'';
     document.getElementById('jf-status').value=j.status||'Pending';
-    document.getElementById('jf-labor').value=j.labor||'';
-    document.getElementById('jf-parts').value=j.parts||'';
     document.getElementById('jf-notes').value=j.notes||'';
-    document.getElementById('jf-labor-hrs').value=j.labor_hours||'';
-    document.getElementById('jf-labor-rate').value=j.labor_rate||(state.settings.default_labor_rate||'');
     document.getElementById('jf-emp').value=j.employee_id||'';
     document.getElementById('jf-complaint').value=j.complaint||'';
     document.getElementById('jf-diagnosis').value=j.diagnosis||'';
     document.getElementById('jf-inv-status').value=j.invoice_status||'Unpaid';
     document.getElementById('jf-service-addr').value=j.service_address||'';
     document.getElementById('jf-travel-fee').value=j.travel_fee||'';
-    document.getElementById('jf-labor-hint').textContent='';
+    jobItems = (j.items||[]).map(i=>({...i}));
+    if(!jobItems.length && (j.labor||j.parts)){
+      if(j.labor) jobItems.push({type:'labor',description:j.service||'Labor',qty:j.labor_hours||1,rate:j.labor_hours>0?+(j.labor/j.labor_hours).toFixed(2):j.labor,amount:j.labor,taxable:0});
+      if(j.parts) jobItems.push({type:'part',description:'Parts & materials',qty:1,rate:j.parts,amount:j.parts,taxable:1});
+    }
     document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${id})">Delete job</button>`;
   } else {
     document.getElementById('m-job-title').textContent='New job';
-    ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-labor','jf-labor-hrs','jf-parts','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
+    ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('jf-status').value='Pending';
     document.getElementById('jf-inv-status').value='Unpaid';
-    document.getElementById('jf-labor-hint').textContent='';
-    document.getElementById('jf-labor-rate').value=state.settings.default_labor_rate>0?state.settings.default_labor_rate:'';
+    jobItems = [];
   }
+  renderJobItems();
   document.getElementById('m-job').classList.add('open');
 }
 
@@ -2483,7 +2758,7 @@ async function saveJob(){
   const vehId=parseInt(document.getElementById('jf-veh').value);
   if(!custId||!vehId){toast('Please select a customer and vehicle.');return;}
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
-  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,labor:parseFloat(document.getElementById('jf-labor').value)||0,labor_hours:parseFloat(document.getElementById('jf-labor-hrs').value)||0,labor_rate:parseFloat(document.getElementById('jf-labor-rate').value)||0,parts:parseFloat(document.getElementById('jf-parts').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0};
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0,items:jobItems};
   if(editJobId) await api('PUT',`/api/jobs/${editJobId}`,body);
   else await api('POST','/api/jobs',body);
   closeM('m-job'); await loadAll(); toast(editJobId?'Job updated':'Job saved');
@@ -2495,34 +2770,27 @@ async function deleteJob(id){
   closeM('m-job'); await loadAll(); toast('Job deleted');
 }
 
-function calcJobLabor(){
-  const hrs = parseFloat(document.getElementById('jf-labor-hrs').value) || 0;
-  const rate = parseFloat(document.getElementById('jf-labor-rate').value) || 0;
-  if(hrs > 0 && rate > 0){
-    const total = parseFloat((hrs * rate).toFixed(2));
-    document.getElementById('jf-labor').value = total;
-    const mins = Math.round(hrs * 60);
-    const h = Math.floor(mins/60), m = mins%60;
-    document.getElementById('jf-labor-hint').textContent =
-      `${hrs} hrs = ${h>0?h+'h ':''} ${m>0?m+'m':''} · ${fmt$(total)}`.trim();
-  } else {
-    document.getElementById('jf-labor-hint').textContent = hrs>0 ? `${hrs} hrs × rate = labor $` : '';
-  }
-}
-
-function jfLaborManual(){
-  // User typed directly in the dollar field — clear the hint so it's clear the auto-calc was overridden
-  document.getElementById('jf-labor-hint').textContent = '(manual override)';
-}
 
 async function populateCustomerDropdown(selId){
   const sel=document.getElementById(selId);
   sel.innerHTML='<option value="">— Select customer —</option>'+state.customers.map(c=>`<option value="${c.id}">${fullName(c)}</option>`).join('');
 }
 
+function toggleCustVehicle(){
+  const sec=document.getElementById('cf-veh-section');
+  const btn=document.getElementById('cf-veh-btn');
+  const showing=sec.style.display!=='none';
+  sec.style.display=showing?'none':'';
+  btn.textContent=showing?'+ Add vehicle':'− Hide vehicle';
+}
+
 async function openCustModal(id){
   editCustId=id||null;
   document.getElementById('cf-del').innerHTML='';
+  // Reset vehicle section
+  document.getElementById('cf-veh-section').style.display='none';
+  document.getElementById('cf-veh-btn').textContent='+ Add vehicle';
+  ['cf-veh-year','cf-veh-make','cf-veh-model','cf-veh-vin','cf-veh-plate'].forEach(x=>document.getElementById(x).value='');
   if(id){
     const c=state.customers.find(x=>x.id===id);
     if(!c)return;
@@ -2538,6 +2806,7 @@ async function openCustModal(id){
     document.getElementById('cf-billing').value=c.billing_address||'';
     document.getElementById('cf-type').value=c.customer_type||'Personal';
     document.getElementById('cf-contact').value=c.preferred_contact||'Phone';
+    document.getElementById('cf-veh-toggle').style.display='none'; // hide vehicle adder on edit
     document.getElementById('cf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCustomer(${id})">Delete</button>`;
   } else {
     document.getElementById('m-cust-title').textContent='New customer';
@@ -2545,14 +2814,23 @@ async function openCustModal(id){
     document.getElementById('cf-status').value='Active';
     document.getElementById('cf-type').value='Personal';
     document.getElementById('cf-contact').value='Phone';
+    document.getElementById('cf-veh-toggle').style.display='';
   }
   document.getElementById('m-cust').classList.add('open');
 }
 
 async function saveCustomer(){
   const body={first:document.getElementById('cf-first').value||'New',last:document.getElementById('cf-last').value||'Customer',phone:document.getElementById('cf-phone').value,email:document.getElementById('cf-email').value,address:document.getElementById('cf-addr').value,billing_address:document.getElementById('cf-billing').value,notes:document.getElementById('cf-notes').value,status:document.getElementById('cf-status').value||'Active',tags:document.getElementById('cf-tags').value,customer_type:document.getElementById('cf-type').value||'Personal',preferred_contact:document.getElementById('cf-contact').value||'Phone'};
-  if(editCustId) await api('PUT',`/api/customers/${editCustId}`,body);
-  else await api('POST','/api/customers',body);
+  let r;
+  if(editCustId){ await api('PUT',`/api/customers/${editCustId}`,body); r={id:editCustId}; }
+  else r = await api('POST','/api/customers',body);
+
+  // Create vehicle if the section was filled in
+  const vehMake=document.getElementById('cf-veh-make').value.trim();
+  const vehModel=document.getElementById('cf-veh-model').value.trim();
+  if(!editCustId && (vehMake||vehModel) && r?.id){
+    await api('POST','/api/vehicles',{customer_id:r.id,year:parseInt(document.getElementById('cf-veh-year').value)||null,make:vehMake,model:vehModel,vin:document.getElementById('cf-veh-vin').value,plate:document.getElementById('cf-veh-plate').value});
+  }
   closeM('m-cust'); await loadAll(); toast(editCustId?'Customer updated':'Customer added');
   if(detailCustId) renderCustDetail();
 }
@@ -2621,28 +2899,53 @@ async function deleteVehicle(id){
   if(detailCustId) renderCustDetail();
 }
 
-async function openPmtModal(){
+async function openPmtModal(custId, jobId){
   await populateCustomerDropdown('pf-cust');
-  document.getElementById('pf-plan').innerHTML='<option value="">— General payment —</option>';
+  document.getElementById('pf-plan').innerHTML='<option value="">— No plan —</option>';
+  document.getElementById('pf-job').innerHTML='<option value="">— General payment —</option>';
   document.getElementById('pf-date').value=today();
   document.getElementById('pf-method').value=state.settings.default_pay_method||'Cash';
   ['pf-desc','pf-amt','pf-note'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('pf-balance-row').style.display='none';
+  if(custId){ document.getElementById('pf-cust').value=custId; await loadJobsForPayment(); }
+  if(jobId){ document.getElementById('pf-job').value=jobId; await loadJobBalance(); }
   document.getElementById('m-pmt').classList.add('open');
 }
 
-async function loadPlansForPayment(){
+async function loadJobsForPayment(){
   const custId=parseInt(document.getElementById('pf-cust').value);
-  const sel=document.getElementById('pf-plan');
-  if(isNaN(custId)){sel.innerHTML='<option value="">— General payment —</option>';return;}
+  const jobSel=document.getElementById('pf-job');
+  const planSel=document.getElementById('pf-plan');
+  document.getElementById('pf-balance-row').style.display='none';
+  if(isNaN(custId)){
+    jobSel.innerHTML='<option value="">— General payment —</option>';
+    planSel.innerHTML='<option value="">— No plan —</option>';
+    return;
+  }
+  const jobs=state.jobs.filter(j=>j.customer_id===custId&&j.deleted_at==null&&j.invoice_status!=='Paid');
+  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${j.id}">WO#${j.id} — ${j.service||'Service'} (${j.date||''})</option>`).join('');
   const plans=state.plans.filter(p=>p.customer_id===custId&&planBalance(p)>0);
-  sel.innerHTML='<option value="">— General payment —</option>'+plans.map(p=>`<option value="${p.id}">${p.description} (${fmt$(planBalance(p))} remaining)</option>`).join('');
+  planSel.innerHTML='<option value="">— No plan —</option>'+plans.map(p=>`<option value="${p.id}">${p.description} (${fmt$(planBalance(p))} remaining)</option>`).join('');
+}
+
+async function loadJobBalance(){
+  const jobId=parseInt(document.getElementById('pf-job').value);
+  const row=document.getElementById('pf-balance-row');
+  if(!jobId){ row.style.display='none'; return; }
+  const bal=await api('GET',`/api/jobs/${jobId}/balance`);
+  if(!bal){ row.style.display='none'; return; }
+  document.getElementById('pf-job-total').textContent=fmt$(bal.total);
+  document.getElementById('pf-job-paid').textContent=fmt$(bal.paid);
+  document.getElementById('pf-job-balance').textContent=fmt$(bal.balance);
+  row.style.display='';
+  if(bal.balance>0) document.getElementById('pf-amt').value=bal.balance.toFixed(2);
 }
 
 async function savePayment(){
   const custId=parseInt(document.getElementById('pf-cust').value);
   const amt=parseFloat(document.getElementById('pf-amt').value)||0;
   if(!custId||!amt){toast('Please fill in customer and amount.');return;}
-  await api('POST','/api/payments',{customer_id:custId,plan_id:parseInt(document.getElementById('pf-plan').value)||null,description:document.getElementById('pf-desc').value,amount:amt,method:document.getElementById('pf-method').value,date:document.getElementById('pf-date').value,note:document.getElementById('pf-note').value});
+  await api('POST','/api/payments',{customer_id:custId,job_id:parseInt(document.getElementById('pf-job').value)||null,plan_id:parseInt(document.getElementById('pf-plan').value)||null,description:document.getElementById('pf-desc').value,amount:amt,method:document.getElementById('pf-method').value,date:document.getElementById('pf-date').value,note:document.getElementById('pf-note').value});
   closeM('m-pmt'); await loadAll(); toast('Payment recorded');
 }
 
@@ -2735,9 +3038,15 @@ function renderSettings(){
   document.getElementById('s-inv-footer').value = s.invoice_footer||'Thank you for your business!';
   document.getElementById('s-website').value  = s.website||'';
   document.getElementById('s-hours').value    = s.business_hours||'';
-  document.getElementById('s-area').value     = s.service_area||s.address||'';
+  document.getElementById('s-area').value     = s.service_area||'';
   document.getElementById('s-warranty-terms').value = s.warranty_terms||'12 months / 12,000 miles';
   document.getElementById('s-est-terms').value= s.estimate_terms||'';
+  const canManage = canManageActiveShop();
+  ['s-biz-name','s-owner','s-phone','s-email','s-addr','s-labor','s-diag','s-fleet','s-emergency','s-service-fee','s-pay-method','s-tax','s-oil-warn','s-currency','s-tax-id','s-inv-terms','s-inv-footer','s-logo-file','s-logo-upload','s-logo-clear','s-website','s-hours','s-area','s-warranty-terms','s-est-terms','settings-save-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.disabled = !canManage;
+  });
+  renderShopSettings();
   // Logo preview
   const preview = document.getElementById('s-logo-preview');
   const clearBtn = document.getElementById('s-logo-clear');
@@ -2746,6 +3055,156 @@ function renderSettings(){
   document.getElementById('s-saved').style.display='none';
   const verEl = document.getElementById('s-app-version');
   if(window.electronAPI) verEl.textContent = `WrenchPro v${window.electronAPI.version} · ${window.electronAPI.platform}`;
+}
+
+
+function renderShopSettings(){
+  const shop = state.authSession?.shop || null;
+  const members = state.authSession?.shopMembers || state.authSession?.memberships || [];
+  const summary = document.getElementById('saas-settings-summary');
+  if(!summary) return;
+  const cfg = state.authConfig || {};
+  summary.textContent = cfg.mode === 'supabase-configured'
+    ? 'Supabase project configured; local shop/membership context is ready for tenant-isolation work.'
+    : 'Desktop/local mode; create a local shop and members now so SaaS tenant wiring has realistic data.';
+  const activeSelect = document.getElementById('active-shop-select');
+  if(activeSelect){
+    const selected = activeShopId();
+    activeSelect.innerHTML = '<option value="">Latest/local default</option>' + (state.shops||[]).map(s => `<option value="${s.id}">${esc(s.name)} · ${esc(s.owner_email || 'no owner email')}</option>`).join('');
+    activeSelect.value = selected;
+  }
+  const shopName = document.getElementById('shop-name');
+  const ownerEmail = document.getElementById('shop-owner-email');
+  if(shopName && !shopName.value) shopName.value = shop?.name || state.settings.business_name || '';
+  if(ownerEmail && !ownerEmail.value) ownerEmail.value = shop?.owner_email || state.settings.email || '';
+  const canManage = canManageActiveShop();
+  document.getElementById('shop-management-panel')?.classList.toggle('disabled', !canManage);
+  document.getElementById('shop-management-note')?.style.setProperty('display', canManage ? 'none' : 'block');
+  ['shop-name','shop-owner-email','shop-save-btn','member-email','member-role','member-name','member-add-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.disabled = !canManage;
+  });
+  const list = document.getElementById('shop-members-list');
+  if(list){
+    list.innerHTML = members.length ? members.map(m => `
+      <div class="member-row">
+        <div><strong>${esc(m.display_name || m.email)}</strong><div class="muted">${esc(m.email)}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;"><span class="pill pill-blue">${esc(m.role)}</span>${canManage ? `<button class="btn btn-sm" onclick="editShopMember(${Number(m.id)})">Edit</button><button class="btn btn-sm btn-danger" onclick="removeShopMember(${Number(m.id)})">Remove</button>` : ''}</div>
+      </div>
+    `).join('') : '<div class="empty" style="padding:16px;">No local shop members yet</div>';
+  }
+}
+
+async function refreshAuthSession(){
+  const [authConfig, authSession, shops] = await Promise.all([
+    api('GET','/api/auth/config'),
+    loadAuthSession(),
+    api('GET','/api/shops'),
+  ]);
+  state.authConfig = authConfig || {};
+  state.authSession = authSession || {};
+  state.shops = shops || [];
+  updateAccountChip();
+  renderSaasBanner();
+  renderShopSettings();
+}
+
+async function saveShop(){
+  if(!canManageActiveShop()){ toast('Owner or admin role required'); return; }
+  const name = document.getElementById('shop-name').value;
+  const owner_email = document.getElementById('shop-owner-email').value;
+  const existing = state.authSession?.shop;
+  let saved;
+  if(existing) saved = await api('PUT',`/api/shops/${existing.id}`,{name, owner_email, plan_status: existing.plan_status || 'trial'});
+  else saved = await api('POST','/api/shops',{name, owner_email});
+  if(saved?.id) localStorage.setItem('wrenchpro_shop_id', String(saved.id));
+  await refreshAuthSession();
+  toast('Shop linked locally');
+}
+
+async function switchShopContext(){
+  const selected = document.getElementById('active-shop-select')?.value || '';
+  if(selected) localStorage.setItem('wrenchpro_shop_id', selected);
+  else localStorage.removeItem('wrenchpro_shop_id');
+  await loadAll();
+  toast(selected ? 'Shop context switched' : 'Using latest local shop');
+}
+
+async function addShopMember(){
+  if(!canManageActiveShop()){ toast('Owner or admin role required'); return; }
+  const shop = state.authSession?.shop;
+  if(!shop){ toast('Create a shop first'); return; }
+  await api('POST',`/api/shops/${shop.id}/memberships`,{
+    email: document.getElementById('member-email').value,
+    role: document.getElementById('member-role').value,
+    display_name: document.getElementById('member-name').value,
+  });
+  ['member-email','member-name'].forEach(id=>document.getElementById(id).value='');
+  await refreshAuthSession();
+  toast('Member added');
+}
+
+async function editShopMember(memberId){
+  if(!canManageActiveShop()){ toast('Owner or admin role required'); return; }
+  const shop = state.authSession?.shop;
+  const member = (state.authSession?.shopMembers || state.authSession?.memberships || []).find(m => Number(m.id) === Number(memberId));
+  if(!shop || !member){ toast('Select a shop member first'); return; }
+  const email = prompt('Member email', member.email || '');
+  if(email === null) return;
+  const role = prompt('Role: owner, admin, advisor, or mechanic', member.role || 'mechanic');
+  if(role === null) return;
+  const display_name = prompt('Display name', member.display_name || '');
+  if(display_name === null) return;
+  await api('PUT',`/api/shops/${shop.id}/memberships/${memberId}`,{ email, role, display_name });
+  await refreshAuthSession();
+  toast('Member updated');
+}
+
+async function removeShopMember(memberId){
+  if(!canManageActiveShop()){ toast('Owner or admin role required'); return; }
+  const shop = state.authSession?.shop;
+  if(!shop || !memberId){ toast('Select a shop first'); return; }
+  const member = (state.authSession?.shopMembers || state.authSession?.memberships || []).find(m => Number(m.id) === Number(memberId));
+  if(!confirm(`Remove ${member?.email || 'this member'} from ${shop.name || 'this shop'}?`)) return;
+  await api('DELETE',`/api/shops/${shop.id}/memberships/${memberId}`);
+  await refreshAuthSession();
+  toast('Member removed');
+}
+
+async function login(event){
+  event.preventDefault();
+  const btn = document.getElementById('auth-submit');
+  const err = document.getElementById('auth-error');
+  if(btn) btn.disabled = true;
+  if(err){ err.textContent=''; err.classList.remove('show'); }
+  try{
+    const session = await api('POST','/api/auth/login',{
+      email: document.getElementById('auth-email').value,
+      password: document.getElementById('auth-password').value,
+    }, {skipAuthGate:true});
+    storeSupabaseSession(session);
+    document.getElementById('auth-password').value = '';
+    hideAuthGate();
+    await loadAll();
+    toast('Signed in');
+  }catch(error){
+    showAuthGate(error.message || 'Sign-in failed');
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+
+function logout(){
+  localStorage.removeItem('wrenchpro_supabase_access_token');
+  localStorage.removeItem('wrenchpro_supabase_refresh_token');
+  localStorage.removeItem('wrenchpro_shop_id');
+  clearShopWorkspaceState();
+  updateSidebarFoot();
+  updateAccountChip();
+  renderSaasBanner();
+  renderPage(currentPage);
+  if(state.authConfig?.authRequired) showAuthGate('Signed out. Sign in to continue.');
+  toast('Signed out');
 }
 
 function handleLogoUpload(input){
@@ -2769,6 +3228,7 @@ function clearLogo(){
 }
 
 async function saveSettings(){
+  if(!canManageActiveShop()){ toast('Owner or admin role required'); return; }
   const logo = state.settings._pendingLogo !== undefined
     ? state.settings._pendingLogo
     : (state.settings.invoice_logo||'');
@@ -2780,6 +3240,7 @@ async function saveSettings(){
     address:             document.getElementById('s-addr').value,
     website:             document.getElementById('s-website').value,
     business_hours:      document.getElementById('s-hours').value,
+    service_area:        document.getElementById('s-area').value,
     default_labor_rate:  parseFloat(document.getElementById('s-labor').value)||0,
     diagnostic_rate:     parseFloat(document.getElementById('s-diag').value)||0,
     fleet_rate:          parseFloat(document.getElementById('s-fleet').value)||0,
@@ -2812,9 +3273,39 @@ function openInvoice(jobId){
   const c = state.customers.find(x=>x.id===j.customer_id);
   const v = state.vehicles.find(x=>x.id===j.vehicle_id);
   const s = state.settings;
-  const tax = ((j.labor||0)+(j.parts||0)+(j.travel_fee||0)) * ((s.tax_rate||0)/100);
-  const total = (j.labor||0)+(j.parts||0)+(j.travel_fee||0)+tax;
+  const taxRate = s.tax_rate || 0;
   const invoiceNum = `INV-${String(j.id).padStart(4,'0')}`;
+
+  // Build line rows and compute breakdowns from items when available
+  let lineRows = '';
+  let laborTotal = 0, partsTotal = 0;
+  const items = j.items || [];
+  if(items.length){
+    items.forEach(i=>{
+      const typeLabel = i.type==='shop_supply'?'Supply':i.type.charAt(0).toUpperCase()+i.type.slice(1);
+      lineRows += `<tr>
+        <td style="padding:7px 0;border-bottom:1px solid #f0f0ec;">
+          <span style="font-size:10px;color:#aaa;text-transform:uppercase;margin-right:6px;">${typeLabel}</span>${esc(i.description||'')}
+          ${i.qty!==1?`<div style="font-size:11px;color:#888;margin-top:1px;">${i.qty} × ${fmt$(i.rate)}</div>`:''}
+        </td>
+        <td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.amount||0)}</td>
+      </tr>`;
+      if(i.taxable) partsTotal += i.amount||0;
+      else laborTotal += i.amount||0;
+    });
+  } else {
+    laborTotal = j.labor || 0;
+    partsTotal = j.parts || 0;
+    if(laborTotal) lineRows+=`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">Labor${j.service?` — ${esc(j.service)}`:''}</td><td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(laborTotal)}</td></tr>`;
+    if(partsTotal) lineRows+=`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">Parts &amp; materials</td><td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(partsTotal)}</td></tr>`;
+    if(!laborTotal&&!partsTotal&&j.service) lineRows+=`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">${esc(j.service)}</td><td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">$0.00</td></tr>`;
+  }
+  const travelFee = j.travel_fee || 0;
+  if(travelFee) lineRows+=`<tr><td style="padding:7px 0;border-bottom:1px solid #f0f0ec;">Travel / trip fee</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(travelFee)}</td></tr>`;
+
+  const tax = partsTotal * taxRate / 100;
+  const total = laborTotal + partsTotal + tax + travelFee;
+
   document.getElementById('invoice-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a1a1a;">
       <div>
@@ -2857,22 +3348,13 @@ function openInvoice(jobId){
           <th style="text-align:right;padding:6px 0;font-size:11px;color:#888;text-transform:uppercase;">Amount</th>
         </tr>
       </thead>
-      <tbody>
-        ${j.labor>0?`<tr>
-          <td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">
-            Labor${j.service?` — ${j.service}`:''}
-            ${j.labor_hours?`<div style="font-size:11px;color:#888;margin-top:2px;">${j.labor_hours} hrs${j.labor_rate?' @ '+fmt$(j.labor_rate)+'/hr':''}</div>`:''}
-          </td>
-          <td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(j.labor)}</td>
-        </tr>`:''}
-        ${j.parts>0?`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">Parts &amp; materials${!j.labor&&j.service?` — ${j.service}`:''}</td><td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(j.parts)}</td></tr>`:''}
-        ${!j.labor&&!j.parts&&j.service?`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">${j.service}</td><td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(0)}</td></tr>`:''}
-        ${j.travel_fee>0?`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f0ec;">Travel / trip fee</td><td style="text-align:right;padding:8px 0;border-bottom:1px solid #f0f0ec;">${fmt$(j.travel_fee)}</td></tr>`:''}
-      </tbody>
+      <tbody>${lineRows}</tbody>
     </table>
     <div style="display:flex;justify-content:flex-end;">
-      <div style="min-width:220px;">
-        ${tax>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#888;"><span>Tax (${s.tax_rate}%)</span><span>${fmt$(tax)}</span></div>`:''}
+      <div style="min-width:260px;font-size:13px;">
+        ${laborTotal>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#555;"><span>Subtotal — Labor</span><span>${fmt$(laborTotal)}</span></div>`:''}
+        ${partsTotal>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#555;"><span>Subtotal — Parts</span><span>${fmt$(partsTotal)}</span></div>`:''}
+        ${tax>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#888;"><span>Sales Tax (${taxRate}%)</span><span>${fmt$(tax)}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;margin-top:4px;"><span>Total</span><span>${fmt$(total)}</span></div>
       </div>
     </div>
@@ -3227,6 +3709,7 @@ function openLeadModal(id){
     document.getElementById('ldf-year').value=l.vehicle_year||'';
     document.getElementById('ldf-make').value=l.vehicle_make||'';
     document.getElementById('ldf-model').value=l.vehicle_model||'';
+    document.getElementById('ldf-vin').value=l.vin||'';
     document.getElementById('ldf-service').value=l.service_needed||'';
     document.getElementById('ldf-value').value=l.estimated_value||'';
     document.getElementById('ldf-followup').value=l.follow_up_date||'';
@@ -3234,7 +3717,7 @@ function openLeadModal(id){
     document.getElementById('ldf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteLead(${id})">Delete</button>`;
   } else {
     document.getElementById('m-lead-title').textContent='New lead';
-    ['ldf-first','ldf-last','ldf-phone','ldf-email','ldf-year','ldf-make','ldf-model','ldf-service','ldf-value','ldf-followup','ldf-notes'].forEach(x=>document.getElementById(x).value='');
+    ['ldf-first','ldf-last','ldf-phone','ldf-email','ldf-year','ldf-make','ldf-model','ldf-vin','ldf-service','ldf-value','ldf-followup','ldf-notes'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('ldf-status').value='New';
     document.getElementById('ldf-source').value='';
   }
@@ -3244,7 +3727,7 @@ function openLeadModal(id){
 async function saveLead(){
   const first=document.getElementById('ldf-first').value.trim();
   if(!first){toast('Please enter a first name.');return;}
-  const body={first,last:document.getElementById('ldf-last').value,phone:document.getElementById('ldf-phone').value,email:document.getElementById('ldf-email').value,source:document.getElementById('ldf-source').value,status:document.getElementById('ldf-status').value,vehicle_year:parseInt(document.getElementById('ldf-year').value)||null,vehicle_make:document.getElementById('ldf-make').value,vehicle_model:document.getElementById('ldf-model').value,service_needed:document.getElementById('ldf-service').value,estimated_value:parseFloat(document.getElementById('ldf-value').value)||0,follow_up_date:document.getElementById('ldf-followup').value||null,notes:document.getElementById('ldf-notes').value};
+  const body={first,last:document.getElementById('ldf-last').value,phone:document.getElementById('ldf-phone').value,email:document.getElementById('ldf-email').value,source:document.getElementById('ldf-source').value,status:document.getElementById('ldf-status').value,vehicle_year:parseInt(document.getElementById('ldf-year').value)||null,vehicle_make:document.getElementById('ldf-make').value,vehicle_model:document.getElementById('ldf-model').value,vin:document.getElementById('ldf-vin').value,service_needed:document.getElementById('ldf-service').value,estimated_value:parseFloat(document.getElementById('ldf-value').value)||0,follow_up_date:document.getElementById('ldf-followup').value||null,notes:document.getElementById('ldf-notes').value};
   if(editLeadId) await api('PUT',`/api/leads/${editLeadId}`,body);
   else await api('POST','/api/leads',body);
   closeM('m-lead'); await loadAll(); toast(editLeadId?'Lead updated':'Lead added');
@@ -3635,6 +4118,20 @@ function renderInventory(){
   }).join('');
 }
 
+function calcPartMarkup(){
+  const cost = parseFloat(document.getElementById('prf-cost').value) || 0;
+  if(cost <= 0){ document.getElementById('prf-markup-hint').textContent=''; return; }
+  let mult, label;
+  if(cost <= 1.00)   { mult = 3.50; label = '250%'; }
+  else if(cost <= 5.00)  { mult = 2.50; label = '150%'; }
+  else if(cost <= 25.00) { mult = 2.00; label = '100%'; }
+  else if(cost <= 100.00){ mult = 1.50; label = '50%'; }
+  else                   { mult = 1.25; label = '25%'; }
+  const retail = +(cost * mult).toFixed(2);
+  document.getElementById('prf-retail').value = retail;
+  document.getElementById('prf-markup-hint').textContent = `(${label} markup)`;
+}
+
 function openPartModal(id){
   editPartId=id||null;
   document.getElementById('prf-del').innerHTML='';
@@ -4011,3 +4508,7 @@ loadAll();
 </script>
 </body>
 </html>
+
+
+
+

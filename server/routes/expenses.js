@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const { resolveShopId, shopTenantWhere } = require('../tenant');
 
 router.get('/', (req, res) => {
   const { category, month } = req.query;
-  let query = 'SELECT * FROM expenses WHERE 1=1';
-  const params = [];
+  const tenant = shopTenantWhere(req);
+  let query = `SELECT * FROM expenses WHERE ${tenant.clause}`;
+  const params = [...tenant.values];
   if (category) { query += ' AND category = ?'; params.push(category); }
   if (month) { query += ' AND date LIKE ?'; params.push(month + '%'); }
   query += ' ORDER BY date DESC';
@@ -14,21 +16,26 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const { date, description, category, amount, note } = req.body;
+  const shopId = resolveShopId(req);
   const result = db.prepare(
-    'INSERT INTO expenses (date, description, category, amount, note) VALUES (?, ?, ?, ?, ?)'
-  ).run(date, description, category, amount, note || '');
-  res.json({ id: result.lastInsertRowid, ...req.body });
+    'INSERT INTO expenses (shop_id, date, description, category, amount, note) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(shopId, date, description, category, amount, note || '');
+  res.json({ id: result.lastInsertRowid, shop_id: shopId, ...req.body });
 });
 
 router.put('/:id', (req, res) => {
   const { date, description, category, amount, note } = req.body;
-  db.prepare(`UPDATE expenses SET date=?, description=?, category=?, amount=?, note=? WHERE id=?`)
-    .run(date, description, category, amount, note || '', req.params.id);
+  const tenant = shopTenantWhere(req);
+  const result = db.prepare(`UPDATE expenses SET date=?, description=?, category=?, amount=?, note=? WHERE id=? AND ${tenant.clause}`)
+    .run(date, description, category, amount, note || '', req.params.id, ...tenant.values);
+  if (result.changes === 0) return res.status(404).json({ error: 'Expense not found' });
   res.json({ success: true });
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
+  const tenant = shopTenantWhere(req);
+  const result = db.prepare(`DELETE FROM expenses WHERE id = ? AND ${tenant.clause}`).run(req.params.id, ...tenant.values);
+  if (result.changes === 0) return res.status(404).json({ error: 'Expense not found' });
   res.json({ success: true });
 });
 

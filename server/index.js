@@ -3,14 +3,96 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const db = require('./database');
+const pkg = require('../package.json');
+const { customerTenantWhere, shopTenantWhere, validateRequestedShopContext } = require('./tenant');
+const { isAuthRequired, publicAuthConfig, requireShopMembership, requireSupabaseUser } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Only allow requests from localhost (Electron window or local browser)
-app.use(cors({ origin: /^(http:\/\/localhost(:\d+)?|null)$/ }));
-app.use(express.json());
+// Reduce passive fingerprinting in hosted SaaS mode and local desktop mode.
+app.disable('x-powered-by');
+
+// Only allow requests from localhost (Electron window or local browser), plus
+// exact hosted frontend origins listed in WRENCHPRO_ALLOWED_ORIGINS. Keep the
+// localhost regex fully anchored; a loose prefix match would allow origins like
+// http://localhost.evil.test to receive CORS headers. Local desktop builds may
+// load from a file/null origin; hosted auth-required mode must not allow that.
+const LOCALHOST_ORIGIN = /^http:\/\/localhost(:\d+)?$/;
+function configuredAllowedOrigins() {
+  return String(process.env.WRENCHPRO_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(origin => origin.trim().replace(/\/$/, ''))
+    .filter(origin => /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(origin));
+}
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    const cleanOrigin = String(origin).replace(/\/$/, '');
+    if (LOCALHOST_ORIGIN.test(cleanOrigin)) return callback(null, true);
+    if (configuredAllowedOrigins().includes(cleanOrigin)) return callback(null, true);
+    if (!isAuthRequired() && origin === 'null') return callback(null, true);
+    return callback(null, false);
+  },
+}));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"
+  );
+  next();
+});
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// API payloads can include shop/customer/session context. Prevent browsers and
+// intermediary caches from reusing tenant-scoped JSON across users or shops.
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
+// Public readiness probe for local QA and future hosted uptime checks. Keep it
+// secret-free: no Supabase URL, anon key, database path, or user/shop data.
+app.get('/api/health', (req, res) => {
+  const authConfig = publicAuthConfig();
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    ok: true,
+    version: pkg.version,
+    authRequired: authConfig.authRequired,
+    supabaseConfigured: authConfig.mode === 'supabase-configured',
+  });
+});
+
+// Tenant safety: an explicit shop context must be valid. Unknown or malformed
+// shop IDs fail closed instead of silently falling back to legacy local data.
+// In hosted SaaS mode this check runs after Supabase verification inside
+// requireShopMembership so unauthenticated callers cannot enumerate shop IDs.
+// Public auth bootstrap endpoints must stay reachable even if a browser has a
+// stale x-wrenchpro-shop-id from a deleted/local shop in localStorage.
+app.use('/api', (req, res, next) => {
+  if (isAuthRequired()) return next();
+  if (['/auth/config', '/auth/login', '/auth/refresh', '/auth/session'].includes(req.path)) return next();
+  if (req.path === '/shops' && ['GET', 'POST'].includes(req.method)) return next();
+  return validateRequestedShopContext(req, res, next);
+});
+
+// Hosted SaaS safety: when WRENCHPRO_AUTH_REQUIRED=true, verify the Supabase
+// bearer session server-side and require membership in the active shop before
+// any shop/customer data route can run. Keep /api/auth/config public so the
+// frontend can discover mode without exposing keys, and let signed-in users
+// without a shop reach the first-shop bootstrap endpoints.
+app.use('/api', (req, res, next) => {
+  if (['/auth/config', '/auth/login', '/auth/refresh'].includes(req.path)) return next();
+  if (req.path === '/auth/session') return requireSupabaseUser()(req, res, next);
+  if (req.path === '/shops' && ['GET', 'POST'].includes(req.method)) return requireSupabaseUser()(req, res, next);
+  return requireShopMembership()(req, res, next);
+});
 
 app.use('/api/customers',    require('./routes/customers'));
 app.use('/api/vehicles',     require('./routes/vehicles'));
@@ -29,38 +111,66 @@ app.use('/api/inspections',  require('./routes/inspections'));
 app.use('/api/warranties',   require('./routes/warranties'));
 app.use('/api/time',         require('./routes/time'));
 app.use('/api/leads',        require('./routes/leads'));
+app.use('/api/auth',         require('./routes/auth'));
+app.use('/api/shops',        require('./routes/shops'));
 
 app.get('/api/dashboard', (req, res) => {
-  const totalRevenue   = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM payments').get().total;
-  const totalExpenses  = db.prepare('SELECT COALESCE(SUM(amount),0) as total FROM expenses').get().total;
-  const activeJobs     = db.prepare("SELECT COUNT(*) as count FROM jobs WHERE status NOT IN ('Complete','Canceled') AND deleted_at IS NULL").get().count;
-  const totalCustomers = db.prepare('SELECT COUNT(*) as count FROM customers WHERE deleted_at IS NULL').get().count;
-  const totalVehicles  = db.prepare('SELECT COUNT(*) as count FROM vehicles WHERE deleted_at IS NULL').get().count;
+  const tenant = customerTenantWhere(req, 'c');
+  const totalRevenue = db.prepare(`
+    SELECT COALESCE(SUM(p.amount),0) as total
+    FROM payments p
+    JOIN customers c ON p.customer_id = c.id
+    WHERE c.deleted_at IS NULL AND ${tenant.clause}
+  `).get(...tenant.values).total;
+  const expenseTenant = shopTenantWhere(req);
+  const totalExpenses  = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE ${expenseTenant.clause}`).get(...expenseTenant.values).total;
+  const activeJobs = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    WHERE j.status NOT IN ('Complete','Canceled') AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+  `).get(...tenant.values).count;
+  const totalCustomers = db.prepare(`SELECT COUNT(*) as count FROM customers c WHERE c.deleted_at IS NULL AND ${tenant.clause}`).get(...tenant.values).count;
+  const totalVehicles = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM vehicles v
+    JOIN customers c ON v.customer_id = c.id
+    WHERE v.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+  `).get(...tenant.values).count;
   const recentJobs = db.prepare(`
     SELECT j.*, c.first, c.last, v.year, v.make, v.model
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
     JOIN vehicles v  ON j.vehicle_id  = v.id
     WHERE j.deleted_at IS NULL
+      AND c.deleted_at IS NULL
+      AND v.deleted_at IS NULL
       AND j.status NOT IN ('Complete', 'Canceled')
+      AND ${tenant.clause}
     ORDER BY j.date DESC LIMIT 5
-  `).all();
+  `).all(...tenant.values);
   const recentPayments = db.prepare(`
     SELECT p.*, c.first, c.last FROM payments p
     JOIN customers c ON p.customer_id = c.id
+    WHERE c.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY p.date DESC LIMIT 5
-  `).all();
+  `).all(...tenant.values);
   res.json({ totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses, activeJobs, totalCustomers, totalVehicles, recentJobs, recentPayments });
 });
 
-// Global JSON error handler — prevents SQLite/Express stack traces reaching the client
-app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
-  console.error(err.message);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API route not found' });
 });
 
 app.get(/^(?!\/api).*$/, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
+// Global JSON error handler — prevents SQLite/Express stack traces reaching the client
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+  const status = Number(err.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
+  console.error(err.message || err);
+  res.status(status).json({ error: status >= 500 ? 'Internal server error' : (err.message || 'Request failed') });
 });
 
 app.listen(PORT, () => {
