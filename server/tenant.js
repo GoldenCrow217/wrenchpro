@@ -60,6 +60,21 @@ function getTenantCustomer(req, customerId, alias = '') {
   return { customer, tenant };
 }
 
+function employeeInTenant(req, employeeId) {
+  if (!employeeId) return true;
+  const tenant = shopTenantWhere(req, 'e');
+  return Boolean(db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
+}
+
+function inventoryItemsInTenant(req, items = []) {
+  const ids = [...new Set((items || []).map(i => i.inventory_id).filter(Boolean).map(Number))];
+  if (!ids.length) return true;
+  const tenant = shopTenantWhere(req, 'pi');
+  const placeholders = ids.map(() => '?').join(',');
+  const row = db.prepare(`SELECT COUNT(*) AS count FROM parts_inventory pi WHERE pi.id IN (${placeholders}) AND ${tenant.clause}`).get(...ids, ...tenant.values);
+  return row.count === ids.length;
+}
+
 module.exports = {
   requestedShopId,
   hasRequestedShopId,
@@ -68,4 +83,6 @@ module.exports = {
   customerTenantWhere,
   shopTenantWhere,
   getTenantCustomer,
+  employeeInTenant,
+  inventoryItemsInTenant,
 };

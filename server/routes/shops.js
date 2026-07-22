@@ -169,9 +169,11 @@ router.post('/', (req, res) => {
 
   const { name, owner_email, plan_status } = req.body;
   const cleanName = String(name || '').trim();
-  const fallbackOwnerEmail = isAuthRequired() ? req.authUser?.email : '';
-  const cleanOwnerEmail = normalizeEmail(owner_email || fallbackOwnerEmail);
+  const cleanOwnerEmail = isAuthRequired()
+    ? normalizeEmail(req.authUser?.email)
+    : normalizeEmail(owner_email);
   if (!cleanName) return res.status(400).json({ error: 'Shop name is required' });
+  if (isAuthRequired() && !cleanOwnerEmail) return res.status(400).json({ error: 'Authenticated user email is required to create a shop' });
   if (cleanOwnerEmail && !isValidEmail(cleanOwnerEmail)) return res.status(400).json({ error: 'Owner email is invalid' });
 
   const createShop = db.transaction(() => {
