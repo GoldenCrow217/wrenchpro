@@ -1,13 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { customerTenantWhere, shopTenantWhere } = require('../tenant');
-
-function employeeInTenant(req, employeeId) {
-  if (!employeeId) return true;
-  const tenant = shopTenantWhere(req, 'e');
-  return Boolean(db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
-}
+const { customerTenantWhere, shopTenantWhere, resolveShopId, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -21,8 +15,15 @@ router.get('/', (req, res) => {
     WHERE j.deleted_at IS NULL AND c.deleted_at IS NULL AND v.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY j.date DESC
   `).all(...tenant.values);
-  const getItems = db.prepare('SELECT * FROM job_items WHERE job_id = ? ORDER BY id');
-  jobs.forEach(j => { j.items = getItems.all(j.id); });
+  if (jobs.length) {
+    const ids = jobs.map(j => j.id);
+    const allItems = db.prepare(`SELECT * FROM job_items WHERE job_id IN (${ids.map(() => '?').join(',')}) ORDER BY job_id, id`).all(...ids);
+    const itemMap = {};
+    allItems.forEach(i => { (itemMap[i.job_id] = itemMap[i.job_id] || []).push(i); });
+    jobs.forEach(j => { j.items = itemMap[j.id] || []; });
+  } else {
+    jobs.forEach(j => { j.items = []; });
+  }
   res.json(jobs);
 });
 
@@ -45,7 +46,9 @@ router.get('/:id/balance', (req, res) => {
   const items = db.prepare('SELECT * FROM job_items WHERE job_id = ?').all(req.params.id);
   let laborTotal, partsTotal, tax;
   if (items.length > 0) {
-    const taxRate = (db.prepare('SELECT tax_rate FROM settings WHERE id = 1').get()?.tax_rate) || 0;
+    const shopId = resolveShopId(req);
+    const taxRow = shopId ? db.prepare('SELECT tax_rate FROM shop_settings WHERE shop_id = ?').get(shopId) : null;
+    const taxRate = taxRow?.tax_rate ?? (db.prepare('SELECT tax_rate FROM settings WHERE id = 1').get()?.tax_rate ?? 0);
     laborTotal = items.filter(i => !i.taxable).reduce((a, i) => a + (i.amount || 0), 0);
     partsTotal = items.filter(i => i.taxable).reduce((a, i) => a + (i.amount || 0), 0);
     tax = partsTotal * taxRate / 100;
@@ -64,12 +67,12 @@ function itemTotals(items) {
   return { labor, parts };
 }
 
-function saveJobItems(jobId, items) {
+const saveJobItems = db.transaction((jobId, items) => {
   db.prepare('DELETE FROM job_items WHERE job_id = ?').run(jobId);
   if (!items || !items.length) return;
   const ins = db.prepare(`INSERT INTO job_items (job_id, type, description, qty, rate, amount, taxable, inventory_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
   items.forEach(i => ins.run(jobId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.taxable ? 1 : 0, i.inventory_id || null));
-}
+});
 
 router.post('/', (req, res) => {
   const {
@@ -90,6 +93,10 @@ router.post('/', (req, res) => {
 
   if (!employeeInTenant(req, employee_id)) {
     return res.status(400).json({ error: 'Employee is outside the active shop context' });
+  }
+
+  if (!inventoryItemsInTenant(req, items)) {
+    return res.status(400).json({ error: 'Inventory item is outside the active shop context' });
   }
 
   if (estimate_id) {
@@ -141,6 +148,10 @@ router.put('/:id', (req, res) => {
 
   if (!employeeInTenant(req, employee_id)) {
     return res.status(400).json({ error: 'Employee is outside the active shop context' });
+  }
+
+  if (!inventoryItemsInTenant(req, items)) {
+    return res.status(400).json({ error: 'Inventory item is outside the active shop context' });
   }
 
   if (estimate_id) {

@@ -280,13 +280,14 @@ async function runAuthRequiredGateCheck() {
 
     const bootstrapShop = await authRequestRaw('POST', '/api/shops', {
       name: 'Bootstrap Mobile Shop',
+      owner_email: 'attacker-controlled@example.test',
       plan_status: 'active',
     }, {
       authorization: 'Bearer qa-bootstrap-token',
       'x-wrenchpro-shop-id': '999999',
     });
     assert(bootstrapShop.ok, `Hosted user without membership should be able to create first shop despite stale local shop context: HTTP ${bootstrapShop.status} ${bootstrapShop.text}`);
-    assert(bootstrapShop.body.owner_email === 'bootstrap@example.test', 'Hosted first shop should default owner email from Supabase user');
+    assert(bootstrapShop.body.owner_email === 'bootstrap@example.test', 'Hosted first shop must bind owner email from the verified Supabase user, not client input');
     assert(bootstrapShop.body.plan_status === 'trial', 'Hosted shop bootstrap must not let users self-assign paid plan status');
 
     const authDb = new Database(path.join(authDataDir, 'wrenchpro.db'));
@@ -325,12 +326,13 @@ async function runAuthRequiredGateCheck() {
 
     const ownerCanCreateAdditionalShop = await authRequestRaw('POST', '/api/shops', {
       name: 'Owner Second Shop',
-      owner_email: 'owner@example.test',
+      owner_email: 'different-owner@example.test',
       plan_status: 'founding',
     }, {
       authorization: 'Bearer qa-valid-token',
     });
     assert(ownerCanCreateAdditionalShop.ok, `Hosted owner/admin should be able to create an additional managed shop: HTTP ${ownerCanCreateAdditionalShop.status} ${ownerCanCreateAdditionalShop.text}`);
+    assert(ownerCanCreateAdditionalShop.body.owner_email === 'owner@example.test', 'Hosted additional shop creation must ignore client-supplied owner email and bind the verified user email');
     assert(ownerCanCreateAdditionalShop.body.plan_status === 'trial', 'Hosted additional shop creation must ignore client-supplied plan status');
 
     const explicitSecondShopSession = await authRequestRaw('GET', '/api/auth/session', undefined, {

@@ -1,26 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { customerTenantWhere, shopTenantWhere } = require('../tenant');
-
-function employeeInTenant(req, employeeId) {
-  if (!employeeId) return true;
-  const tenant = shopTenantWhere(req, 'e');
-  return Boolean(db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
-}
-
-function inventoryItemsInTenant(req, items = []) {
-  const ids = [...new Set((items || []).map(i => i.inventory_id).filter(Boolean).map(Number))];
-  if (!ids.length) return true;
-  const tenant = shopTenantWhere(req, 'pi');
-  const placeholders = ids.map(() => '?').join(',');
-  const row = db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM parts_inventory pi
-    WHERE pi.id IN (${placeholders}) AND ${tenant.clause}
-  `).get(...ids, ...tenant.values);
-  return row.count === ids.length;
-}
+const { customerTenantWhere, shopTenantWhere, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -34,15 +15,19 @@ router.get('/', (req, res) => {
     WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY e.date DESC
   `).all(...tenant.values);
-  estimates.forEach(est => {
-    est.items = db.prepare(`
+  if (estimates.length) {
+    const ids = estimates.map(e => e.id);
+    const allItems = db.prepare(`
       SELECT ei.*, pi.name AS inventory_name
       FROM estimate_items ei
       LEFT JOIN parts_inventory pi ON ei.inventory_id = pi.id
-      WHERE ei.estimate_id = ?
-      ORDER BY ei.id
-    `).all(est.id);
-  });
+      WHERE ei.estimate_id IN (${ids.map(() => '?').join(',')})
+      ORDER BY ei.estimate_id, ei.id
+    `).all(...ids);
+    const itemMap = {};
+    allItems.forEach(i => { (itemMap[i.estimate_id] = itemMap[i.estimate_id] || []).push(i); });
+    estimates.forEach(e => { e.items = itemMap[e.id] || []; });
+  }
   res.json(estimates);
 });
 
@@ -165,33 +150,38 @@ router.post('/:id/convert', (req, res) => {
   const service = items.map(i => i.description).filter(Boolean).join(', ').slice(0, 255) || est.customer_complaint || 'Service';
   const now = new Date().toISOString().replace('T', ' ').split('.')[0];
 
-  const result = db.prepare(`
-    INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, date, labor, parts, status, notes, estimate_id, complaint)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
-  `).run(est.customer_id, est.vehicle_id, est.employee_id, service, est.date, labor, parts, est.notes, est.id, est.customer_complaint);
-
-  const jobId = result.lastInsertRowid;
-
-  db.prepare(`UPDATE estimates SET status='Approved', approved_at=? WHERE id=? AND approved_at IS NULL`)
-    .run(now, est.id);
-
-  // Copy estimate items to job_items. Labor/diagnostic → not taxable; everything else → taxable.
-  if (items.length) {
-    const insItem = db.prepare(`INSERT INTO job_items (job_id, type, description, qty, rate, amount, taxable, inventory_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-    items.forEach(i => {
-      const taxable = (i.type === 'labor' || i.type === 'diagnostic') ? 0 : 1;
-      insItem.run(jobId, i.type, i.description, i.qty, i.rate, i.amount, taxable, i.inventory_id || null);
-    });
-  }
-
-  // Deduct inventory-backed parts only inside the active shop context.
   const inventoryTenant = shopTenantWhere(req, 'pi');
-  const deduct = db.prepare(`UPDATE parts_inventory AS pi SET quantity = MAX(0, quantity - ?) WHERE pi.id = ? AND ${inventoryTenant.clause}`);
-  items.filter(i => i.inventory_id && i.type !== 'labor').forEach(i => {
-    deduct.run(Math.round(i.qty || 1), i.inventory_id, ...inventoryTenant.values);
+
+  const doConvert = db.transaction(() => {
+    const result = db.prepare(`
+      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, date, labor, parts, status, notes, estimate_id, complaint)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
+    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, est.date, labor, parts, est.notes, est.id, est.customer_complaint);
+    const jobId = result.lastInsertRowid;
+
+    db.prepare(`UPDATE estimates SET status='Approved', approved_at=? WHERE id=? AND approved_at IS NULL`)
+      .run(now, est.id);
+
+    // Copy estimate items to job_items. Labor/diagnostic → not taxable; everything else → taxable.
+    if (items.length) {
+      const insItem = db.prepare(`INSERT INTO job_items (job_id, type, description, qty, rate, amount, taxable, inventory_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+      items.forEach(i => {
+        const taxable = (i.type === 'labor' || i.type === 'diagnostic') ? 0 : 1;
+        insItem.run(jobId, i.type, i.description, i.qty, i.rate, i.amount, taxable, i.inventory_id || null);
+      });
+    }
+
+    // Deduct inventory-backed parts only inside the active shop context. Skip zero-qty items.
+    const deduct = db.prepare(`UPDATE parts_inventory AS pi SET quantity = MAX(0, quantity - ?) WHERE pi.id = ? AND ${inventoryTenant.clause}`);
+    items.filter(i => i.inventory_id && i.type !== 'labor').forEach(i => {
+      const qty = i.qty || 0;
+      if (qty > 0) deduct.run(qty, i.inventory_id, ...inventoryTenant.values);
+    });
+
+    return jobId;
   });
 
-  res.json({ job_id: jobId });
+  res.json({ job_id: doConvert() });
 });
 
 module.exports = router;
