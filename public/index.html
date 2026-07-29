@@ -345,6 +345,22 @@ tr:hover td{background:var(--bg-subtle);}
 .warranty-exp{font-size:11px;}
 .warranty-expired{color:var(--danger-fg);font-weight:600;}
 .warranty-active{color:var(--success-fg);font-weight:600;}
+
+/* Command palette */
+.cp-overlay{display:none;position:fixed;inset:0;z-index:300;background:rgba(20,15,8,.22);padding-top:42px;align-items:flex-start;justify-content:center;}
+.cp-overlay.open{display:flex;}
+.cp-box{width:min(640px,calc(100vw - 32px));max-height:min(620px,calc(100vh - 80px));display:flex;flex-direction:column;overflow:hidden;background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);}
+.cp-input-row{height:48px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);}
+.cp-inp{flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--fg);font-size:15px;outline:none;}
+.cp-list{max-height:480px;overflow-y:auto;padding:8px;}
+.cp-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;color:var(--fg);}
+.cp-item:hover,.cp-active{background:var(--bg-subtle);}
+.cp-item-icon{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cp-item-label{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cp-item-sub{font-size:12px;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.cp-item-kind{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-faint);margin-left:auto;}
+.cp-foot{height:34px;display:flex;align-items:center;gap:5px;padding:0 14px;border-top:1px solid var(--border);color:var(--fg-faint);font-size:11px;background:var(--bg-subtle);}
+.cp-foot kbd{font-family:var(--font-mono);font-size:10px;color:var(--fg-muted);background:var(--bg-elev);border:1px solid var(--border);border-radius:4px;padding:1px 5px;}
 </style>
 </head>
 <body>
@@ -377,7 +393,7 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="brand-text">
       <span class="brand-name">WrenchPro</span>
-      <span class="brand-sub">v1.0.14</span>
+      <span class="brand-sub" id="brand-version">v1.0.20</span>
     </div>
   </div>
 
@@ -495,10 +511,10 @@ tr:hover td{background:var(--bg-subtle);}
       <span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
       <span class="current" id="crumb-page">Dashboard</span>
     </div>
-    <div class="topbar-search" onclick="openQuickEntry()">
+    <div class="topbar-search" onclick="openCommandPalette()">
       <span class="ts-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
-      <input placeholder="Search customers, vehicles, jobs, VINs…" readonly style="cursor:pointer;" onfocus="this.blur();openQuickEntry();">
-      <kbd>⌘K</kbd>
+      <input placeholder="Search customers, vehicles, jobs, VINs..." readonly style="cursor:pointer;" onfocus="this.blur();openCommandPalette();">
+      <kbd>Ctrl K</kbd>
     </div>
     <div class="topbar-actions">
       <button class="icon-btn" title="Notifications">
@@ -856,7 +872,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Job -->
 <div class="modal-overlay" id="m-job">
   <div class="modal">
-    <h2 id="m-job-title">New job</h2>
+    <h2 id="m-job-title">New Job</h2>
     <div class="f2">
       <div class="fr"><label>Customer</label>
         <select id="jf-cust" onchange="loadVehiclesForJob()"><option value="">— Select —</option></select>
@@ -922,7 +938,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Customer -->
 <div class="modal-overlay" id="m-cust">
   <div class="modal">
-    <h2 id="m-cust-title">New customer</h2>
+    <h2 id="m-cust-title">New Customer</h2>
     <div class="f2">
       <div class="fr"><label>First name</label><input id="cf-first" placeholder="John"></div>
       <div class="fr"><label>Last name</label><input id="cf-last" placeholder="Smith"></div>
@@ -961,7 +977,7 @@ tr:hover td{background:var(--bg-subtle);}
       <button class="btn btn-sm" onclick="toggleCustVehicle()" id="cf-veh-btn" type="button">+ Add vehicle</button>
     </div>
     <div id="cf-veh-section" style="display:none;background:var(--bg-subtle);border-radius:8px;padding:12px;margin-bottom:8px;">
-      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">New vehicle (optional)</div>
+      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">New Vehicle (optional)</div>
       <div class="f3">
         <div class="fr"><label>Year</label><input type="number" id="cf-veh-year" placeholder="2019"></div>
         <div class="fr"><label>Make</label><input id="cf-veh-make" placeholder="Toyota"></div>
@@ -1036,7 +1052,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Payment -->
 <div class="modal-overlay" id="m-pmt">
   <div class="modal">
-    <h2>Record payment</h2>
+    <h2>Record Payment</h2>
     <div class="f2">
       <div class="fr"><label>Customer</label>
         <select id="pf-cust" onchange="loadJobsForPayment()"><option value="">— Select —</option></select>
@@ -1077,7 +1093,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Payment Plan -->
 <div class="modal-overlay" id="m-plan">
   <div class="modal">
-    <h2>New payment plan</h2>
+    <h2>New Payment Plan</h2>
     <div class="f2">
       <div class="fr"><label>Customer</label><select id="pl-cust"><option value="">— Select —</option></select></div>
       <div class="fr"><label>Description</label><input id="pl-desc" placeholder="Engine rebuild, brake job..."></div>
@@ -1160,7 +1176,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Employee -->
 <div class="modal-overlay" id="m-emp">
   <div class="modal">
-    <h2 id="m-emp-title">Add employee</h2>
+    <h2 id="m-emp-title">Add Employee</h2>
     <div class="f2">
       <div class="fr"><label>First name</label><input id="ef2-first" placeholder="Jane"></div>
       <div class="fr"><label>Last name</label><input id="ef2-last" placeholder="Doe"></div>
@@ -1301,7 +1317,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Estimate -->
 <div class="modal-overlay" id="m-estimate">
   <div class="modal" style="width:760px;">
-    <h2 id="m-est-title">New estimate</h2>
+    <h2 id="m-est-title">New Estimate</h2>
     <div class="f2">
       <div class="fr"><label>Customer</label>
         <select id="estf-cust" onchange="loadVehiclesForEst()"><option value="">— Select —</option></select>
@@ -1390,7 +1406,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Part -->
 <div class="modal-overlay" id="m-part">
   <div class="modal">
-    <h2 id="m-part-title">Add part</h2>
+    <h2 id="m-part-title">Add Part</h2>
     <div class="f2">
       <div class="fr"><label>Part name</label><input id="prf-name" placeholder="Brake pad set — front"></div>
       <div class="fr"><label>Part number</label><input id="prf-num" placeholder="BP-12345" style="font-family:monospace;font-size:12px;"></div>
@@ -1423,7 +1439,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Catalog Item -->
 <div class="modal-overlay" id="m-catalog-item">
   <div class="modal">
-    <h2 id="m-cat-title">Add service</h2>
+    <h2 id="m-cat-title">Add Service</h2>
     <div class="f2">
       <div class="fr"><label>Service name</label><input id="catf-name" placeholder="Oil Change — Full Synthetic"></div>
       <div class="fr"><label>Category</label>
@@ -1456,7 +1472,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Lead -->
 <div class="modal-overlay" id="m-lead">
   <div class="modal">
-    <h2 id="m-lead-title">New lead</h2>
+    <h2 id="m-lead-title">New Lead</h2>
     <div class="f2">
       <div class="fr"><label>First name</label><input id="ldf-first" placeholder="John"></div>
       <div class="fr"><label>Last name</label><input id="ldf-last" placeholder="Smith"></div>
@@ -1536,7 +1552,7 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Warranty -->
 <div class="modal-overlay" id="m-warranty">
   <div class="modal">
-    <h2 id="m-warr-title">Add warranty</h2>
+    <h2 id="m-warr-title">Add Warranty</h2>
     <div class="fr"><label>Description</label><input id="wrf-desc" placeholder="Brake pad replacement, engine rebuild..."></div>
     <div class="f3">
       <div class="fr"><label>Labor warranty (months)</label><input type="number" id="wrf-labor" value="12" min="0"></div>
@@ -1678,6 +1694,27 @@ window.addEventListener('focus', ()=>{
   clearTimeout(_focusRefreshTimer);
   _focusRefreshTimer = setTimeout(()=>loadAll(), 400);
 });
+
+function setVersionLabels(version, platform = '') {
+  if (!version) return;
+  const brand = document.getElementById('brand-version');
+  if (brand) brand.textContent = `v${version}`;
+  const settings = document.getElementById('s-app-version');
+  if (settings) settings.textContent = `WrenchPro v${version}${platform ? ` · ${platform}` : ''}`;
+}
+
+async function initVersionLabels() {
+  if (window.electronAPI?.version) {
+    setVersionLabels(window.electronAPI.version, window.electronAPI.platform);
+    return;
+  }
+  try {
+    const health = await api('GET', '/api/health');
+    setVersionLabels(health.version);
+  } catch (_) {
+    setVersionLabels('1.0.20');
+  }
+}
 
 async function loadAll(){
   const [custs,vehs,jobs,pmts,plans,exps,settings,appts,emps,interactions,followups,svcRem,estimates,inventory,catalog,inspections,warranties,timeLogs,leads] = await Promise.all([
@@ -1844,7 +1881,7 @@ async function renderDashboard(){
 
     // Pipeline funnel
     const pipeRows = [
-      {label:'New leads',s:'New',color:'var(--info)'},
+      {label:'New Leads',s:'New',color:'var(--info)'},
       {label:'Contacted',s:'Contacted',color:'var(--info)'},
       {label:'Quoted',s:'Quoted',color:'var(--warning)'},
       {label:'Scheduled',s:'Scheduled',color:'var(--accent)'},
@@ -1889,8 +1926,8 @@ async function renderDashboard(){
   </div>
   <div class="page-actions">
     <button class="btn" onclick="openQuickEntry()">${iBolt} Quick entry</button>
-    <button class="btn" onclick="openCustModal()">${iPlus} New customer</button>
-    <button class="btn btn-primary" onclick="openJobModal()">${iPlus} New job</button>
+    <button class="btn" onclick="openCustModal()">${iPlus} New Customer</button>
+    <button class="btn btn-primary" onclick="openJobModal()">${iPlus} New Job</button>
   </div>
 </div>
 
@@ -1951,7 +1988,7 @@ async function renderDashboard(){
       </div>`:''}
       ${lowStockItems.length?`<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:${pendingEsts.length?'1px solid var(--border)':'none'};">
         <div style="width:30px;height:30px;border-radius:8px;background:var(--warning-soft);color:var(--warning-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${iBox}</div>
-        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">Low stock — ${lowStockItems[0].name}</div><div class="muted" style="font-size:12px;">${lowStockItems[0].quantity} on hand · reorder at ${lowStockItems[0].reorder_qty}${lowStockItems.length>1?' · '+lowStockItems.length+' items':''}</div></div>
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${lowStockItems[0].name}</div><div class="muted" style="font-size:12px;">Low stock · ${lowStockItems[0].quantity} on hand · reorder at ${lowStockItems[0].reorder_qty}${lowStockItems.length>1?' · '+lowStockItems.length+' items':''}</div></div>
         <button class="btn btn-sm" onclick="sp('inventory')">Reorder</button>
       </div>`:''}
       ${pendingEsts.length?`<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;">
@@ -2582,7 +2619,7 @@ function openEmpModal(id){
   if(id){
     const e=state.employees.find(x=>x.id===id);
     if(!e)return;
-    document.getElementById('m-emp-title').textContent='Edit employee';
+    document.getElementById('m-emp-title').textContent='Edit Employee';
     document.getElementById('ef2-first').value=e.first||'';
     document.getElementById('ef2-last').value=e.last||'';
     document.getElementById('ef2-phone').value=e.phone||'';
@@ -2593,7 +2630,7 @@ function openEmpModal(id){
     document.getElementById('ef2-notes').value=e.notes||'';
     document.getElementById('ef2-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEmployee(${id})">Remove</button>`;
   } else {
-    document.getElementById('m-emp-title').textContent='Add employee';
+    document.getElementById('m-emp-title').textContent='Add Employee';
     ['ef2-first','ef2-last','ef2-phone','ef2-email','ef2-rate','ef2-notes'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('ef2-role').value='Mechanic';
     document.getElementById('ef2-status').value='active';
@@ -2714,7 +2751,7 @@ async function openJobModal(id){
     }
     document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${id})">Delete job</button>`;
   } else {
-    document.getElementById('m-job-title').textContent='New job';
+    document.getElementById('m-job-title').textContent='New Job';
     ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('jf-status').value='Pending';
     document.getElementById('jf-inv-status').value='Unpaid';
@@ -2779,7 +2816,7 @@ async function openCustModal(id){
   if(id){
     const c=state.customers.find(x=>x.id===id);
     if(!c)return;
-    document.getElementById('m-cust-title').textContent='Edit customer';
+    document.getElementById('m-cust-title').textContent='Edit Customer';
     document.getElementById('cf-first').value=c.first||'';
     document.getElementById('cf-last').value=c.last||'';
     document.getElementById('cf-phone').value=c.phone||'';
@@ -2794,7 +2831,7 @@ async function openCustModal(id){
     document.getElementById('cf-veh-toggle').style.display='none'; // hide vehicle adder on edit
     document.getElementById('cf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCustomer(${id})">Delete</button>`;
   } else {
-    document.getElementById('m-cust-title').textContent='New customer';
+    document.getElementById('m-cust-title').textContent='New Customer';
     ['cf-first','cf-last','cf-phone','cf-email','cf-addr','cf-billing','cf-notes','cf-tags'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('cf-status').value='Active';
     document.getElementById('cf-type').value='Personal';
@@ -3032,8 +3069,7 @@ function renderSettings(){
   if(s.invoice_logo){ preview.src=s.invoice_logo; preview.style.display=''; clearBtn.style.display=''; }
   else { preview.style.display='none'; clearBtn.style.display='none'; }
   document.getElementById('s-saved').style.display='none';
-  const verEl = document.getElementById('s-app-version');
-  if(window.electronAPI) verEl.textContent = `WrenchPro v${window.electronAPI.version} · ${window.electronAPI.platform}`;
+  initVersionLabels();
 }
 
 
@@ -3528,7 +3564,7 @@ function openLeadModal(id){
   if(id){
     const l=state.leads.find(x=>x.id===id);
     if(!l)return;
-    document.getElementById('m-lead-title').textContent='Edit lead';
+    document.getElementById('m-lead-title').textContent='Edit Lead';
     document.getElementById('ldf-first').value=l.first||'';
     document.getElementById('ldf-last').value=l.last||'';
     document.getElementById('ldf-phone').value=l.phone||'';
@@ -3545,7 +3581,7 @@ function openLeadModal(id){
     document.getElementById('ldf-notes').value=l.notes||'';
     document.getElementById('ldf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteLead(${id})">Delete</button>`;
   } else {
-    document.getElementById('m-lead-title').textContent='New lead';
+    document.getElementById('m-lead-title').textContent='New Lead';
     ['ldf-first','ldf-last','ldf-phone','ldf-email','ldf-year','ldf-make','ldf-model','ldf-vin','ldf-service','ldf-value','ldf-followup','ldf-notes'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('ldf-status').value='New';
     document.getElementById('ldf-source').value='';
@@ -3621,7 +3657,7 @@ async function openEstimateModal(id){
   if(id){
     const e=state.estimates.find(x=>x.id===id);
     if(!e)return;
-    document.getElementById('m-est-title').textContent='Edit estimate';
+    document.getElementById('m-est-title').textContent='Edit Estimate';
     document.getElementById('estf-cust').value=e.customer_id;
     await loadVehiclesForEst(e.vehicle_id);
     document.getElementById('estf-status').value=e.status||'Draft';
@@ -3635,7 +3671,7 @@ async function openEstimateModal(id){
     document.getElementById('estf-convert-btn').style.display=(e.status==='Approved'||e.status==='Draft'||e.status==='Sent')?'':'none';
     document.getElementById('estf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEstimate(${id})">Delete</button>`;
   } else {
-    document.getElementById('m-est-title').textContent='New estimate';
+    document.getElementById('m-est-title').textContent='New Estimate';
     ['estf-complaint','estf-notes'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('estf-status').value='Draft';
     document.getElementById('estf-convert-btn').style.display='none';
@@ -3841,7 +3877,7 @@ async function openInspModal(id){
   if(id){
     const insp=state.inspections.find(x=>x.id===id);
     if(!insp)return;
-    document.getElementById('m-insp-title').textContent='Edit inspection';
+    document.getElementById('m-insp-title').textContent='Edit Inspection';
     document.getElementById('if2-cust').value=insp.customer_id;
     await loadVehiclesForInsp(insp.vehicle_id);
     document.getElementById('if2-date').value=insp.date||today();
@@ -3852,7 +3888,7 @@ async function openInspModal(id){
     if(!inspItems.length) initInspChecklist();
     document.getElementById('if2-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteInspection(${id})">Delete</button>`;
   } else {
-    document.getElementById('m-insp-title').textContent='New inspection';
+    document.getElementById('m-insp-title').textContent='New Inspection';
     document.getElementById('if2-notes').value='';
     document.getElementById('if2-status').value='Draft';
     initInspChecklist();
@@ -3967,7 +4003,7 @@ function openPartModal(id){
   if(id){
     const p=state.inventory.find(x=>x.id===id);
     if(!p)return;
-    document.getElementById('m-part-title').textContent='Edit part';
+    document.getElementById('m-part-title').textContent='Edit Part';
     document.getElementById('prf-name').value=p.name||'';
     document.getElementById('prf-num').value=p.part_number||'';
     document.getElementById('prf-vendor').value=p.vendor||'';
@@ -3979,7 +4015,7 @@ function openPartModal(id){
     document.getElementById('prf-notes').value=p.notes||'';
     document.getElementById('prf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deletePart(${id})">Delete</button>`;
   } else {
-    document.getElementById('m-part-title').textContent='Add part';
+    document.getElementById('m-part-title').textContent='Add Part';
     ['prf-name','prf-num','prf-vendor','prf-loc','prf-cost','prf-retail','prf-notes'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('prf-qty').value=0;
     document.getElementById('prf-reorder').value=1;
@@ -4032,7 +4068,7 @@ function openCatalogModal(id){
   if(id){
     const s=state.catalog.find(x=>x.id===id);
     if(!s)return;
-    document.getElementById('m-cat-title').textContent='Edit service';
+    document.getElementById('m-cat-title').textContent='Edit Service';
     document.getElementById('catf-name').value=s.name||'';
     document.getElementById('catf-desc').value=s.description||'';
     document.getElementById('catf-category').value=s.category||'General';
@@ -4042,7 +4078,7 @@ function openCatalogModal(id){
     document.getElementById('catf-notes').value=s.notes||'';
     document.getElementById('catf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCatalogItem(${id})">Delete</button>`;
   } else {
-    document.getElementById('m-cat-title').textContent='Add service';
+    document.getElementById('m-cat-title').textContent='Add Service';
     ['catf-name','catf-desc','catf-hours','catf-price','catf-notes'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('catf-category').value='General';
     document.getElementById('catf-taxable').value='1';
@@ -4101,7 +4137,7 @@ function openWarrantyModal(jobId,custId,vehId,warrId){
   if(warrId){
     const w=state.warranties.find(x=>x.id===warrId);
     if(!w)return;
-    document.getElementById('m-warr-title').textContent='Edit warranty';
+    document.getElementById('m-warr-title').textContent='Edit Warranty';
     document.getElementById('wrf-desc').value=w.description||'';
     document.getElementById('wrf-labor').value=w.labor_months||12;
     document.getElementById('wrf-parts').value=w.parts_months||12;
@@ -4111,7 +4147,7 @@ function openWarrantyModal(jobId,custId,vehId,warrId){
     document.getElementById('wrf-notes').value=w.notes||'';
     document.getElementById('wrf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteWarranty(${warrId})">Delete</button>`;
   } else {
-    document.getElementById('m-warr-title').textContent='Add warranty';
+    document.getElementById('m-warr-title').textContent='Add Warranty';
     document.getElementById('wrf-desc').value='';
     document.getElementById('wrf-labor').value=state.settings.warranty_terms?.match(/(\d+)\s*month/)?.[1]||12;
     document.getElementById('wrf-parts').value=state.settings.warranty_terms?.match(/(\d+)\s*month/)?.[1]||12;
@@ -4238,12 +4274,12 @@ const CP_NAV=[
   {kind:'nav',label:'Go to Settings',target:'settings'},
 ];
 const CP_ACTIONS=[
-  {kind:'action',label:'New job',fn:()=>openJobModal()},
-  {kind:'action',label:'New customer',fn:()=>openCustModal()},
-  {kind:'action',label:'New estimate',fn:()=>openEstModal()},
-  {kind:'action',label:'Record payment',fn:()=>openPmtModal()},
+  {kind:'action',label:'New Job',fn:()=>openJobModal()},
+  {kind:'action',label:'New Customer',fn:()=>openCustModal()},
+  {kind:'action',label:'New Estimate',fn:()=>openEstModal()},
+  {kind:'action',label:'Record Payment',fn:()=>openPmtModal()},
   {kind:'action',label:'Quick entry (historical job)',fn:()=>openQuickEntry()},
-  {kind:'action',label:'New inspection',fn:()=>openInspModal()},
+  {kind:'action',label:'New Inspection',fn:()=>openInspModal()},
 ];
 
 function openCommandPalette(){
@@ -4333,6 +4369,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 });
 
 // Boot
+initVersionLabels();
 loadAll();
 </script>
 </body>
