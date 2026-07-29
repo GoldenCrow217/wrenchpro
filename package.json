@@ -8,7 +8,7 @@
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
     "electron:dev": "electron .",
-    "electron:build": "electron-builder --win",
+    "electron:build": "electron-builder --win --publish never",
     "electron:publish": "npm run electron:build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux",
