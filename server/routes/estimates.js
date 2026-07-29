@@ -97,26 +97,28 @@ router.put('/:id', (req, res) => {
     ? new Date().toISOString().replace('T', ' ').split('.')[0]
     : current.approved_at;
 
-  db.prepare(`
-    UPDATE estimates
-    SET status=?, notes=?, customer_complaint=?, discount=?, tax_rate=?, expires_date=?, total=?,
-        approved_at=?, approved_by=?, approval_notes=?
-    WHERE id=?
-  `).run(
-    status || 'Draft', notes || '', customer_complaint || '',
-    discount || 0, tax_rate || 0, expires_date || null, total || 0,
-    approvedAt, approved_by || '', approval_notes || '',
-    req.params.id
-  );
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE estimates
+      SET status=?, notes=?, customer_complaint=?, discount=?, tax_rate=?, expires_date=?, total=?,
+          approved_at=?, approved_by=?, approval_notes=?
+      WHERE id=?
+    `).run(
+      status || 'Draft', notes || '', customer_complaint || '',
+      discount || 0, tax_rate || 0, expires_date || null, total || 0,
+      approvedAt, approved_by || '', approval_notes || '',
+      req.params.id
+    );
 
-  if (items !== undefined) {
-    db.prepare('DELETE FROM estimate_items WHERE estimate_id = ?').run(req.params.id);
-    const ins = db.prepare(`
-      INSERT INTO estimate_items (estimate_id, type, description, qty, rate, amount, inventory_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    (items || []).forEach(i => ins.run(req.params.id, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.inventory_id || null));
-  }
+    if (items !== undefined) {
+      db.prepare('DELETE FROM estimate_items WHERE estimate_id = ?').run(req.params.id);
+      const ins = db.prepare(`
+        INSERT INTO estimate_items (estimate_id, type, description, qty, rate, amount, inventory_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      (items || []).forEach(i => ins.run(req.params.id, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.inventory_id || null));
+    }
+  })();
   res.json({ success: true });
 });
 
@@ -144,6 +146,8 @@ router.post('/:id/convert', (req, res) => {
   `).get(req.params.id, ...tenant.values);
   if (!est) return res.status(404).json({ error: 'Not found' });
   if (!est.vehicle_id) return res.status(400).json({ error: 'A vehicle must be selected on the estimate before converting to a job' });
+  const existingJob = db.prepare('SELECT id FROM jobs WHERE estimate_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1').get(est.id);
+  if (existingJob) return res.json({ job_id: existingJob.id, already_converted: true });
   const items = db.prepare('SELECT * FROM estimate_items WHERE estimate_id = ?').all(est.id);
   const labor = items.filter(i => i.type === 'labor').reduce((a, i) => a + i.amount, 0);
   const parts = items.filter(i => i.type !== 'labor').reduce((a, i) => a + i.amount, 0);
@@ -153,6 +157,29 @@ router.post('/:id/convert', (req, res) => {
   const inventoryTenant = shopTenantWhere(req, 'pi');
 
   const doConvert = db.transaction(() => {
+    const duplicate = db.prepare('SELECT id FROM jobs WHERE estimate_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1').get(est.id);
+    if (duplicate) return { jobId: duplicate.id, alreadyConverted: true };
+
+    const requestedInventory = new Map();
+    items.filter(i => i.inventory_id && i.type !== 'labor').forEach(i => {
+      const qty = Number(i.qty) || 0;
+      if (qty > 0) requestedInventory.set(i.inventory_id, (requestedInventory.get(i.inventory_id) || 0) + qty);
+    });
+    const inventoryLookup = db.prepare(`SELECT pi.id, pi.name, pi.quantity FROM parts_inventory AS pi WHERE pi.id = ? AND ${inventoryTenant.clause}`);
+    for (const [inventoryId, requiredQty] of requestedInventory) {
+      const inventory = inventoryLookup.get(inventoryId, ...inventoryTenant.values);
+      if (!inventory) {
+        const error = new Error('An estimate item references inventory that no longer exists');
+        error.status = 400;
+        throw error;
+      }
+      if (Number(inventory.quantity) < requiredQty) {
+        const error = new Error(`Insufficient inventory for ${inventory.name || 'estimate item'}: ${inventory.quantity} available, ${requiredQty} required`);
+        error.status = 409;
+        throw error;
+      }
+    }
+
     const result = db.prepare(`
       INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, date, labor, parts, status, notes, estimate_id, complaint)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
@@ -171,17 +198,16 @@ router.post('/:id/convert', (req, res) => {
       });
     }
 
-    // Deduct inventory-backed parts only inside the active shop context. Skip zero-qty items.
-    const deduct = db.prepare(`UPDATE parts_inventory AS pi SET quantity = MAX(0, quantity - ?) WHERE pi.id = ? AND ${inventoryTenant.clause}`);
-    items.filter(i => i.inventory_id && i.type !== 'labor').forEach(i => {
-      const qty = i.qty || 0;
-      if (qty > 0) deduct.run(qty, i.inventory_id, ...inventoryTenant.values);
-    });
+    const deduct = db.prepare(`UPDATE parts_inventory AS pi SET quantity = quantity - ? WHERE pi.id = ? AND ${inventoryTenant.clause}`);
+    for (const [inventoryId, requiredQty] of requestedInventory) {
+      deduct.run(requiredQty, inventoryId, ...inventoryTenant.values);
+    }
 
-    return jobId;
+    return { jobId, alreadyConverted: false };
   });
 
-  res.json({ job_id: doConvert() });
+  const converted = doConvert();
+  res.json({ job_id: converted.jobId, already_converted: converted.alreadyConverted });
 });
 
 module.exports = router;

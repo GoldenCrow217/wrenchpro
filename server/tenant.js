@@ -1,5 +1,10 @@
 const db = require('./database');
 
+// Local-desktop compatibility helpers.
+//
+// Older database migrations and route queries include nullable shop_id columns.
+// WrenchPro is a single-user, offline desktop application: request headers,
+// accounts, memberships, and tenant selection never affect data visibility.
 function requestedShopId() { return null; }
 function hasRequestedShopId() { return false; }
 function validateRequestedShopContext(req, res, next) { return next(); }
@@ -15,8 +20,18 @@ function getTenantCustomer(req, customerId, alias = '') {
   return { customer, tenant };
 }
 
-function employeeInTenant() { return true; }
-function inventoryItemsInTenant() { return true; }
+function employeeInTenant(req, employeeId) {
+  if (!employeeId) return true;
+  return Boolean(db.prepare('SELECT id FROM employees WHERE id = ?').get(employeeId));
+}
+
+function inventoryItemsInTenant(req, items) {
+  const ids = [...new Set((items || []).map(item => Number(item.inventory_id)).filter(Number.isInteger))];
+  if (!ids.length) return true;
+  const placeholders = ids.map(() => '?').join(',');
+  const found = db.prepare(`SELECT COUNT(*) AS count FROM parts_inventory WHERE id IN (${placeholders})`).get(...ids).count;
+  return found === ids.length;
+}
 
 module.exports = {
   requestedShopId,

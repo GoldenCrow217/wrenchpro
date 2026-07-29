@@ -20,8 +20,6 @@ function shopSettings(shopId) {
   return db.prepare('SELECT * FROM shop_settings WHERE shop_id = ?').get(shopId) || null;
 }
 
-function canManageSettings() { return true; }
-
 router.get('/', (req, res) => {
   const shopId = resolveShopId(req);
   const row = shopSettings(shopId) || globalSettings();
@@ -29,10 +27,6 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', (req, res) => {
-  if (!canManageSettings(req)) {
-    return res.status(403).json({ error: 'Owner or admin role required' });
-  }
-
   const shopId = resolveShopId(req);
   const values = {
     business_name: req.body.business_name || '',
@@ -84,5 +78,4 @@ router.put('/', (req, res) => {
 });
 
 module.exports = router;
-
 

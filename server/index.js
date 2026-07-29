@@ -9,14 +9,14 @@ const { customerTenantWhere, shopTenantWhere } = require('./tenant');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Reduce passive fingerprinting in hosted SaaS mode and local desktop mode.
+// Reduce passive fingerprinting on the local desktop server.
 app.disable('x-powered-by');
 
-// Only allow requests from localhost (Electron window or local browser), plus
-// exact hosted frontend origins listed in WRENCHPRO_ALLOWED_ORIGINS. Keep the
+// Only allow browser requests from localhost (Electron window or local browser),
+// plus explicitly configured HTTPS origins for development. Keep the
 // localhost regex fully anchored; a loose prefix match would allow origins like
 // http://localhost.evil.test to receive CORS headers. Local desktop builds may
-// load from a file/null origin; hosted auth-required mode must not allow that.
+// load from a file/null origin.
 const LOCALHOST_ORIGIN = /^http:\/\/localhost(:\d+)?$/;
 function configuredAllowedOrigins() {
   return String(process.env.WRENCHPRO_ALLOWED_ORIGINS || '')
@@ -46,10 +46,16 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '1mb' }));
+// Keep route handlers deterministic for requests with no JSON body. Individual
+// routes can then return a useful 400 instead of throwing while destructuring.
+app.use((req, res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// API payloads can include shop/customer/session context. Prevent browsers and
-// intermediary caches from reusing tenant-scoped JSON across users or shops.
+// API payloads contain private shop/customer data. Prevent browser caches from
+// retaining API responses.
 app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
@@ -138,6 +144,6 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   res.status(status).json({ error: status >= 500 ? 'Internal server error' : (err.message || 'Request failed') });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`WrenchPro running at http://localhost:${PORT}`);
 });

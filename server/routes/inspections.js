@@ -46,35 +46,42 @@ router.post('/', (req, res) => {
 
   if (!employeeInTenant(req, employee_id)) return res.status(400).json({ error: 'Employee not found for this shop' });
 
-  const result = db.prepare(`
-    INSERT INTO inspections (job_id, customer_id, vehicle_id, employee_id, date, notes, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(job_id || null, customer_id, vehicle_id || null, employee_id || null, date, notes || '', status || 'Draft');
-  const id = result.lastInsertRowid;
-  if (items && items.length) {
-    const ins = db.prepare('INSERT INTO inspection_items (inspection_id, category, item_name, condition, notes) VALUES (?, ?, ?, ?, ?)');
-    items.forEach(it => ins.run(id, it.category || '', it.item_name || '', it.condition || 'pass', it.notes || ''));
-  }
+  const id = db.transaction(() => {
+    const result = db.prepare(`
+      INSERT INTO inspections (job_id, customer_id, vehicle_id, employee_id, date, notes, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(job_id || null, customer_id, vehicle_id || null, employee_id || null, date, notes || '', status || 'Draft');
+    const inspectionId = result.lastInsertRowid;
+    if (items && items.length) {
+      const ins = db.prepare('INSERT INTO inspection_items (inspection_id, category, item_name, condition, notes) VALUES (?, ?, ?, ?, ?)');
+      items.forEach(it => ins.run(inspectionId, it.category || '', it.item_name || '', it.condition || 'pass', it.notes || ''));
+    }
+    return inspectionId;
+  })();
   res.json({ id, ...req.body });
 });
 
 router.put('/:id', (req, res) => {
   const { notes, status, items } = req.body;
   const tenant = customerTenantWhere(req, 'c');
-  const result = db.prepare(`
-    UPDATE inspections SET notes=?, status=?
-    WHERE id IN (
-      SELECT i.id FROM inspections i
-      JOIN customers c ON i.customer_id = c.id
-      WHERE i.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}
-    )
-  `).run(notes || '', status || 'Draft', req.params.id, ...tenant.values);
-  if (!result.changes) return res.status(404).json({ error: 'Inspection not found' });
-  if (items !== undefined) {
-    db.prepare('DELETE FROM inspection_items WHERE inspection_id = ?').run(req.params.id);
-    const ins = db.prepare('INSERT INTO inspection_items (inspection_id, category, item_name, condition, notes) VALUES (?, ?, ?, ?, ?)');
-    (items || []).forEach(it => ins.run(req.params.id, it.category || '', it.item_name || '', it.condition || 'pass', it.notes || ''));
-  }
+  const changes = db.transaction(() => {
+    const result = db.prepare(`
+      UPDATE inspections SET notes=?, status=?
+      WHERE id IN (
+        SELECT i.id FROM inspections i
+        JOIN customers c ON i.customer_id = c.id
+        WHERE i.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}
+      )
+    `).run(notes || '', status || 'Draft', req.params.id, ...tenant.values);
+    if (!result.changes) return 0;
+    if (items !== undefined) {
+      db.prepare('DELETE FROM inspection_items WHERE inspection_id = ?').run(req.params.id);
+      const ins = db.prepare('INSERT INTO inspection_items (inspection_id, category, item_name, condition, notes) VALUES (?, ?, ?, ?, ?)');
+      (items || []).forEach(it => ins.run(req.params.id, it.category || '', it.item_name || '', it.condition || 'pass', it.notes || ''));
+    }
+    return result.changes;
+  })();
+  if (!changes) return res.status(404).json({ error: 'Inspection not found' });
   res.json({ success: true });
 });
 
