@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId } = require('../tenant');
-const { isAuthRequired } = require('../auth');
 
 const SETTINGS_FIELDS = [
   'business_name', 'owner_name', 'phone', 'email', 'address', 'service_area', 'website', 'business_hours',
@@ -21,10 +20,7 @@ function shopSettings(shopId) {
   return db.prepare('SELECT * FROM shop_settings WHERE shop_id = ?').get(shopId) || null;
 }
 
-function canManageSettings(req) {
-  if (!isAuthRequired()) return true;
-  return ['owner', 'admin'].includes(req.shopMembership?.role);
-}
+function canManageSettings() { return true; }
 
 router.get('/', (req, res) => {
   const shopId = resolveShopId(req);

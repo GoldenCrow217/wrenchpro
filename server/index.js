@@ -4,8 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./database');
 const pkg = require('../package.json');
-const { customerTenantWhere, shopTenantWhere, validateRequestedShopContext } = require('./tenant');
-const { isAuthRequired, publicAuthConfig, requireShopMembership, requireSupabaseUser } = require('./auth');
+const { customerTenantWhere, shopTenantWhere } = require('./tenant');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,7 +30,7 @@ app.use(cors({
     const cleanOrigin = String(origin).replace(/\/$/, '');
     if (LOCALHOST_ORIGIN.test(cleanOrigin)) return callback(null, true);
     if (configuredAllowedOrigins().includes(cleanOrigin)) return callback(null, true);
-    if (!isAuthRequired() && origin === 'null') return callback(null, true);
+    if (origin === 'null') return callback(null, true);
     return callback(null, false);
   },
 }));
@@ -56,43 +55,11 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-// Public readiness probe for local QA and future hosted uptime checks. Keep it
-// secret-free: no Supabase URL, anon key, database path, or user/shop data.
 app.get('/api/health', (req, res) => {
-  const authConfig = publicAuthConfig();
   res.setHeader('Cache-Control', 'no-store');
-  res.json({
-    ok: true,
-    version: pkg.version,
-    authRequired: authConfig.authRequired,
-    supabaseConfigured: authConfig.mode === 'supabase-configured',
-  });
+  res.json({ ok: true, version: pkg.version });
 });
 
-// Tenant safety: an explicit shop context must be valid. Unknown or malformed
-// shop IDs fail closed instead of silently falling back to legacy local data.
-// In hosted SaaS mode this check runs after Supabase verification inside
-// requireShopMembership so unauthenticated callers cannot enumerate shop IDs.
-// Public auth bootstrap endpoints must stay reachable even if a browser has a
-// stale x-wrenchpro-shop-id from a deleted/local shop in localStorage.
-app.use('/api', (req, res, next) => {
-  if (isAuthRequired()) return next();
-  if (['/auth/config', '/auth/login', '/auth/refresh', '/auth/session'].includes(req.path)) return next();
-  if (req.path === '/shops' && ['GET', 'POST'].includes(req.method)) return next();
-  return validateRequestedShopContext(req, res, next);
-});
-
-// Hosted SaaS safety: when WRENCHPRO_AUTH_REQUIRED=true, verify the Supabase
-// bearer session server-side and require membership in the active shop before
-// any shop/customer data route can run. Keep /api/auth/config public so the
-// frontend can discover mode without exposing keys, and let signed-in users
-// without a shop reach the first-shop bootstrap endpoints.
-app.use('/api', (req, res, next) => {
-  if (['/auth/config', '/auth/login', '/auth/refresh'].includes(req.path)) return next();
-  if (req.path === '/auth/session') return requireSupabaseUser()(req, res, next);
-  if (req.path === '/shops' && ['GET', 'POST'].includes(req.method)) return requireSupabaseUser()(req, res, next);
-  return requireShopMembership()(req, res, next);
-});
 
 app.use('/api/customers',    require('./routes/customers'));
 app.use('/api/vehicles',     require('./routes/vehicles'));
@@ -111,8 +78,6 @@ app.use('/api/inspections',  require('./routes/inspections'));
 app.use('/api/warranties',   require('./routes/warranties'));
 app.use('/api/time',         require('./routes/time'));
 app.use('/api/leads',        require('./routes/leads'));
-app.use('/api/auth',         require('./routes/auth'));
-app.use('/api/shops',        require('./routes/shops'));
 
 app.get('/api/dashboard', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
