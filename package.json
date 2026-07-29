@@ -9,6 +9,7 @@
     "dev": "nodemon server/index.js",
     "electron:dev": "electron .",
     "electron:build": "electron-builder --win",
+    "electron:publish": "electron-builder --win --publish always",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux",
     "rebuild-native": "electron-builder install-app-deps",
@@ -32,6 +33,7 @@
   "build": {
     "appId": "com.wrenchpro.app",
     "productName": "WrenchPro",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "copyright": "Copyright © 2025",
     "asar": true,
     "asarUnpack": [

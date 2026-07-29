@@ -186,11 +186,16 @@ function initAutoUpdater() {
     console.error('Auto-updater error:', err.message);
     if (_manualCheck && mainWindow) {
       _manualCheck = false;
+      const missingManifest = /latest\.yml|404|cannot find/i.test(String(err.message || ''));
       dialog.showMessageBox(mainWindow, {
         type: 'error',
         title: 'Update Check Failed',
-        message: 'Could not check for updates.',
-        detail: err.message,
+        message: missingManifest
+          ? 'Update information is not available yet.'
+          : 'WrenchPro could not reach the update service.',
+        detail: missingManifest
+          ? 'This release is missing its update metadata. You can continue using WrenchPro normally and try again later.'
+          : 'Check your internet connection and try again later.',
         buttons: ['OK'],
       });
     }
