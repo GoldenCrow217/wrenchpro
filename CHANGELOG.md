@@ -28,6 +28,7 @@ All notable WrenchPro changes should be documented here before release.
 - Release workflow now runs `electron:publish` (`--publish always`) instead of a plain build, so `latest.yml` and the installer blockmap are actually uploaded to the GitHub release. Previously published installers (including v1.0.19) had no update manifest, so **Help > Check for Updates** failed with a 404 on `latest.yml`.
 - CI now verifies `dist/latest.yml`, the installer it references, and the matching `.blockmap` all exist before the release step is considered done.
 - Auto-updater shows a clearer message when update metadata is missing instead of a raw HTTP error.
+- CI now pre-creates the GitHub release before running electron-builder, avoiding a race where concurrent asset uploads (installer + blockmap) both tried to create the release and one failed with `422 already_exists`, leaving the release incomplete.
 
 ## v1.0.13 - 2026-05-03
 
