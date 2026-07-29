@@ -53,9 +53,7 @@ jobs:
           fi
 
       - name: Build Windows installer
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run electron:publish
+        run: npm run electron:build
 
       - name: Verify updater release artifacts
         shell: pwsh
@@ -73,6 +71,40 @@ jobs:
           }
           if (-not (Test-Path -LiteralPath (Join-Path 'dist' "$installerName.blockmap"))) {
             throw "The blockmap referenced by the installer was not generated: $installerName.blockmap"
+          }
+
+      - name: Publish release artifacts
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $repo = $env:GITHUB_REPOSITORY
+          if (-not $tag) {
+            throw 'GITHUB_REF_NAME is not set'
+          }
+          if (-not $repo) {
+            throw 'GITHUB_REPOSITORY is not set'
+          }
+
+          gh release view $tag --repo $repo *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo $repo --title "WrenchPro $tag" --notes "Automated release for $tag"
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create GitHub release $tag"
+            }
+          }
+
+          $manifest = Get-Content -LiteralPath 'dist/latest.yml' -Raw
+          $installerName = [regex]::Match($manifest, '(?m)^path:\s*(.+\.exe)\s*$').Groups[1].Value.Trim()
+          gh release upload $tag `
+            (Join-Path 'dist' 'latest.yml') `
+            (Join-Path 'dist' $installerName) `
+            (Join-Path 'dist' "$installerName.blockmap") `
+            --repo $repo `
+            --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to upload release artifacts for $tag"
           }
 
       - name: Upload artifacts (fallback)
