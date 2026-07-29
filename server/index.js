@@ -4,20 +4,19 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./database');
 const pkg = require('../package.json');
-const { customerTenantWhere, shopTenantWhere, validateRequestedShopContext } = require('./tenant');
-const { isAuthRequired, publicAuthConfig, requireShopMembership, requireSupabaseUser } = require('./auth');
+const { customerTenantWhere, shopTenantWhere } = require('./tenant');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Reduce passive fingerprinting in hosted SaaS mode and local desktop mode.
+// Reduce passive fingerprinting on the local desktop server.
 app.disable('x-powered-by');
 
-// Only allow requests from localhost (Electron window or local browser), plus
-// exact hosted frontend origins listed in WRENCHPRO_ALLOWED_ORIGINS. Keep the
+// Only allow browser requests from localhost (Electron window or local browser),
+// plus explicitly configured HTTPS origins for development. Keep the
 // localhost regex fully anchored; a loose prefix match would allow origins like
 // http://localhost.evil.test to receive CORS headers. Local desktop builds may
-// load from a file/null origin; hosted auth-required mode must not allow that.
+// load from a file/null origin.
 const LOCALHOST_ORIGIN = /^http:\/\/localhost(:\d+)?$/;
 function configuredAllowedOrigins() {
   return String(process.env.WRENCHPRO_ALLOWED_ORIGINS || '')
@@ -31,7 +30,7 @@ app.use(cors({
     const cleanOrigin = String(origin).replace(/\/$/, '');
     if (LOCALHOST_ORIGIN.test(cleanOrigin)) return callback(null, true);
     if (configuredAllowedOrigins().includes(cleanOrigin)) return callback(null, true);
-    if (!isAuthRequired() && origin === 'null') return callback(null, true);
+    if (origin === 'null') return callback(null, true);
     return callback(null, false);
   },
 }));
@@ -47,52 +46,26 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '1mb' }));
+// Keep route handlers deterministic for requests with no JSON body. Individual
+// routes can then return a useful 400 instead of throwing while destructuring.
+app.use((req, res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// API payloads can include shop/customer/session context. Prevent browsers and
-// intermediary caches from reusing tenant-scoped JSON across users or shops.
+// API payloads contain private shop/customer data. Prevent browser caches from
+// retaining API responses.
 app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
-// Public readiness probe for local QA and future hosted uptime checks. Keep it
-// secret-free: no Supabase URL, anon key, database path, or user/shop data.
 app.get('/api/health', (req, res) => {
-  const authConfig = publicAuthConfig();
   res.setHeader('Cache-Control', 'no-store');
-  res.json({
-    ok: true,
-    version: pkg.version,
-    authRequired: authConfig.authRequired,
-    supabaseConfigured: authConfig.mode === 'supabase-configured',
-  });
+  res.json({ ok: true, version: pkg.version });
 });
 
-// Tenant safety: an explicit shop context must be valid. Unknown or malformed
-// shop IDs fail closed instead of silently falling back to legacy local data.
-// In hosted SaaS mode this check runs after Supabase verification inside
-// requireShopMembership so unauthenticated callers cannot enumerate shop IDs.
-// Public auth bootstrap endpoints must stay reachable even if a browser has a
-// stale x-wrenchpro-shop-id from a deleted/local shop in localStorage.
-app.use('/api', (req, res, next) => {
-  if (isAuthRequired()) return next();
-  if (['/auth/config', '/auth/login', '/auth/refresh', '/auth/session'].includes(req.path)) return next();
-  if (req.path === '/shops' && ['GET', 'POST'].includes(req.method)) return next();
-  return validateRequestedShopContext(req, res, next);
-});
-
-// Hosted SaaS safety: when WRENCHPRO_AUTH_REQUIRED=true, verify the Supabase
-// bearer session server-side and require membership in the active shop before
-// any shop/customer data route can run. Keep /api/auth/config public so the
-// frontend can discover mode without exposing keys, and let signed-in users
-// without a shop reach the first-shop bootstrap endpoints.
-app.use('/api', (req, res, next) => {
-  if (['/auth/config', '/auth/login', '/auth/refresh'].includes(req.path)) return next();
-  if (req.path === '/auth/session') return requireSupabaseUser()(req, res, next);
-  if (req.path === '/shops' && ['GET', 'POST'].includes(req.method)) return requireSupabaseUser()(req, res, next);
-  return requireShopMembership()(req, res, next);
-});
 
 app.use('/api/customers',    require('./routes/customers'));
 app.use('/api/vehicles',     require('./routes/vehicles'));
@@ -111,8 +84,6 @@ app.use('/api/inspections',  require('./routes/inspections'));
 app.use('/api/warranties',   require('./routes/warranties'));
 app.use('/api/time',         require('./routes/time'));
 app.use('/api/leads',        require('./routes/leads'));
-app.use('/api/auth',         require('./routes/auth'));
-app.use('/api/shops',        require('./routes/shops'));
 
 app.get('/api/dashboard', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -173,6 +144,6 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   res.status(status).json({ error: status >= 500 ? 'Internal server error' : (err.message || 'Request failed') });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`WrenchPro running at http://localhost:${PORT}`);
 });

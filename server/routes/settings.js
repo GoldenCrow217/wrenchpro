@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId } = require('../tenant');
-const { isAuthRequired } = require('../auth');
 
 const SETTINGS_FIELDS = [
   'business_name', 'owner_name', 'phone', 'email', 'address', 'service_area', 'website', 'business_hours',
@@ -21,11 +20,6 @@ function shopSettings(shopId) {
   return db.prepare('SELECT * FROM shop_settings WHERE shop_id = ?').get(shopId) || null;
 }
 
-function canManageSettings(req) {
-  if (!isAuthRequired()) return true;
-  return ['owner', 'admin'].includes(req.shopMembership?.role);
-}
-
 router.get('/', (req, res) => {
   const shopId = resolveShopId(req);
   const row = shopSettings(shopId) || globalSettings();
@@ -33,10 +27,6 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', (req, res) => {
-  if (!canManageSettings(req)) {
-    return res.status(403).json({ error: 'Owner or admin role required' });
-  }
-
   const shopId = resolveShopId(req);
   const values = {
     business_name: req.body.business_name || '',
@@ -88,5 +78,4 @@ router.put('/', (req, res) => {
 });
 
 module.exports = router;
-
 

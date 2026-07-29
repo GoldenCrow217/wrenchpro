@@ -76,11 +76,8 @@ async function waitForDashboard() {
       const healthRes = await fetch(healthUrl, { headers: { 'x-wrenchpro-shop-id': 'stale-local-context' } });
       if (!healthRes.ok) throw new Error(`health HTTP ${healthRes.status}`);
       const health = await healthRes.json();
-      if (!health.ok || health.version !== pkg.version || health.authRequired !== false || typeof health.supabaseConfigured !== 'boolean') {
+      if (!health.ok || health.version !== pkg.version) {
         throw new Error(`Unexpected health payload: ${JSON.stringify(health)}`);
-      }
-      if ('supabaseUrl' in health || 'supabaseAnonKey' in health) {
-        throw new Error('Health response must not expose Supabase connection details');
       }
       if (healthRes.headers.get('cache-control') !== 'no-store') {
         throw new Error('Health response must not be cached');

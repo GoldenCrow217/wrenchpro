@@ -74,6 +74,19 @@ const saveJobItems = db.transaction((jobId, items) => {
   items.forEach(i => ins.run(jobId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.taxable ? 1 : 0, i.inventory_id || null));
 });
 
+const createJob = db.transaction((values, items) => {
+  const result = db.prepare(`
+    INSERT INTO jobs
+      (customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
+       parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
+       service_address, travel_fee, closed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(...values);
+  const jobId = result.lastInsertRowid;
+  if (items && items.length) saveJobItems(jobId, items);
+  return jobId;
+});
+
 router.post('/', (req, res) => {
   const {
     customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
@@ -112,21 +125,13 @@ router.post('/', (req, res) => {
   const laborVal = totals ? totals.labor : (labor || 0);
   const partsVal = totals ? totals.parts : (parts || 0);
 
-  const result = db.prepare(`
-    INSERT INTO jobs
-      (customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
-       parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
-       service_address, travel_fee, closed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  const jobId = createJob([
     customer_id, vehicle_id, service, date, miles || 0,
     laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
     partsVal, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
     service_address || '', travel_fee || 0, closedAt
-  );
-  const jobId = result.lastInsertRowid;
-  if (items && items.length) saveJobItems(jobId, items);
+  ], items);
   res.json({ id: jobId, closed_at: closedAt, ...req.body });
 });
 
@@ -160,28 +165,31 @@ router.put('/:id', (req, res) => {
   }
 
   const isTerminal = status === 'Complete' || status === 'Canceled';
-  const closedAt = (isTerminal && !current.closed_at)
-    ? new Date().toISOString().replace('T', ' ').split('.')[0]
-    : current.closed_at;
+  const closedAt = isTerminal
+    ? (current.closed_at || new Date().toISOString().replace('T', ' ').split('.')[0])
+    : null;
 
-  const updatedTotals = items !== undefined ? (() => { saveJobItems(req.params.id, items || []); return itemTotals(items || []); })() : null;
+  const updatedTotals = items !== undefined ? itemTotals(items || []) : null;
   const laborVal = updatedTotals ? updatedTotals.labor : (labor || 0);
   const partsVal = updatedTotals ? updatedTotals.parts : (parts || 0);
 
-  db.prepare(`
-    UPDATE jobs
-    SET service=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?,
-        status=?, notes=?, employee_id=?, complaint=?, diagnosis=?, invoice_status=?,
-        estimate_id=?, service_address=?, travel_fee=?, closed_at=?
-    WHERE id=?
-  `).run(
-    service, date, miles || 0,
-    laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
-    partsVal, status || 'Pending', notes || '', employee_id || null,
-    complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
-    service_address || '', travel_fee || 0, closedAt,
-    req.params.id
-  );
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE jobs
+      SET service=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?,
+          status=?, notes=?, employee_id=?, complaint=?, diagnosis=?, invoice_status=?,
+          estimate_id=?, service_address=?, travel_fee=?, closed_at=?
+      WHERE id=?
+    `).run(
+      service, date, miles || 0,
+      laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
+      partsVal, status || 'Pending', notes || '', employee_id || null,
+      complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
+      service_address || '', travel_fee || 0, closedAt,
+      req.params.id
+    );
+    if (items !== undefined) saveJobItems(req.params.id, items || []);
+  })();
   res.json({ success: true });
 });
 

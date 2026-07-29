@@ -46,8 +46,16 @@ router.post('/:id/convert', (req, res) => {
   const tenant = leadTenantWhere(req);
   const lead = db.prepare(`SELECT * FROM leads WHERE id = ? AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
   if (!lead) return res.status(404).json({ error: 'Not found' });
+  if (lead.converted_customer_id) {
+    const existing = db.prepare('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL').get(lead.converted_customer_id);
+    if (existing) return res.json({ customer_id: existing.id, already_converted: true });
+  }
 
   const convertLead = db.transaction(() => {
+    const current = db.prepare(`SELECT converted_customer_id FROM leads WHERE id = ? AND ${tenant.clause}`)
+      .get(lead.id, ...tenant.values);
+    if (current?.converted_customer_id) return { customerId: current.converted_customer_id, alreadyConverted: true };
+
     const custResult = db.prepare(`INSERT INTO customers (shop_id, first, last, phone, email, notes, status) VALUES (?, ?, ?, ?, ?, ?, 'Active')`)
       .run(tenant.shopId, lead.first, lead.last || '', lead.phone || '', lead.email || '', lead.service_needed || '');
     const custId = custResult.lastInsertRowid;
@@ -57,10 +65,11 @@ router.post('/:id/convert', (req, res) => {
     }
     db.prepare(`UPDATE leads SET status='Won', converted_customer_id=? WHERE id=? AND ${tenant.clause}`)
       .run(custId, lead.id, ...tenant.values);
-    return custId;
+    return { customerId: custId, alreadyConverted: false };
   });
 
-  res.json({ customer_id: convertLead() });
+  const converted = convertLead();
+  res.json({ customer_id: converted.customerId, already_converted: converted.alreadyConverted });
 });
 
 module.exports = router;
