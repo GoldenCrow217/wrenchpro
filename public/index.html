@@ -393,7 +393,7 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="brand-text">
       <span class="brand-name">WrenchPro</span>
-      <span class="brand-sub" id="brand-version">v1.0.20</span>
+      <span class="brand-sub" id="brand-version">v1.0.21</span>
     </div>
   </div>
 
@@ -1712,7 +1712,7 @@ async function initVersionLabels() {
     const health = await api('GET', '/api/health');
     setVersionLabels(health.version);
   } catch (_) {
-    setVersionLabels('1.0.20');
+    setVersionLabels('1.0.21');
   }
 }
 
