@@ -21,6 +21,14 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.20 - 2026-07-29
+
+### Fixed
+
+- Release workflow now runs `electron:publish` (`--publish always`) instead of a plain build, so `latest.yml` and the installer blockmap are actually uploaded to the GitHub release. Previously published installers (including v1.0.19) had no update manifest, so **Help > Check for Updates** failed with a 404 on `latest.yml`.
+- CI now verifies `dist/latest.yml`, the installer it references, and the matching `.blockmap` all exist before the release step is considered done.
+- Auto-updater shows a clearer message when update metadata is missing instead of a raw HTTP error.
+
 ## v1.0.13 - 2026-05-03
 
 ### Fixed
