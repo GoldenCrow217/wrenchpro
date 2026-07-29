@@ -33,25 +33,6 @@ jobs:
       - name: Rebuild native modules for Electron
         run: npm run rebuild-native
 
-      - name: Ensure GitHub release exists
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          VERSION=$(node -p "require('./package.json').version")
-          TAG="v$VERSION"
-          STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
-            -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG")
-          if [ "$STATUS" = "404" ]; then
-            curl -sf -X POST \
-              -H "Authorization: token $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ github.repository }}/releases" \
-              -d "{\"tag_name\":\"$TAG\",\"name\":\"$VERSION\",\"draft\":false,\"prerelease\":false}"
-          fi
-
       - name: Build Windows installer
         run: npm run electron:build
 
@@ -78,34 +59,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = $env:GITHUB_REF_NAME
-          $repo = $env:GITHUB_REPOSITORY
-          if (-not $tag) {
-            throw 'GITHUB_REF_NAME is not set'
-          }
-          if (-not $repo) {
-            throw 'GITHUB_REPOSITORY is not set'
-          }
-
-          gh release view $tag --repo $repo *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --repo $repo --title "WrenchPro $tag" --notes "Automated release for $tag"
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to create GitHub release $tag"
-            }
-          }
-
-          $manifest = Get-Content -LiteralPath 'dist/latest.yml' -Raw
-          $installerName = [regex]::Match($manifest, '(?m)^path:\s*(.+\.exe)\s*$').Groups[1].Value.Trim()
-          gh release upload $tag `
-            (Join-Path 'dist' 'latest.yml') `
-            (Join-Path 'dist' $installerName) `
-            (Join-Path 'dist' "$installerName.blockmap") `
-            --repo $repo `
-            --clobber
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to upload release artifacts for $tag"
-          }
+          ./scripts/publish-release.ps1
 
       - name: Upload artifacts (fallback)
         if: failure()

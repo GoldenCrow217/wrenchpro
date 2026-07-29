@@ -49,7 +49,7 @@ Do not publish without Brandon approval.
 - [ ] Commit final changes.
 - [ ] Tag version if appropriate.
 - [ ] Create release notes.
-- [ ] Publish with `npm run electron:publish` (the installer alone is not sufficient).
+- [ ] Push the version tag and let `.github/workflows/release.yml` publish the release artifacts.
 - [ ] Confirm the GitHub release includes `latest.yml`, the installer named by it, and the matching `.exe.blockmap`.
 - [ ] Open the installed app and confirm **Help → Check for Updates** no longer reports a missing manifest.
 

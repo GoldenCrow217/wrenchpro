@@ -9,7 +9,7 @@
     "dev": "nodemon server/index.js",
     "electron:dev": "electron .",
     "electron:build": "electron-builder --win",
-    "electron:publish": "electron-builder --win --publish always",
+    "electron:publish": "npm run electron:build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux",
     "rebuild-native": "electron-builder install-app-deps",
