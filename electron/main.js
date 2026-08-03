@@ -1,7 +1,7 @@
 const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
-const net  = require('net');
+const { findFreePort } = require('./find-free-port');
 
 let mainWindow = null;
 let appPort    = 3000;
@@ -9,15 +9,6 @@ let _autoUpdater = null;
 let _manualCheck = false;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-function findFreePort(start = 3000) {
-  return new Promise((resolve) => {
-    const srv = net.createServer();
-    srv.unref();
-    srv.on('error', () => resolve(findFreePort(start + 1)));
-    srv.listen(start, () => srv.close(() => resolve(start)));
-  });
-}
-
 function waitForServer(port, attempts = 30) {
   return new Promise((resolve, reject) => {
     const try_ = (n) => {

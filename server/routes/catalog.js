@@ -2,6 +2,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, shopTenantWhere } = require('../tenant');
+const { requiredText, finiteNumber, positiveId } = require('../validation');
+
+function validateCatalogItem(res, body) {
+  return requiredText(res, body, 'name', 'Service name')
+    && finiteNumber(res, body, 'default_hours', { label: 'Default hours' })
+    && finiteNumber(res, body, 'default_price', { label: 'Default price' });
+}
 
 router.get('/', (req, res) => {
   const tenant = shopTenantWhere(req);
@@ -9,6 +16,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validateCatalogItem(res, req.body)) return;
   const { name, description, category, default_hours, default_price, taxable, notes } = req.body;
   const shopId = resolveShopId(req);
   const result = db.prepare(`
@@ -19,6 +27,8 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!positiveId(res, req.params.id, 'id')) return;
+  if (!validateCatalogItem(res, req.body)) return;
   const { name, description, category, default_hours, default_price, taxable, notes } = req.body;
   const tenant = shopTenantWhere(req);
   const result = db.prepare(`

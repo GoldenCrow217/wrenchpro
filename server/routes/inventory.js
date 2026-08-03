@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, shopTenantWhere } = require('../tenant');
+const { requiredText, nonNegativeNumber, positiveId } = require('../validation');
+
+function validatePart(res, body) {
+  if (!requiredText(res, body, 'name', 'Part name')) return false;
+  for (const [field, label] of [['cost','Cost'],['retail_price','Retail price'],['quantity','Quantity'],['reorder_qty','Reorder quantity']]) {
+    if (!nonNegativeNumber(res, body, field, { label })) return false;
+  }
+  return true;
+}
 
 router.get('/', (req, res) => {
   const tenant = shopTenantWhere(req);
@@ -9,6 +18,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validatePart(res, req.body)) return;
   const { name, part_number, vendor, cost, retail_price, quantity, reorder_qty, location, notes } = req.body;
   const shopId = resolveShopId(req);
   const result = db.prepare(`
@@ -19,6 +29,8 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!positiveId(res, req.params.id, 'id')) return;
+  if (!validatePart(res, req.body)) return;
   const { name, part_number, vendor, cost, retail_price, quantity, reorder_qty, location, notes } = req.body;
   const tenant = shopTenantWhere(req);
   const result = db.prepare(`

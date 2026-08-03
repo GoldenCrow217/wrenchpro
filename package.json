@@ -1,6 +1,6 @@
 {
   "name": "wrenchpro",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "WrenchPro Mobile Mechanic Manager",
   "author": "GoldenCrow217",
   "main": "electron/main.js",
@@ -8,14 +8,21 @@
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
     "electron:dev": "electron .",
-    "electron:build": "electron-builder --win --publish never",
+    "electron:build": "npm run rebuild-native && electron-builder --win --publish never",
     "electron:publish": "npm run electron:build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux",
-    "rebuild-native": "electron-builder install-app-deps",
+    "rebuild-native": "electron-rebuild -f -w better-sqlite3",
     "smoke": "node scripts/smoke.js",
     "test": "npm run smoke",
     "qa:api": "node scripts/api-qa.js",
+    "qa:ports": "node scripts/port-qa.js",
+    "qa:installments": "node scripts/installment-qa.js",
+    "qa:mutations": "node scripts/mutation-reliability-qa.js",
+    "qa:validation": "node scripts/validation-qa.js",
+    "qa:inventory-values": "node scripts/inventory-negative-qa.js",
+    "qa:focus-refresh": "node scripts/focus-refresh-qa.js",
+    "test:render-security": "node scripts/run-render-security.js",
     "rebuild-node": "npm rebuild better-sqlite3"
   },
   "dependencies": {
@@ -36,6 +43,7 @@
     "artifactName": "${productName}-Setup-${version}.${ext}",
     "copyright": "Copyright © 2025",
     "asar": true,
+    "npmRebuild": false,
     "asarUnpack": [
       "node_modules/better-sqlite3/**/*"
     ],

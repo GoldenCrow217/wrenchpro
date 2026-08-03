@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId } = require('../tenant');
+const { finiteNumber } = require('../validation');
 
 const SETTINGS_FIELDS = [
   'business_name', 'owner_name', 'phone', 'email', 'address', 'service_area', 'website', 'business_hours',
@@ -27,6 +28,9 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', (req, res) => {
+  for (const [field, label] of [['default_labor_rate','Default labor rate'],['diagnostic_rate','Diagnostic rate'],['fleet_rate','Fleet rate'],['emergency_rate','Emergency rate'],['service_fee','Service fee'],['tax_rate','Tax rate'],['oil_warn_miles','Oil warning mileage']]) {
+    if (!finiteNumber(res, req.body, field, { label })) return;
+  }
   const shopId = resolveShopId(req);
   const values = {
     business_name: req.body.business_name || '',
@@ -78,4 +82,3 @@ router.put('/', (req, res) => {
 });
 
 module.exports = router;
-

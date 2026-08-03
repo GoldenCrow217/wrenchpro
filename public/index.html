@@ -393,7 +393,7 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="brand-text">
       <span class="brand-name">WrenchPro</span>
-      <span class="brand-sub" id="brand-version">v1.0.22</span>
+      <span class="brand-sub" id="brand-version">v1.0.23</span>
     </div>
   </div>
 
@@ -929,7 +929,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="jf-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-job')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveJob()">Save job</button>
+        <button id="save-job-btn" type="button" class="btn btn-primary" onclick="saveJob()">Save job</button>
       </div>
     </div>
   </div>
@@ -1043,7 +1043,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="vf-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-veh')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveVehicle()">Save vehicle</button>
+        <button id="save-vehicle-btn" type="button" class="btn btn-primary" onclick="saveVehicle()">Save vehicle</button>
       </div>
     </div>
   </div>
@@ -1085,7 +1085,7 @@ tr:hover td{background:var(--bg-subtle);}
     <div class="fr"><label>Note</label><input id="pf-note" placeholder="Optional note..."></div>
     <div class="mfooter"><div></div><div class="mfooter-r">
       <button class="btn" onclick="closeM('m-pmt')">Cancel</button>
-      <button class="btn btn-primary" onclick="savePayment()">Save payment</button>
+      <button id="save-payment-btn" type="button" class="btn btn-primary" onclick="savePayment()">Save payment</button>
     </div></div>
   </div>
 </div>
@@ -1120,7 +1120,7 @@ tr:hover td{background:var(--bg-subtle);}
     <div class="fr"><label>Notes</label><input id="pl-notes" placeholder="Any terms or notes..."></div>
     <div class="mfooter"><div></div><div class="mfooter-r">
       <button class="btn" onclick="closeM('m-plan')">Cancel</button>
-      <button class="btn btn-primary" onclick="savePlan()">Create plan</button>
+      <button id="save-plan-btn" type="button" class="btn btn-primary" onclick="savePlan()">Create plan</button>
     </div></div>
   </div>
 </div>
@@ -1143,7 +1143,7 @@ tr:hover td{background:var(--bg-subtle);}
     <div class="fr"><label>Receipt note</label><input id="ef-note" placeholder="Optional"></div>
     <div class="mfooter"><div></div><div class="mfooter-r">
       <button class="btn" onclick="closeM('m-exp')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveExpense()">Save expense</button>
+      <button id="save-expense-btn" type="button" class="btn btn-primary" onclick="saveExpense()">Save expense</button>
     </div></div>
   </div>
 </div>
@@ -1174,7 +1174,7 @@ tr:hover td{background:var(--bg-subtle);}
     <div class="fr"><label>Notes</label><input id="af-notes" placeholder="Appointment notes..."></div>
     <div class="mfooter"><div></div><div class="mfooter-r">
       <button class="btn" onclick="closeM('m-appt')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveAppt()">Save</button>
+      <button id="save-appt-btn" type="button" class="btn btn-primary" onclick="saveAppt()">Save</button>
     </div></div>
   </div>
 </div>
@@ -1218,7 +1218,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="ef2-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-emp')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveEmployee()">Save</button>
+        <button id="save-employee-btn" type="button" class="btn btn-primary" onclick="saveEmployee()">Save</button>
       </div>
     </div>
   </div>
@@ -1278,7 +1278,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div style="font-size:12px;color:#888;" id="qf-status"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-quick')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveQuickEntry()">Save job</button>
+        <button id="save-quick-btn" type="button" class="btn btn-primary" onclick="saveQuickEntry()">Save job</button>
       </div>
     </div>
   </div>
@@ -1370,7 +1370,7 @@ tr:hover td{background:var(--bg-subtle);}
         <button class="btn" onclick="closeM('m-estimate')">Cancel</button>
         <button class="btn" id="estf-convert-btn" style="display:none;" onclick="convertEstToJob()">Convert to job ▸</button>
         <button class="btn" onclick="printEstimate()">Print PDF</button>
-        <button class="btn btn-primary" onclick="saveEstimate()">Save estimate</button>
+        <button id="save-estimate-btn" type="button" class="btn btn-primary" onclick="saveEstimate()">Save estimate</button>
       </div>
     </div>
   </div>
@@ -1403,7 +1403,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="if2-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-insp')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveInspection()">Save inspection</button>
+        <button id="save-inspection-btn" type="button" class="btn btn-primary" onclick="saveInspection()">Save inspection</button>
       </div>
     </div>
   </div>
@@ -1436,7 +1436,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="prf-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-part')">Cancel</button>
-        <button class="btn btn-primary" onclick="savePart()">Save part</button>
+        <button id="save-part-btn" type="button" class="btn btn-primary" onclick="savePart()">Save part</button>
       </div>
     </div>
   </div>
@@ -1469,7 +1469,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="catf-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-catalog-item')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveCatalogItem()">Save service</button>
+        <button id="save-catalog-btn" type="button" class="btn btn-primary" onclick="saveCatalogItem()">Save service</button>
       </div>
     </div>
   </div>
@@ -1518,7 +1518,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="ldf-del" style="display:flex;gap:6px;"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-lead')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveLead()">Save lead</button>
+        <button id="save-lead-btn" type="button" class="btn btn-primary" onclick="saveLead()">Save lead</button>
       </div>
     </div>
   </div>
@@ -1550,7 +1550,7 @@ tr:hover td{background:var(--bg-subtle);}
     <div class="fr"><label>Notes</label><input id="tmf-notes" placeholder="Optional notes..."></div>
     <div class="mfooter"><div></div><div class="mfooter-r">
       <button class="btn" onclick="closeM('m-time')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveTimeEntry()">Save entry</button>
+      <button id="save-time-btn" type="button" class="btn btn-primary" onclick="saveTimeEntry()">Save entry</button>
     </div></div>
   </div>
 </div>
@@ -1576,7 +1576,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="wrf-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-warranty')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveWarranty()">Save warranty</button>
+        <button id="save-warranty-btn" type="button" class="btn btn-primary" onclick="saveWarranty()">Save warranty</button>
       </div>
     </div>
   </div>
@@ -1618,11 +1618,33 @@ let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expense
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
 let savingCustomer = false, pendingCustVehicleCustomerId = null;
+const payingInstallmentIds = new Set();
+const activeMutations = new Set();
 let detailCustId = null, detailTab = 'vehicles';
 let calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
 
 // ── Utilities ──
-const fmt$ = n => (state.settings.currency_symbol||'$') + Number(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+function esc(value){
+  return String(value ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+const attrEsc = esc;
+function safeId(value){
+  const id=Number(value);
+  if(!Number.isSafeInteger(id)||id<=0)throw new TypeError('Invalid record ID');
+  return id;
+}
+function safeImageSrc(value){
+  const src=String(value ?? '').trim();
+  return /^data:image\/(?:png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(src)?attrEsc(src):'';
+}
+const safeMonth = value => /^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(value))?String(value):'';
+const currencySymbol = () => ['$','€','£','¥'].includes(state.settings.currency_symbol)?state.settings.currency_symbol:'$';
+const fmt$ = n => currencySymbol() + Number(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const fmt$0 = n => (state.settings.currency_symbol||'$') + Math.round(Number(n||0)).toLocaleString();
 const today = () => new Date().toISOString().split('T')[0];
 const initials = (f,l) => esc(((f||'?')[0]+(l||'?')[0]).toUpperCase());
@@ -1657,7 +1679,7 @@ function oilBadge(v){
 function statusPill(s){
   const m = {'Pending':'pill-amber','In Progress':'pill-blue','Complete':'pill-green','Canceled':'pill-neutral','Paid':'pill-green','Unpaid':'pill-red','Partial':'pill-amber','active':'pill-blue','New':'pill-blue','Contacted':'pill-blue','Quoted':'pill-amber','Scheduled':'pill-accent','Won':'pill-green'};
   const hasDot = s==='In Progress'||s==='active'||s==='Scheduled';
-  return `<span class="pill ${m[s]||'pill-neutral'}">${hasDot?'<span class="dot"></span>':''}${s}</span>`;
+  return `<span class="pill ${m[s]||'pill-neutral'}">${hasDot?'<span class="dot"></span>':''}${esc(s)}</span>`;
 }
 
 function buildSpark(data){
@@ -1678,20 +1700,85 @@ function toast(msg, duration = 2500){
   _toastTimer = setTimeout(()=>t.classList.remove('show'), duration);
 }
 
+function upsertStateRecord(key, record){
+  if(!record||!Number.isSafeInteger(Number(record.id)))throw new Error(`The server did not return a valid ${key} record.`);
+  const customer=state.customers.find(c=>Number(c.id)===Number(record.customer_id));
+  const vehicle=state.vehicles.find(v=>Number(v.id)===Number(record.vehicle_id));
+  const employee=state.employees.find(e=>Number(e.id)===Number(record.employee_id));
+  if(customer)record={...record,first:record.first??customer.first,last:record.last??customer.last,cust_first:record.cust_first??customer.first,cust_last:record.cust_last??customer.last};
+  if(vehicle)record={...record,year:record.year??vehicle.year,make:record.make??vehicle.make,model:record.model??vehicle.model,plate:record.plate??vehicle.plate,veh_year:record.veh_year??vehicle.year,veh_make:record.veh_make??vehicle.make,veh_model:record.veh_model??vehicle.model};
+  if(employee)record={...record,emp_first:record.emp_first??employee.first,emp_last:record.emp_last??employee.last};
+  const list=Array.isArray(state[key])?state[key]:[];
+  const id=Number(record.id), index=list.findIndex(item=>Number(item.id)===id);
+  state[key]=index<0?[...list,record]:list.map((item,i)=>i===index?{...item,...record}:item);
+  const text=(value)=>String(value||'');
+  const desc=(field)=>(a,b)=>text(b[field]).localeCompare(text(a[field]))||Number(b.id)-Number(a.id);
+  const asc=(field)=>(a,b)=>text(a[field]).localeCompare(text(b[field]))||Number(a.id)-Number(b.id);
+  const sorters={customers:(a,b)=>text(a.last).localeCompare(text(b.last))||text(a.first).localeCompare(text(b.first)),vehicles:(a,b)=>Number(b.year||0)-Number(a.year||0)||Number(b.id)-Number(a.id),jobs:desc('date'),payments:desc('date'),plans:desc('created_at'),expenses:desc('date'),appts:(a,b)=>text(a.date).localeCompare(text(b.date))||text(a.time).localeCompare(text(b.time))||Number(a.id)-Number(b.id),employees:(a,b)=>text(a.last).localeCompare(text(b.last)),interactions:desc('created_at'),followups:asc('due_date'),serviceReminders:asc('reminder_date'),estimates:desc('date'),inventory:(a,b)=>text(a.name).localeCompare(text(b.name)),catalog:(a,b)=>text(a.category).localeCompare(text(b.category))||text(a.name).localeCompare(text(b.name)),inspections:desc('date'),warranties:desc('created_at'),timeLogs:desc('clock_in'),leads:desc('created_at')};
+  if(sorters[key])state[key].sort(sorters[key]);
+  return state[key].find(item=>Number(item.id)===id);
+}
+function removeStateRecord(key,id){
+  state[key]=(Array.isArray(state[key])?state[key]:[]).filter(item=>Number(item.id)!==Number(id));
+}
+function setProcessing(buttonRef,processing,label='Saving...'){
+  const button=typeof buttonRef==='string'?document.getElementById(buttonRef):buttonRef;
+  if(!button)return null;
+  if(processing){button.dataset.idleText=button.textContent;button.disabled=true;button.textContent=label;}
+  else{button.disabled=false;button.textContent=button.dataset.idleText||button.textContent;delete button.dataset.idleText;}
+  return button;
+}
+function mutationErrorMessage(error,action){
+  const detail=error?.message||'Network request failed';
+  return `${action} failed: ${detail}. Check your connection and try again.`;
+}
+function renderSafely(...renderers){
+  for(const renderer of renderers){
+    try{
+      const pending=renderer?.();
+      if(pending?.catch)pending.catch(error=>console.error('Post-mutation render failed:',error));
+    }catch(error){console.error('Post-mutation render failed:',error);}
+  }
+}
+async function runMutation(key,{buttonId,label,action,request,apply,render,close,success}){
+  if(activeMutations.has(key))return null;
+  const buttonRef=buttonId||(document.activeElement?.tagName==='BUTTON'?document.activeElement:null);
+  activeMutations.add(key);setProcessing(buttonRef,true,label);
+  try{
+    const result=await request();
+    apply?.(result);
+    renderSafely(render);
+    if(close)closeM(close);
+    toast(typeof success==='function'?success(result):success,result?.warning?8000:4000);
+    return result;
+  }catch(error){
+    console.error(`${action} failed:`,error);
+    toast(mutationErrorMessage(error,action),8000);
+    return null;
+  }finally{
+    activeMutations.delete(key);setProcessing(buttonRef,false);
+  }
+}
+async function refreshResource(path,key){
+  const records=await api('GET',path);
+  state[key]=Array.isArray(records)?records:[];
+  return state[key];
+}
+
 function addDays(d, n){
   const dt = new Date(d); dt.setDate(dt.getDate()+n);
   return dt.toISOString().split('T')[0];
 }
 
 // ── API calls ──
-async function api(method, path, body){
+async function api(method, path, body, {silentError=false}={}){
   const opts = { method, headers:{'Content-Type':'application/json'} };
   if(body !== undefined) opts.body = JSON.stringify(body);
   const r = await fetch(API+path, opts);
   if(!r.ok){
     const err = await r.json().catch(()=>({error:'Request failed'}));
     const msg = err.error || 'Request failed';
-    toast(msg);
+    if(!silentError)toast(msg);
     throw new Error(msg);
   }
   return r.json();
@@ -1699,9 +1786,22 @@ async function api(method, path, body){
 
 // Refresh data when window regains focus (e.g. after import or external API change)
 let _focusRefreshTimer = null;
+let _focusRefreshInFlight = false;
+async function refreshOnFocus(){
+  if(_focusRefreshInFlight)return;
+  _focusRefreshInFlight=true;
+  try{
+    await loadAll({silentErrors:true});
+  }catch(error){
+    console.error('Focus refresh failed:',error);
+    toast('Some data could not be refreshed. Your existing information is still available.',8000);
+  }finally{
+    _focusRefreshInFlight=false;
+  }
+}
 window.addEventListener('focus', ()=>{
   clearTimeout(_focusRefreshTimer);
-  _focusRefreshTimer = setTimeout(()=>loadAll(), 400);
+  _focusRefreshTimer = setTimeout(()=>{void refreshOnFocus();},400);
 });
 
 function setVersionLabels(version, platform = '') {
@@ -1721,27 +1821,28 @@ async function initVersionLabels() {
     const health = await api('GET', '/api/health');
     setVersionLabels(health.version);
   } catch (_) {
-    setVersionLabels('1.0.22');
+    setVersionLabels('1.0.23');
   }
 }
 
-async function loadAll(){
+async function loadAll({silentErrors=false}={}){
+  const get=path=>api('GET',path,undefined,{silentError:silentErrors});
   const [custs,vehs,jobs,pmts,plans,exps,settings,appts,emps,interactions,followups,svcRem,estimates,inventory,catalog,inspections,warranties,timeLogs,leads] = await Promise.all([
-    api('GET','/api/customers'), api('GET','/api/vehicles'),
-    api('GET','/api/jobs'), api('GET','/api/payments'),
-    api('GET','/api/plans'), api('GET','/api/expenses'),
-    api('GET','/api/settings'), api('GET','/api/appointments'),
-    api('GET','/api/employees'),
-    api('GET','/api/crm/interactions'),
-    api('GET','/api/crm/followups'),
-    api('GET','/api/crm/service-reminders'),
-    api('GET','/api/estimates'),
-    api('GET','/api/inventory'),
-    api('GET','/api/catalog'),
-    api('GET','/api/inspections'),
-    api('GET','/api/warranties'),
-    api('GET','/api/time'),
-    api('GET','/api/leads'),
+    get('/api/customers'), get('/api/vehicles'),
+    get('/api/jobs'), get('/api/payments'),
+    get('/api/plans'), get('/api/expenses'),
+    get('/api/settings'), get('/api/appointments'),
+    get('/api/employees'),
+    get('/api/crm/interactions'),
+    get('/api/crm/followups'),
+    get('/api/crm/service-reminders'),
+    get('/api/estimates'),
+    get('/api/inventory'),
+    get('/api/catalog'),
+    get('/api/inspections'),
+    get('/api/warranties'),
+    get('/api/time'),
+    get('/api/leads'),
   ]);
   state.customers = custs||[];
   state.vehicles = vehs||[];
@@ -1970,15 +2071,15 @@ async function renderDashboard(){
       <button class="btn btn-sm" onclick="sp('schedule')">View schedule ${iChev}</button>
     </div>
     ${todayJobs.length?todayJobs.map((j,i)=>`
-    <div onclick="openJobModal(${j.id})" style="display:grid;grid-template-columns:36px 1fr 140px 110px;gap:14px;align-items:center;padding:14px 18px;border-top:${i===0?'none':'1px solid var(--border)'};cursor:pointer;transition:background .12s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background=''">
+    <div onclick="openJobModal(${safeId(j.id)})" style="display:grid;grid-template-columns:36px 1fr 140px 110px;gap:14px;align-items:center;padding:14px 18px;border-top:${i===0?'none':'1px solid var(--border)'};cursor:pointer;transition:background .12s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background=''">
       <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-subtle);color:var(--fg-muted);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:600;">${String(i+1).padStart(2,'0')}</div>
       <div style="min-width:0;">
-        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:600;">${(j.first||'')+' '+(j.last||'')}</span>${j.year?`<span class="muted" style="font-size:12px;">· ${j.year} ${j.make} ${j.model}</span>`:''}</div>
-        <div class="muted" style="font-size:12px;margin-top:3px;">${j.service||'—'}</div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:600;">${esc((j.first||'')+' '+(j.last||''))}</span>${j.year?`<span class="muted" style="font-size:12px;">· ${esc(j.year)} ${esc(j.make)} ${esc(j.model)}</span>`:''}</div>
+        <div class="muted" style="font-size:12px;margin-top:3px;">${esc(j.service||'—')}</div>
       </div>
       <div>
         <div class="label-up">Technician</div>
-        <div class="mono" style="font-size:12px;font-weight:600;margin-top:1px;">${j.emp_first?j.emp_first+' '+j.emp_last:'—'}</div>
+        <div class="mono" style="font-size:12px;font-weight:600;margin-top:1px;">${esc(j.emp_first?j.emp_first+' '+j.emp_last:'—')}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
         ${statusPill(j.status)}
@@ -1997,7 +2098,7 @@ async function renderDashboard(){
       </div>`:''}
       ${lowStockItems.length?`<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:${pendingEsts.length?'1px solid var(--border)':'none'};">
         <div style="width:30px;height:30px;border-radius:8px;background:var(--warning-soft);color:var(--warning-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${iBox}</div>
-        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${lowStockItems[0].name}</div><div class="muted" style="font-size:12px;">Low stock · ${lowStockItems[0].quantity} on hand · reorder at ${lowStockItems[0].reorder_qty}${lowStockItems.length>1?' · '+lowStockItems.length+' items':''}</div></div>
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${esc(lowStockItems[0].name)}</div><div class="muted" style="font-size:12px;">Low stock · ${esc(lowStockItems[0].quantity)} on hand · reorder at ${esc(lowStockItems[0].reorder_qty)}${lowStockItems.length>1?' · '+lowStockItems.length+' items':''}</div></div>
         <button class="btn btn-sm" onclick="sp('inventory')">Reorder</button>
       </div>`:''}
       ${pendingEsts.length?`<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;">
@@ -2030,8 +2131,8 @@ async function renderDashboard(){
     <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 18px;border-bottom:${i===actFeed.length-1?'none':'1px solid var(--border)'};">
       <div style="width:6px;height:6px;border-radius:999px;background:${a.kind==='pmt'?'var(--success)':a.kind==='alert'?'var(--danger)':'var(--accent)'};margin-top:7px;flex-shrink:0;"></div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;"><strong style="font-weight:600;">${a.who.trim()||'System'}</strong> <span class="muted">${a.what}</span></div>
-        <div class="faint" style="font-size:11px;margin-top:2px;">${a.t}</div>
+        <div style="font-size:13px;"><strong style="font-weight:600;">${esc(a.who.trim()||'System')}</strong> <span class="muted">${esc(a.what)}</span></div>
+        <div class="faint" style="font-size:11px;margin-top:2px;">${esc(a.t)}</div>
       </div>
     </div>`).join(''):`<div style="padding:28px 18px;text-align:center;color:var(--fg-faint);font-size:13px;">No recent activity</div>`}
   </div>
@@ -2042,16 +2143,16 @@ async function renderDashboard(){
       const av=avColors[((p.first||'A').charCodeAt(0))%avColors.length];
       const ini=((p.first||'?')[0]+(p.last||'?')[0]).toUpperCase();
       return `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 18px;border-bottom:${i===recentPmts.length-1?'none':'1px solid var(--border)'};">
-        <span class="avatar avatar-${av}">${ini}</span>
-        <div style="min-width:0;"><div style="font-size:13px;font-weight:500;">${(p.first||'')+' '+(p.last||'')}</div><div class="muted" style="font-size:11px;margin-top:1px;">${p.description||''}</div></div>
-        <div style="text-align:right;"><div class="mono num" style="font-size:13px;font-weight:600;">${fmt$(p.amount)}</div><div class="faint" style="font-size:11px;margin-top:1px;">${p.method||''} · ${p.date||''}</div></div>
+        <span class="avatar avatar-${av}">${esc(ini)}</span>
+        <div style="min-width:0;"><div style="font-size:13px;font-weight:500;">${esc((p.first||'')+' '+(p.last||''))}</div><div class="muted" style="font-size:11px;margin-top:1px;">${esc(p.description||'')}</div></div>
+        <div style="text-align:right;"><div class="mono num" style="font-size:13px;font-weight:600;">${fmt$(p.amount)}</div><div class="faint" style="font-size:11px;margin-top:1px;">${esc(p.method||'')} · ${esc(p.date||'')}</div></div>
       </div>`;
     }).join(''):`<div style="padding:28px 18px;text-align:center;color:var(--fg-faint);font-size:13px;">No payments yet</div>`}
   </div>
 </div>`;
   } catch(e){
     console.error(e);
-    el.innerHTML = `<div class="empty">Dashboard failed to load — ${e.message}</div>`;
+    el.innerHTML = `<div class="empty">Dashboard failed to load — ${esc(e.message)}</div>`;
   }
 }
 
@@ -2067,16 +2168,16 @@ function renderJobs(){
   const tbody = document.getElementById('jobs-tbody');
   if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty">No jobs found</td></tr>`; return; }
   tbody.innerHTML = jobs.map(j=>`<tr>
-    <td style="color:#888;font-size:12px;">${j.date||'—'}</td>
-    <td class="td-name">${j.first||''} ${j.last||''}</td>
-    <td style="font-size:12px;">${j.year||''} ${j.make||''} ${j.model||''}<br><span style="color:#aaa;">${j.plate||''}</span></td>
-    <td>${(j.service||'').slice(0,35)}${(j.service||'').length>35?'…':''}</td>
-    <td style="font-size:12px;color:#555;">${j.emp_first?j.emp_first+' '+j.emp_last:'<span style="color:#ccc;">—</span>'}</td>
+    <td style="color:#888;font-size:12px;">${esc(j.date||'—')}</td>
+    <td class="td-name">${esc(j.first||'')} ${esc(j.last||'')}</td>
+    <td style="font-size:12px;">${esc(j.year||'')} ${esc(j.make||'')} ${esc(j.model||'')}<br><span style="color:#aaa;">${esc(j.plate||'')}</span></td>
+    <td>${esc((j.service||'').slice(0,35))}${(j.service||'').length>35?'…':''}</td>
+    <td style="font-size:12px;color:#555;">${j.emp_first?esc(j.emp_first+' '+j.emp_last):'<span style="color:#ccc;">—</span>'}</td>
     <td style="color:#3B6D11;">${fmt$(j.labor)}${j.labor_hours?`<br><span style="font-size:10px;color:#888;">${j.labor_hours} hrs</span>`:''}</td>
     <td style="color:#888;">${fmt$(j.parts)}</td>
     <td style="font-weight:600;">${fmt$((j.labor||0)+(j.parts||0))}</td>
     <td>${statusBadge(j.status)}</td>
-    <td style="display:flex;gap:4px;"><button class="btn btn-sm" onclick="openJobModal(${j.id})">Edit</button><button class="btn btn-sm" onclick="openInvoice(${j.id})">Invoice</button></td>
+    <td style="display:flex;gap:4px;"><button class="btn btn-sm" onclick="openJobModal(${safeId(j.id)})">Edit</button><button class="btn btn-sm" onclick="openInvoice(${safeId(j.id)})">Invoice</button></td>
   </tr>`).join('');
 }
 
@@ -2096,8 +2197,8 @@ function renderCalendar(){
     const dayJobs=state.jobs.filter(j=>j.date===ds);
     const dayAppts=(state.appts||[]).filter(a=>a.date===ds);
     const evs=[
-      ...dayAppts.map(a=>`<div class="cal-ev" data-appointment-id="${a.id}" onclick="event.stopPropagation();openApptModal(null,${a.id})">${a.time?fmtTime(a.time)+' ':''} ${a.cust}</div>`),
-      ...dayJobs.map(j=>`<div class="cal-ev ${j.status==='Complete'?'green':j.status==='Pending'?'amber':''}">${(j.service||'').slice(0,14)}</div>`)
+      ...dayAppts.map(a=>`<div class="cal-ev" data-appointment-id="${safeId(a.id)}" onclick="event.stopPropagation();openApptModal(null,${safeId(a.id)})">${a.time?esc(fmtTime(a.time))+' ':''} ${esc(a.cust)}</div>`),
+      ...dayJobs.map(j=>`<div class="cal-ev ${j.status==='Complete'?'green':j.status==='Pending'?'amber':''}">${esc((j.service||'').slice(0,14))}</div>`)
     ].join('');
     cells+=`<div class="cal-cell${isToday?' today':''}" onclick="openApptModal('${ds}')"><div class="cal-num">${d}</div>${evs}</div>`;
   }
@@ -2128,22 +2229,22 @@ function renderCustomers(){
     const hasOverdueFollowup=state.followups.some(f=>f.customer_id===c.id&&f.status==='pending'&&f.due_date<now);
     const hasOverdueSvc=state.serviceReminders.some(r=>r.customer_id===c.id&&r.status==='pending'&&r.reminder_date<now);
     const alert=(hasOverdueFollowup||hasOverdueSvc)?`<span title="${hasOverdueFollowup?'Overdue follow-up':''}${hasOverdueSvc?' Overdue service reminder':''}" style="color:#A32D2D;font-size:14px;margin-left:4px;">●</span>`:'';
-    const tagChips=(c.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3).map(t=>`<span class="tag-chip">${t}</span>`).join('');
-    return `<tr style="cursor:pointer;" onclick="openCustDetail(${c.id})">
+    const tagChips=(c.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3).map(t=>`<span class="tag-chip">${esc(t)}</span>`).join('');
+    return `<tr style="cursor:pointer;" onclick="openCustDetail(${safeId(c.id)})">
       <td><div style="display:flex;align-items:center;gap:10px;">
         <div class="avatar" style="width:32px;height:32px;font-size:11px;">${initials(c.first,c.last)}</div>
         <div>
           <div style="display:flex;align-items:center;gap:6px;">
             <span class="td-name">${fullName(c)}</span>${custStatusBadge(c.status)}${alert}
           </div>
-          <div style="font-size:11px;color:#888;">${c.address||''}${tagChips?'<br>'+tagChips:''}</div>
+          <div style="font-size:11px;color:#888;">${esc(c.address||'')}${tagChips?'<br>'+tagChips:''}</div>
         </div>
       </div></td>
-      <td><div>${c.phone||'—'}</div><div style="font-size:11px;color:#888;">${c.email||''}</div></td>
+      <td><div>${esc(c.phone||'—')}</div><div style="font-size:11px;color:#888;">${esc(c.email||'')}</div></td>
       <td><div style="display:flex;gap:4px;flex-wrap:wrap;">${vPills}${more}</div></td>
       <td>${jobs.length}</td>
       <td style="font-size:12px;color:#888;">${lastJob?lastJob.date:'—'}</td>
-      <td><button class="btn btn-sm" onclick="event.stopPropagation();openCustModal(${c.id})">Edit</button></td>
+      <td><button class="btn btn-sm" onclick="event.stopPropagation();openCustModal(${safeId(c.id)})">Edit</button></td>
     </tr>`;
   }).join('');
 }
@@ -2189,7 +2290,7 @@ function renderCustDetail(){
   const svcRems=state.serviceReminders.filter(r=>r.customer_id===c.id&&r.status==='pending');
   const now=today();
   const crmCount=interactions.length+followups.length+svcRems.length;
-  const tagChips=(c.tags||'').split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="tag-chip">${t}</span>`).join('');
+  const tagChips=(c.tags||'').split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="tag-chip">${esc(t)}</span>`).join('');
 
   const typeIcon={Call:'📞',Text:'💬',Email:'✉️',Visit:'🏠',Note:'📝'};
 
@@ -2203,12 +2304,12 @@ function renderCustDetail(){
           <span style="font-size:18px;font-weight:600;">${fullName(c)}</span>
           ${custStatusBadge(c.status)}
         </div>
-        <div style="font-size:13px;color:#888;margin-top:2px;">${c.phone||''}${c.email?' · '+c.email:''}</div>
-        ${c.address?`<div style="font-size:12px;color:#888;margin-top:2px;">${c.address}</div>`:''}
+        <div style="font-size:13px;color:#888;margin-top:2px;">${esc(c.phone||'')}${c.email?' · '+esc(c.email):''}</div>
+        ${c.address?`<div style="font-size:12px;color:#888;margin-top:2px;">${esc(c.address)}</div>`:''}
         ${tagChips?`<div style="margin-top:6px;">${tagChips}</div>`:''}
-        ${c.notes?`<div style="font-size:12px;background:#f5f5f0;padding:4px 10px;border-radius:6px;margin-top:6px;color:#666;">${c.notes}</div>`:''}
+        ${c.notes?`<div style="font-size:12px;background:#f5f5f0;padding:4px 10px;border-radius:6px;margin-top:6px;color:#666;">${esc(c.notes)}</div>`:''}
       </div>
-      <button class="btn btn-sm" onclick="openCustModal(${c.id})">Edit</button>
+      <button class="btn btn-sm" onclick="openCustModal(${safeId(c.id)})">Edit</button>
     </div>
     <div style="display:flex;gap:12px;margin-bottom:1.5rem;">
       <div class="stat" style="flex:1;"><div class="stat-label">Vehicles</div><div class="stat-value">${vehs.length}</div></div>
@@ -2224,18 +2325,18 @@ function renderCustDetail(){
     </div>
     <div class="tab-content ${detailTab==='vehicles'?'active':''}" id="tab-vehicles">
       <div class="vehicle-grid">
-        ${vehs.map(v=>`<div class="vcard" onclick="openVehModal(${c.id},${v.id})">
+        ${vehs.map(v=>`<div class="vcard" onclick="openVehModal(${safeId(c.id)},${safeId(v.id)})">
           <div class="vcard-make">${vLabel(v)}</div>
-          <div class="vcard-sub">${v.trim||''} ${v.color?'· '+v.color:''}</div>
+          <div class="vcard-sub">${esc(v.trim||'')} ${v.color?'· '+esc(v.color):''}</div>
           <div class="vpills">
-            ${v.plate?`<span class="vpill">${v.plate}${v.state?' '+v.state:''}</span>`:''}
+            ${v.plate?`<span class="vpill">${esc(v.plate)}${v.state?' '+esc(v.state):''}</span>`:''}
             ${v.miles?`<span class="vpill">${Number(v.miles).toLocaleString()} mi</span>`:''}
             ${oilBadge(v)}
           </div>
-          ${v.vin?`<div style="font-size:10px;color:#aaa;margin-top:6px;font-family:monospace;">${v.vin}</div>`:''}
-          ${v.notes?`<div style="font-size:11px;color:#888;margin-top:6px;font-style:italic;">${v.notes}</div>`:''}
+          ${v.vin?`<div style="font-size:10px;color:#aaa;margin-top:6px;font-family:monospace;">${esc(v.vin)}</div>`:''}
+          ${v.notes?`<div style="font-size:11px;color:#888;margin-top:6px;font-style:italic;">${esc(v.notes)}</div>`:''}
         </div>`).join('')}
-        <div class="add-vcard" onclick="openVehModal(${c.id},null)">
+        <div class="add-vcard" onclick="openVehModal(${safeId(c.id)},null)">
           <span style="font-size:22px;color:#ccc;">+</span><span>Add vehicle</span>
         </div>
       </div>
@@ -2244,16 +2345,16 @@ function renderCustDetail(){
       ${jobs.length?jobs.sort((a,b)=>b.date.localeCompare(a.date)).map(j=>{
         const v=state.vehicles.find(x=>x.id===j.vehicle_id);
         return `<div class="job-row">
-          <div class="job-date">${j.date}<br><span style="font-size:10px;">${j.miles?Number(j.miles).toLocaleString()+' mi':''}</span></div>
-          <div style="flex:1;"><div style="font-weight:500;">${j.service||''}</div><div style="font-size:11px;color:#888;">${vLabel(v)}${j.emp_first?' · '+j.emp_first+' '+j.emp_last:''}${j.notes?' · '+j.notes:''}</div></div>
+          <div class="job-date">${esc(j.date)}<br><span style="font-size:10px;">${j.miles?Number(j.miles).toLocaleString()+' mi':''}</span></div>
+          <div style="flex:1;"><div style="font-weight:500;">${esc(j.service||'')}</div><div style="font-size:11px;color:#888;">${vLabel(v)}${j.emp_first?' · '+esc(j.emp_first+' '+j.emp_last):''}${j.notes?' · '+esc(j.notes):''}</div></div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">${statusBadge(j.status)}<div style="font-weight:600;">${fmt$((j.labor||0)+(j.parts||0))}</div></div>
         </div>`;
       }).join(''):'<div class="empty">No jobs on record</div>'}
     </div>
     <div class="tab-content ${detailTab==='payments'?'active':''}">
       ${pmts.length?pmts.sort((a,b)=>b.date.localeCompare(a.date)).map(p=>`<div class="job-row">
-        <div class="job-date">${p.date}</div>
-        <div style="flex:1;"><div style="font-weight:500;">${p.description||''}</div><div style="font-size:11px;color:#888;">${p.method||''} ${p.note?'· '+p.note:''}</div></div>
+        <div class="job-date">${esc(p.date)}</div>
+        <div style="flex:1;"><div style="font-weight:500;">${esc(p.description||'')}</div><div style="font-size:11px;color:#888;">${esc(p.method||'')} ${p.note?'· '+esc(p.note):''}</div></div>
         <div style="font-weight:600;color:#3B6D11;">${fmt$(p.amount)}</div>
       </div>`).join(''):'<div class="empty">No payments recorded</div>'}
     </div>
@@ -2261,70 +2362,70 @@ function renderCustDetail(){
       <div style="margin-bottom:1rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <div style="display:flex;gap:8px;align-items:center;">
           <label style="font-size:12px;color:#666;font-weight:500;">Status:</label>
-          <select onchange="saveCustStatus(${c.id},this.value)" style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;">
+          <select onchange="saveCustStatus(${safeId(c.id)},this.value)" style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;">
             ${['Active','VIP','Inactive','Prospect','Lead'].map(s=>`<option ${(c.status||'Active')===s?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex:1;">
           <label style="font-size:12px;color:#666;font-weight:500;white-space:nowrap;">Tags:</label>
-          <input id="crm-tags-input" value="${(c.tags||'').replace(/"/g,'&quot;')}" placeholder="vip, fleet, referral..." style="flex:1;padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onblur="saveCustTags(${c.id},this.value)">
+          <input id="crm-tags-input" value="${attrEsc(c.tags||'')}" placeholder="vip, fleet, referral..." style="flex:1;padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onblur="saveCustTags(${safeId(c.id)},this.value)">
         </div>
       </div>
 
       <div class="crm-section">
         <div class="crm-section-hdr">
           <span class="crm-section-title">Interactions (${interactions.length})</span>
-          <button class="btn btn-sm" onclick="openInteractionModal(${c.id})">+ Log</button>
+          <button class="btn btn-sm" onclick="openInteractionModal(${safeId(c.id)})">+ Log</button>
         </div>
         ${interactions.length?interactions.map(i=>`
           <div class="crm-row">
-            <span style="font-size:14px;">${typeIcon[i.type]||'📝'}</span>
+            <span style="font-size:14px;">${Object.hasOwn(typeIcon,i.type)?typeIcon[i.type]:'📝'}</span>
             <div style="flex:1;">
               <div style="display:flex;align-items:center;gap:6px;">
-                <span class="badge b-gray">${i.type}</span>
-                <span style="font-size:11px;color:#888;">${(i.created_at||'').slice(0,10)}${i.emp_first?' · '+i.emp_first+' '+i.emp_last:''}</span>
+                <span class="badge b-gray">${esc(i.type)}</span>
+                <span style="font-size:11px;color:#888;">${esc((i.created_at||'').slice(0,10))}${i.emp_first?' · '+esc(i.emp_first+' '+i.emp_last):''}</span>
               </div>
-              <div style="margin-top:3px;font-size:13px;">${i.summary}</div>
+              <div style="margin-top:3px;font-size:13px;">${esc(i.summary)}</div>
             </div>
-            <button class="btn btn-sm btn-danger" onclick="deleteInteraction(${i.id})">×</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteInteraction(${safeId(i.id)})">×</button>
           </div>`).join(''):'<div class="empty" style="padding:1rem;">No interactions logged yet</div>'}
       </div>
 
       <div class="crm-section">
         <div class="crm-section-hdr">
           <span class="crm-section-title">Follow-ups (${followups.length} pending)</span>
-          <button class="btn btn-sm" onclick="openFollowupModal(${c.id})">+ Add</button>
+          <button class="btn btn-sm" onclick="openFollowupModal(${safeId(c.id)})">+ Add</button>
         </div>
         ${followups.length?followups.map(f=>`
           <div class="crm-row">
             <div class="crm-dot" style="background:${f.due_date<now?'#A32D2D':'#378ADD'};"></div>
             <div style="flex:1;">
-              <div class="${f.due_date<now?'overdue-text':''}">${f.due_date}${f.due_date<now?' — overdue':''}</div>
-              ${f.note?`<div style="font-size:12px;color:#666;margin-top:2px;">${f.note}</div>`:''}
+              <div class="${f.due_date<now?'overdue-text':''}">${esc(f.due_date)}${f.due_date<now?' — overdue':''}</div>
+              ${f.note?`<div style="font-size:12px;color:#666;margin-top:2px;">${esc(f.note)}</div>`:''}
             </div>
-            <button class="btn btn-sm btn-success" onclick="completeFollowup(${f.id})" style="font-size:11px;">Done</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteFollowup(${f.id})">×</button>
+            <button class="btn btn-sm btn-success" onclick="completeFollowup(${safeId(f.id)})" style="font-size:11px;">Done</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteFollowup(${safeId(f.id)})">×</button>
           </div>`).join(''):'<div class="empty" style="padding:1rem;">No pending follow-ups</div>'}
       </div>
 
       <div class="crm-section">
         <div class="crm-section-hdr">
           <span class="crm-section-title">Service Reminders (${svcRems.length} pending)</span>
-          <button class="btn btn-sm" onclick="openSvcReminderModal(${c.id})">+ Add</button>
+          <button class="btn btn-sm" onclick="openSvcReminderModal(${safeId(c.id)})">+ Add</button>
         </div>
         ${svcRems.length?svcRems.map(r=>`
           <div class="crm-row">
             <span style="font-size:14px;">🔧</span>
             <div style="flex:1;">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                ${r.service_type?`<strong>${r.service_type}</strong>`:''}
+                ${r.service_type?`<strong>${esc(r.service_type)}</strong>`:''}
                 ${(r.year||r.make||r.model)?`<span class="badge b-gray">${vLabel(r)}</span>`:''}
-                <span class="${r.reminder_date<now?'overdue-text':''}" style="font-size:12px;">${r.reminder_date}${r.reminder_date<now?' — overdue':''}</span>
+                <span class="${r.reminder_date<now?'overdue-text':''}" style="font-size:12px;">${esc(r.reminder_date)}${r.reminder_date<now?' — overdue':''}</span>
               </div>
-              ${r.note?`<div style="font-size:12px;color:#666;margin-top:2px;">${r.note}</div>`:''}
+              ${r.note?`<div style="font-size:12px;color:#666;margin-top:2px;">${esc(r.note)}</div>`:''}
             </div>
-            <button class="btn btn-sm btn-success" onclick="completeSvcReminder(${r.id})" style="font-size:11px;">Done</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteSvcReminder(${r.id})">×</button>
+            <button class="btn btn-sm btn-success" onclick="completeSvcReminder(${safeId(r.id)})" style="font-size:11px;">Done</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSvcReminder(${safeId(r.id)})">×</button>
           </div>`).join(''):'<div class="empty" style="padding:1rem;">No pending service reminders</div>'}
       </div>
     </div>
@@ -2345,13 +2446,13 @@ function renderVehicles(){
     const c=state.customers.find(x=>x.id===v.customer_id);
     const jobs=state.jobs.filter(j=>j.vehicle_id===v.id);
     return `<tr>
-      <td><div class="td-name">${vLabel(v)}</div><div style="font-size:11px;color:#888;">${v.trim||''} ${v.color?'· '+v.color:''}</div></td>
-      <td>${v.plate||'—'} <span style="font-size:10px;color:#aaa;">${v.state||''}</span></td>
-      <td style="font-size:11px;font-family:monospace;color:#888;">${v.vin||'—'}</td>
+      <td><div class="td-name">${vLabel(v)}</div><div style="font-size:11px;color:#888;">${esc(v.trim||'')} ${v.color?'· '+esc(v.color):''}</div></td>
+      <td>${esc(v.plate||'—')} <span style="font-size:10px;color:#aaa;">${esc(v.state||'')}</span></td>
+      <td style="font-size:11px;font-family:monospace;color:#888;">${esc(v.vin||'—')}</td>
       <td>${v.miles?Number(v.miles).toLocaleString()+' mi':'—'} ${oilBadge(v)}</td>
-      <td style="cursor:pointer;color:#378ADD;" onclick="openCustDetail(${v.customer_id})">${fullName(c)}</td>
+      <td style="cursor:pointer;color:#378ADD;" onclick="openCustDetail(${safeId(v.customer_id)})">${fullName(c)}</td>
       <td>${jobs.length}</td>
-      <td><button class="btn btn-sm" onclick="openVehModal(${v.customer_id},${v.id})">Edit</button></td>
+      <td><button class="btn btn-sm" onclick="openVehModal(${safeId(v.customer_id)},${safeId(v.id)})">Edit</button></td>
     </tr>`;
   }).join('');
 }
@@ -2368,10 +2469,10 @@ function renderFinance(){
   const tbody=document.getElementById('ledger-tbody');
   const pmts=[...state.payments].sort((a,b)=>b.date.localeCompare(a.date));
   tbody.innerHTML=pmts.length?pmts.map(p=>`<tr>
-    <td style="color:#888;font-size:12px;">${p.date||'—'}</td>
-    <td class="td-name">${p.first||''} ${p.last||''}</td>
-    <td>${p.description||'—'} ${p.note?'<span style="color:#aaa;font-size:11px;">· '+p.note+'</span>':''}</td>
-    <td><span class="badge b-gray">${p.method||'Cash'}</span></td>
+    <td style="color:#888;font-size:12px;">${esc(p.date||'—')}</td>
+    <td class="td-name">${esc(p.first||'')} ${esc(p.last||'')}</td>
+    <td>${esc(p.description||'—')} ${p.note?'<span style="color:#aaa;font-size:11px;">· '+esc(p.note)+'</span>':''}</td>
+    <td><span class="badge b-gray">${esc(p.method||'Cash')}</span></td>
     <td style="font-weight:600;color:#3B6D11;">${fmt$(p.amount)}</td>
   </tr>`).join(''):`<tr><td colspan="5" class="empty">No payments yet</td></tr>`;
 }
@@ -2385,13 +2486,13 @@ function renderPlans(){
   if(!state.plans.length){el.innerHTML='<div class="empty" style="padding:3rem;">No payment plans yet. Create one with the button above.</div>';return;}
   el.innerHTML=state.plans.map(p=>{
     const paid=planPaid(p), bal=planBalance(p), pct=Math.min(100,Math.round(paid/p.total*100)), od=planOverdue(p);
-    return `<div class="plan-card ${od>0&&bal>0?'overdue':''}" onclick="openPlanDetail(${p.id})">
+    return `<div class="plan-card ${od>0&&bal>0?'overdue':''}" onclick="openPlanDetail(${safeId(p.id)})">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div><span style="font-weight:600;">${p.first} ${p.last}</span> <span style="font-size:12px;color:#888;">· ${p.description||''}</span></div>
+        <div><span style="font-weight:600;">${esc(p.first)} ${esc(p.last)}</span> <span style="font-size:12px;color:#888;">· ${esc(p.description||'')}</span></div>
         <div style="display:flex;gap:6px;">
           ${od>0&&bal>0?`<span class="badge b-red">${od} overdue</span>`:''}
           ${bal<=0?'<span class="badge b-green">Paid in full</span>':''}
-          <span class="badge b-gray">${p.frequency||'monthly'}</span>
+          <span class="badge b-gray">${esc(p.frequency||'monthly')}</span>
         </div>
       </div>
       <div style="display:flex;gap:20px;font-size:13px;margin-bottom:8px;">
@@ -2410,7 +2511,7 @@ function openPlanDetail(id){
   if(!p)return;
   const paid=planPaid(p), bal=planBalance(p), pct=Math.min(100,Math.round(paid/p.total*100));
   document.getElementById('plan-detail-inner').innerHTML=`
-    <h2>${p.first} ${p.last} — ${p.description||''}</h2>
+    <h2>${esc(p.first)} ${esc(p.last)} — ${esc(p.description||'')}</h2>
     <div style="display:flex;gap:12px;margin-bottom:1rem;">
       <div class="stat" style="flex:1;"><div class="stat-label">Total</div><div class="stat-value">${fmt$(p.total)}</div></div>
       <div class="stat" style="flex:1;"><div class="stat-label">Paid</div><div class="stat-value green">${fmt$(paid)}</div></div>
@@ -2423,36 +2524,50 @@ function openPlanDetail(id){
       const od=!inst.paid&&inst.due_date<today();
       return `<div class="inst-row">
         <span style="width:20px;font-size:11px;color:#888;">${i+1}</span>
-        <span style="flex:1;">${inst.due_date}</span>
+        <span style="flex:1;">${esc(inst.due_date)}</span>
         <span style="flex:1;">${fmt$(inst.amount)}</span>
         <span style="flex:1;">${inst.paid?'<span class="badge b-green">Paid</span>':od?'<span class="badge b-red">Overdue</span>':'<span class="badge b-amber">Pending</span>'}</span>
-        ${!inst.paid?`<button class="btn btn-sm btn-success" onclick="markInstPaid(${inst.id},${p.id})">Mark paid</button>`:''}
+        ${!inst.paid?`<button class="btn btn-sm btn-success" id="installment-pay-${safeId(inst.id)}" onclick="markInstPaid(${safeId(inst.id)},${safeId(p.id)})">Mark paid</button>`:''}
       </div>`;
     }).join('')}
-    ${p.notes?`<div style="font-size:12px;color:#888;margin-top:.75rem;font-style:italic;">${p.notes}</div>`:''}
-    <div class="mfooter"><div><button class="btn btn-sm btn-danger" onclick="deletePlan(${p.id})">Delete plan</button></div>
+    ${p.notes?`<div style="font-size:12px;color:#888;margin-top:.75rem;font-style:italic;">${esc(p.notes)}</div>`:''}
+    <div class="mfooter"><div><button class="btn btn-sm btn-danger" onclick="deletePlan(${safeId(p.id)})">Delete plan</button></div>
     <div><button class="btn" onclick="closeM('m-plan-detail')">Close</button></div></div>
   `;
   document.getElementById('m-plan-detail').classList.add('open');
 }
 
 async function markInstPaid(instId, planId){
-  await api('PUT',`/api/plans/installment/${instId}/pay`);
+  if(payingInstallmentIds.has(instId))return;
   const p=state.plans.find(x=>x.id===planId);
-  if(p){ const inst=p.installments.find(i=>i.id===instId); if(inst){inst.paid=1; const amt=inst.amount;
-    await api('POST','/api/payments',{customer_id:p.customer_id,plan_id:planId,description:p.description+' (installment)',amount:amt,method:state.settings.default_pay_method||'Cash',date:today(),note:'Auto-logged from plan'});
-    await loadAll();
-  }}
-  openPlanDetail(planId);
-  toast('Installment marked as paid');
+  const inst=p?.installments?.find(i=>i.id===instId);
+  if(!p||!inst){toast('Installment details are unavailable. Refresh payment plans and try again.',8000);return;}
+  payingInstallmentIds.add(instId);
+  const button=document.getElementById(`installment-pay-${instId}`);
+  const originalLabel=button?.textContent||'Mark paid';
+  if(button){button.disabled=true;button.textContent='Recording...';}
+  try{
+    const result=await api('PUT',`/api/plans/installment/${instId}/pay`,{method:state.settings.default_pay_method||'Cash',date:today()});
+    const installmentIndex=p.installments.findIndex(i=>i.id===instId);
+    if(installmentIndex>=0)p.installments[installmentIndex]=result.installment;
+    const paymentIndex=state.payments.findIndex(payment=>payment.id===result.payment.id);
+    if(paymentIndex>=0)state.payments[paymentIndex]=result.payment;
+    else state.payments.push(result.payment);
+    renderPlans();
+    renderFinance();
+    openPlanDetail(planId);
+    toast(result.already_paid?'Installment payment was already recorded.':'Installment payment recorded.');
+  }catch(error){
+    toast(`Installment was not marked paid. ${error?.message||'Check the payment plan and try again.'}`,8000);
+  }finally{
+    payingInstallmentIds.delete(instId);
+    if(button&&button.isConnected){button.disabled=false;button.textContent=originalLabel;}
+  }
 }
 
 async function deletePlan(id){
   if(!confirm('Delete this payment plan?'))return;
-  await api('DELETE',`/api/plans/${id}`);
-  closeM('m-plan-detail');
-  await loadAll();
-  toast('Plan deleted');
+  await runMutation(`plan-delete-${id}`,{action:'Deleting payment plan',request:()=>api('DELETE',`/api/plans/${id}`),apply:()=>removeStateRecord('plans',id),render:()=>{renderFinance();renderPlans();},close:'m-plan-detail',success:'Plan deleted'});
 }
 
 function renderExpenses(){
@@ -2468,25 +2583,24 @@ function renderExpenses(){
   document.getElementById('exp-month').textContent=fmt$(thisMonth);
   const tbody=document.getElementById('exp-tbody');
   tbody.innerHTML=filtered.length?[...filtered].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>`<tr>
-    <td style="color:#888;font-size:12px;">${e.date}</td>
-    <td class="td-name">${e.description}</td>
-    <td><span class="badge b-gray">${e.category}</span></td>
+    <td style="color:#888;font-size:12px;">${esc(e.date)}</td>
+    <td class="td-name">${esc(e.description)}</td>
+    <td><span class="badge b-gray">${esc(e.category)}</span></td>
     <td style="font-weight:600;color:#A32D2D;">${fmt$(e.amount)}</td>
-    <td><button class="btn btn-sm btn-danger" onclick="deleteExpense(${e.id})">Delete</button></td>
+    <td><button class="btn btn-sm btn-danger" onclick="deleteExpense(${safeId(e.id)})">Delete</button></td>
   </tr>`).join(''):`<tr><td colspan="5" class="empty">No expenses found</td></tr>`;
   populateExpMonths();
 }
 
 function populateExpMonths(){
-  const months=[...new Set(state.expenses.map(e=>e.date.slice(0,7)))].sort().reverse();
+  const months=[...new Set(state.expenses.map(e=>safeMonth((e.date||'').slice(0,7))).filter(Boolean))].sort().reverse();
   const sel=document.getElementById('exp-mo');
   const cur=sel.value;
-  sel.innerHTML='<option value="">All time</option>'+months.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${m}</option>`).join('');
+  sel.innerHTML='<option value="">All time</option>'+months.map(m=>`<option value="${attrEsc(m)}" ${m===cur?'selected':''}>${esc(m)}</option>`).join('');
 }
 
 async function deleteExpense(id){
-  await api('DELETE',`/api/expenses/${id}`);
-  await loadAll(); toast('Expense deleted');
+  await runMutation(`expense-delete-${id}`,{action:'Deleting expense',request:()=>api('DELETE',`/api/expenses/${id}`),apply:()=>removeStateRecord('expenses',id),render:()=>renderSafely(renderExpenses,renderFinance,renderDashboard),success:'Expense deleted'});
 }
 
 function renderReport(){
@@ -2515,7 +2629,7 @@ function renderReport(){
         <div class="report-total"><span>Total income</span><span style="color:#3B6D11;">${fmt$(totalIncome)}</span></div>
       </div>
       <div class="report-sect"><h3>Expenses by category</h3>
-        ${Object.entries(expByCat).length?Object.entries(expByCat).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<div class="report-line"><span>${cat}</span><span style="color:#A32D2D;">(${fmt$(amt)})</span></div>`).join(''):'<div style="color:#aaa;font-size:13px;padding:6px 0;">No expenses in period</div>'}
+        ${Object.entries(expByCat).length?Object.entries(expByCat).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<div class="report-line"><span>${esc(cat)}</span><span style="color:#A32D2D;">(${fmt$(amt)})</span></div>`).join(''):'<div style="color:#aaa;font-size:13px;padding:6px 0;">No expenses in period</div>'}
         <div class="report-total"><span>Total expenses</span><span style="color:#A32D2D;">(${fmt$(totalExp)})</span></div>
       </div>
       <div class="report-sect"><h3>Net profit</h3>
@@ -2523,10 +2637,10 @@ function renderReport(){
         <div style="font-size:12px;color:#888;margin-top:.5rem;">Profit margin: ${totalIncome>0?Math.round(net/totalIncome*100):0}%</div>
       </div>
       <div class="report-sect"><h3>Payments by method</h3>
-        ${Object.entries(pmtByMethod).map(([m,a])=>`<div class="report-line"><span>${m}</span><span>${fmt$(a)}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No payments in period</div>'}
+        ${Object.entries(pmtByMethod).map(([m,a])=>`<div class="report-line"><span>${esc(m)}</span><span>${fmt$(a)}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No payments in period</div>'}
       </div>
       <div class="report-sect"><h3>Outstanding balances</h3>
-        ${outstanding.map(p=>`<div class="report-line"><span>${p.first} ${p.last} — ${p.description}</span><span style="color:#854F0B;">${fmt$(planBalance(p))}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No outstanding balances</div>'}
+        ${outstanding.map(p=>`<div class="report-line"><span>${esc(p.first)} ${esc(p.last)} — ${esc(p.description)}</span><span style="color:#854F0B;">${fmt$(planBalance(p))}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No outstanding balances</div>'}
         <div class="report-total"><span>Total outstanding</span><span style="color:#854F0B;">${fmt$(outstanding.reduce((a,p)=>a+planBalance(p),0))}</span></div>
       </div>
     </div>`;
@@ -2534,10 +2648,10 @@ function renderReport(){
 }
 
 function populateReportPeriods(){
-  const months=[...new Set([...state.payments,...state.expenses].map(x=>x.date?x.date.slice(0,7):null).filter(Boolean))].sort().reverse();
+  const months=[...new Set([...state.payments,...state.expenses].map(x=>safeMonth(x.date?x.date.slice(0,7):'')).filter(Boolean))].sort().reverse();
   const sel=document.getElementById('rpt-period');
   const cur=sel.value;
-  sel.innerHTML=`<option value="all">All time</option>`+months.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${m}</option>`).join('');
+  sel.innerHTML=`<option value="all">All time</option>`+months.map(m=>`<option value="${attrEsc(m)}" ${m===cur?'selected':''}>${esc(m)}</option>`).join('');
 }
 
 function exportReport(){
@@ -2609,15 +2723,15 @@ function renderEmployees(){
     return `<tr>
       <td><div style="display:flex;align-items:center;gap:10px;">
         <div class="avatar" style="width:32px;height:32px;font-size:11px;">${initials(e.first,e.last)}</div>
-        <div class="td-name">${e.first} ${e.last}</div>
+        <div class="td-name">${esc(e.first)} ${esc(e.last)}</div>
       </div></td>
-      <td><span class="badge b-gray">${e.role||'Mechanic'}</span></td>
-      <td><div>${e.phone||'—'}</div><div style="font-size:11px;color:#888;">${e.email||''}</div></td>
+      <td><span class="badge b-gray">${esc(e.role||'Mechanic')}</span></td>
+      <td><div>${esc(e.phone||'—')}</div><div style="font-size:11px;color:#888;">${esc(e.email||'')}</div></td>
       <td>${e.hourly_rate?fmt$(e.hourly_rate)+'/hr':'—'}</td>
       <td>${jobs.length}</td>
       <td style="color:#3B6D11;font-weight:500;">${labor?fmt$(labor):'—'}</td>
       <td>${e.status==='active'?'<span class="badge b-green">Active</span>':'<span class="badge b-gray">Inactive</span>'}</td>
-      <td><button class="btn btn-sm" onclick="openEmpModal(${e.id})">Edit</button></td>
+      <td><button class="btn btn-sm" onclick="openEmpModal(${safeId(e.id)})">Edit</button></td>
     </tr>`;
   }).join('');
 }
@@ -2637,7 +2751,7 @@ function openEmpModal(id){
     document.getElementById('ef2-rate').value=e.hourly_rate||'';
     document.getElementById('ef2-status').value=e.status||'active';
     document.getElementById('ef2-notes').value=e.notes||'';
-    document.getElementById('ef2-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEmployee(${id})">Remove</button>`;
+    document.getElementById('ef2-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEmployee(${safeId(id)})">Remove</button>`;
   } else {
     document.getElementById('m-emp-title').textContent='Add Employee';
     ['ef2-first','ef2-last','ef2-phone','ef2-email','ef2-rate','ef2-notes'].forEach(x=>document.getElementById(x).value='');
@@ -2652,15 +2766,13 @@ async function saveEmployee(){
   const last=document.getElementById('ef2-last').value.trim();
   if(!first||!last){toast('Please enter first and last name.');return;}
   const body={first,last,phone:document.getElementById('ef2-phone').value,email:document.getElementById('ef2-email').value,role:document.getElementById('ef2-role').value,hourly_rate:parseFloat(document.getElementById('ef2-rate').value)||0,status:document.getElementById('ef2-status').value,notes:document.getElementById('ef2-notes').value};
-  if(editEmpId) await api('PUT',`/api/employees/${editEmpId}`,body);
-  else await api('POST','/api/employees',body);
-  closeM('m-emp'); await loadAll(); toast(editEmpId?'Employee updated':'Employee added');
+  const id=editEmpId, existing=id?state.employees.find(e=>e.id===id):null;
+  await runMutation(`employee-save-${id||'new'}`,{buttonId:'save-employee-btn',action:'Saving employee',request:()=>id?api('PUT',`/api/employees/${id}`,body):api('POST','/api/employees',body),apply:r=>upsertStateRecord('employees',id?{...existing,...body,id}:{...body,...r}),render:renderEmployees,close:'m-emp',success:id?'Employee updated':'Employee added'});
 }
 
 async function deleteEmployee(id){
   if(!confirm('Remove this employee? Their jobs will be unassigned.'))return;
-  await api('DELETE',`/api/employees/${id}`);
-  closeM('m-emp'); await loadAll(); toast('Employee removed');
+  await runMutation(`employee-delete-${id}`,{action:'Removing employee',request:()=>api('DELETE',`/api/employees/${id}`),apply:()=>{removeStateRecord('employees',id);state.jobs=state.jobs.map(j=>j.employee_id===id?{...j,employee_id:null,emp_first:null,emp_last:null}:j);},render:()=>{renderEmployees();renderJobs();},close:'m-emp',success:'Employee removed'});
 }
 
 // ── Modals ──
@@ -2701,7 +2813,7 @@ function renderJobItems(){
       <select style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);" onchange="jobItems[${i}].type=this.value;jobItems[${i}].taxable=(this.value==='part'||this.value==='shop_supply')?1:0;_calcJob();">
         ${TYPES.map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t==='shop_supply'?'supply':t}</option>`).join('')}
       </select>
-      <input style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${esc(item.description||'')}" placeholder="Description..." oninput="jobItems[${i}].description=this.value;">
+      <input style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${attrEsc(item.description||'')}" placeholder="Description..." oninput="jobItems[${i}].description=this.value;">
       <input type="number" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">
       <input type="number" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="jobItems[${i}].rate=parseFloat(this.value)||0;_calcJob();">
       <span class="job-item-amt" style="text-align:right;font-size:13px;font-variant-numeric:tabular-nums;">${fmt$(item.amount||0)}</span>
@@ -2739,7 +2851,7 @@ async function openJobModal(id){
     const empSel=document.getElementById('jf-emp');
     if(!empSel)throw new Error('Employee selector is unavailable');
     const employees=Array.isArray(state.employees)?state.employees:[];
-    empSel.innerHTML='<option value="">— Unassigned —</option>'+employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}${e.role?' ('+e.role+')':''}</option>`).join('');
+    empSel.innerHTML='<option value="">— Unassigned —</option>'+employees.filter(e=>e.status==='active').map(e=>`<option value="${safeId(e.id)}">${esc(e.first)} ${esc(e.last)}${e.role?' ('+esc(e.role)+')':''}</option>`).join('');
     document.getElementById('jf-date').value=today();
     document.getElementById('jf-del').innerHTML='';
     if(id){
@@ -2765,7 +2877,7 @@ async function openJobModal(id){
         if(j.labor) jobItems.push({type:'labor',description:j.service||'Labor',qty:j.labor_hours||1,rate:j.labor_hours>0?+(j.labor/j.labor_hours).toFixed(2):j.labor,amount:j.labor,taxable:0});
         if(j.parts) jobItems.push({type:'part',description:'Parts & materials',qty:1,rate:j.parts,amount:j.parts,taxable:1});
       }
-      document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${id})">Delete job</button>`;
+      document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${safeId(id)})">Delete job</button>`;
     } else {
       document.getElementById('m-job-title').textContent='New Job';
       ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
@@ -2788,7 +2900,7 @@ async function loadVehiclesForJob(selectId){
   if(isNaN(custId)){sel.innerHTML='<option value="">— Select vehicle —</option>';return;}
   const vehicles=Array.isArray(state.vehicles)?state.vehicles:[];
   const vehs=vehicles.filter(v=>v.customer_id===custId);
-  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${v.id}" ${selectId===v.id?'selected':''}>${vLabel(v)} · ${v.plate||'no plate'}</option>`).join('');
+  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${safeId(v.id)}" ${selectId===v.id?'selected':''}>${vLabel(v)} · ${esc(v.plate||'no plate')}</option>`).join('');
   // Auto-fill service address from customer when creating a new job
   const addrEl=document.getElementById('jf-service-addr');
   if(!editJobId && !addrEl.value){
@@ -2803,15 +2915,13 @@ async function saveJob(){
   if(!custId||!vehId){toast('Please select a customer and vehicle.');return;}
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
   const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0,items:jobItems};
-  if(editJobId) await api('PUT',`/api/jobs/${editJobId}`,body);
-  else await api('POST','/api/jobs',body);
-  closeM('m-job'); await loadAll(); toast(editJobId?'Job updated':'Job saved');
+  const id=editJobId, existing=id?state.jobs.find(j=>j.id===id):null;
+  await runMutation(`job-save-${id||'new'}`,{buttonId:'save-job-btn',action:'Saving job',request:()=>id?api('PUT',`/api/jobs/${id}`,body):api('POST','/api/jobs',body),apply:r=>upsertStateRecord('jobs',id?{...existing,...body,id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,items:jobItems}:{...body,...r,items:jobItems}),render:()=>renderSafely(renderJobs,renderDashboard),close:'m-job',success:id?'Job updated':'Job saved'});
 }
 
 async function deleteJob(id){
   if(!confirm('Delete this job?'))return;
-  await api('DELETE',`/api/jobs/${id}`);
-  closeM('m-job'); await loadAll(); toast('Job deleted');
+  await runMutation(`job-delete-${id}`,{action:'Deleting job',request:()=>api('DELETE',`/api/jobs/${id}`),apply:()=>removeStateRecord('jobs',id),render:()=>renderSafely(renderJobs,renderDashboard),close:'m-job',success:'Job deleted'});
 }
 
 
@@ -2819,7 +2929,7 @@ async function populateCustomerDropdown(selId){
   const sel=document.getElementById(selId);
   if(!sel)throw new Error('Customer selector is unavailable');
   const customers=Array.isArray(state.customers)?state.customers:[];
-  sel.innerHTML='<option value="">— Select customer —</option>'+customers.map(c=>`<option value="${c.id}">${fullName(c)}</option>`).join('');
+  sel.innerHTML='<option value="">— Select customer —</option>'+customers.map(c=>`<option value="${safeId(c.id)}">${fullName(c)}</option>`).join('');
 }
 
 function toggleCustVehicle(){
@@ -2854,7 +2964,7 @@ async function openCustModal(id){
     document.getElementById('cf-type').value=c.customer_type||'Personal';
     document.getElementById('cf-contact').value=c.preferred_contact||'Phone';
     document.getElementById('cf-veh-toggle').style.display='none'; // hide vehicle adder on edit
-    document.getElementById('cf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCustomer(${id})">Delete</button>`;
+    document.getElementById('cf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCustomer(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-cust-title').textContent='New Customer';
     ['cf-first','cf-last','cf-phone','cf-email','cf-addr','cf-billing','cf-notes','cf-tags'].forEach(x=>document.getElementById(x).value='');
@@ -2920,8 +3030,7 @@ async function saveCustomer(){
 
 async function deleteCustomer(id){
   if(!confirm('Delete this customer? This will not delete their jobs or vehicles.'))return;
-  await api('DELETE',`/api/customers/${id}`);
-  closeM('m-cust'); showCustList(); await loadAll(); toast('Customer deleted');
+  await runMutation(`customer-delete-${id}`,{action:'Deleting customer',request:()=>api('DELETE',`/api/customers/${id}`),apply:()=>removeStateRecord('customers',id),render:()=>{detailCustId=null;showCustList();renderCustomers();},close:'m-cust',success:'Customer deleted'});
 }
 
 async function openVehModal(custId, vehId){
@@ -2961,7 +3070,7 @@ async function openVehModal(custId, vehId){
       document.getElementById('vf-engine').value=v.engine||'';
       document.getElementById('vf-fuel').value=v.fuel_type||'';
       document.getElementById('vf-trans').value=v.transmission||'';
-      document.getElementById('vf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteVehicle(${vehId})">Remove vehicle</button>`;
+      document.getElementById('vf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteVehicle(${safeId(vehId)})">Remove vehicle</button>`;
     } else {
       document.getElementById('m-veh-title').textContent='Add vehicle';
       ['vf-year','vf-make','vf-model','vf-trim','vf-engine','vf-color','vf-plate','vf-state','vf-vin','vf-miles','vf-oilmi','vf-notes'].forEach(x=>document.getElementById(x).value='');
@@ -2979,17 +3088,13 @@ async function saveVehicle(){
   const custId = editVehCustId || parseInt(document.getElementById('vf-cust').value)||null;
   if(!custId){toast('Please select a customer.');return;}
   const body={customer_id:custId,year:parseInt(document.getElementById('vf-year').value)||0,make:document.getElementById('vf-make').value||'Unknown',model:document.getElementById('vf-model').value||'',trim:document.getElementById('vf-trim').value,engine:document.getElementById('vf-engine').value,color:document.getElementById('vf-color').value,plate:document.getElementById('vf-plate').value,state:document.getElementById('vf-state').value,vin:document.getElementById('vf-vin').value,miles:parseInt(document.getElementById('vf-miles').value)||0,oil_change_miles:parseInt(document.getElementById('vf-oilmi').value)||0,fuel_type:document.getElementById('vf-fuel').value,transmission:document.getElementById('vf-trans').value,notes:document.getElementById('vf-notes').value};
-  if(editVehId) await api('PUT',`/api/vehicles/${editVehId}`,body);
-  else await api('POST','/api/vehicles',body);
-  closeM('m-veh'); await loadAll(); toast(editVehId?'Vehicle updated':'Vehicle added');
-  if(detailCustId) renderCustDetail();
+  const id=editVehId, existing=id?state.vehicles.find(v=>v.id===id):null;
+  await runMutation(`vehicle-save-${id||'new'}`,{buttonId:'save-vehicle-btn',action:'Saving vehicle',request:()=>id?api('PUT',`/api/vehicles/${id}`,body):api('POST','/api/vehicles',body),apply:r=>upsertStateRecord('vehicles',id?{...existing,...body,id}:{...body,...r}),render:()=>{renderVehicles();if(detailCustId)renderCustDetail();},close:'m-veh',success:id?'Vehicle updated':'Vehicle added'});
 }
 
 async function deleteVehicle(id){
   if(!confirm('Remove this vehicle?'))return;
-  await api('DELETE',`/api/vehicles/${id}`);
-  closeM('m-veh'); await loadAll(); toast('Vehicle removed');
-  if(detailCustId) renderCustDetail();
+  await runMutation(`vehicle-delete-${id}`,{action:'Removing vehicle',request:()=>api('DELETE',`/api/vehicles/${id}`),apply:()=>removeStateRecord('vehicles',id),render:()=>{renderVehicles();if(detailCustId)renderCustDetail();},close:'m-veh',success:'Vehicle removed'});
 }
 
 async function openPmtModal(custId, jobId){
@@ -3016,9 +3121,9 @@ async function loadJobsForPayment(){
     return;
   }
   const jobs=state.jobs.filter(j=>j.customer_id===custId&&j.deleted_at==null&&j.invoice_status!=='Paid');
-  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${j.id}">WO#${j.id} — ${j.service||'Service'} (${j.date||''})</option>`).join('');
+  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${safeId(j.id)}">WO#${safeId(j.id)} — ${esc(j.service||'Service')} (${esc(j.date||'')})</option>`).join('');
   const plans=state.plans.filter(p=>p.customer_id===custId&&planBalance(p)>0);
-  planSel.innerHTML='<option value="">— No plan —</option>'+plans.map(p=>`<option value="${p.id}">${p.description} (${fmt$(planBalance(p))} remaining)</option>`).join('');
+  planSel.innerHTML='<option value="">— No plan —</option>'+plans.map(p=>`<option value="${safeId(p.id)}">${esc(p.description)} (${fmt$(planBalance(p))} remaining)</option>`).join('');
 }
 
 async function loadJobBalance(){
@@ -3038,8 +3143,8 @@ async function savePayment(){
   const custId=parseInt(document.getElementById('pf-cust').value);
   const amt=parseFloat(document.getElementById('pf-amt').value)||0;
   if(!custId||!amt){toast('Please fill in customer and amount.');return;}
-  await api('POST','/api/payments',{customer_id:custId,job_id:parseInt(document.getElementById('pf-job').value)||null,plan_id:parseInt(document.getElementById('pf-plan').value)||null,description:document.getElementById('pf-desc').value,amount:amt,method:document.getElementById('pf-method').value,date:document.getElementById('pf-date').value,note:document.getElementById('pf-note').value});
-  closeM('m-pmt'); await loadAll(); toast('Payment recorded');
+  const body={customer_id:custId,job_id:parseInt(document.getElementById('pf-job').value)||null,plan_id:parseInt(document.getElementById('pf-plan').value)||null,description:document.getElementById('pf-desc').value,amount:amt,method:document.getElementById('pf-method').value,date:document.getElementById('pf-date').value,note:document.getElementById('pf-note').value};
+  await runMutation('payment-save-new',{buttonId:'save-payment-btn',action:'Recording payment',request:()=>api('POST','/api/payments',body),apply:r=>upsertStateRecord('payments',{...body,...r}),render:()=>renderSafely(renderFinance,renderDashboard),close:'m-pmt',success:'Payment recorded'});
 }
 
 async function openPlanModal(){
@@ -3078,9 +3183,8 @@ async function savePlan(){
   const days=freqDays[freq]||30;
   const installments=[];
   for(let i=0;i<count;i++) installments.push({due_date:addDays(start,i*days),amount:instAmt});
-  await api('POST','/api/plans',{customer_id:custId,description:document.getElementById('pl-desc').value,total,down_payment:down,plan_type:document.getElementById('pl-type').value,installment_count:count,frequency:freq,start_date:start,notes:document.getElementById('pl-notes').value,installments});
-  if(down>0) await api('POST','/api/payments',{customer_id:custId,description:(document.getElementById('pl-desc').value||'Plan')+' — down payment',amount:down,method:'Cash',date:today(),note:'Down payment'});
-  closeM('m-plan'); await loadAll(); toast('Payment plan created');
+  const body={customer_id:custId,description:document.getElementById('pl-desc').value,total,down_payment:down,plan_type:document.getElementById('pl-type').value,installment_count:count,frequency:freq,start_date:start,notes:document.getElementById('pl-notes').value,installments};
+  await runMutation('plan-save-new',{buttonId:'save-plan-btn',action:'Creating payment plan',request:async()=>{const plan=await api('POST','/api/plans',body);let payment=null,warning='';if(down>0){try{payment=await api('POST','/api/payments',{customer_id:custId,plan_id:plan.id,description:(body.description||'Plan')+' — down payment',amount:down,method:'Cash',date:today(),note:'Down payment'});}catch(error){console.error('Plan saved but down payment failed:',error);warning=`Payment plan saved, but the down payment was not recorded: ${error.message}. Record it from Payments.`;}}return {plan,payment,warning};},apply:r=>{upsertStateRecord('plans',r.plan);if(r.payment)upsertStateRecord('payments',r.payment);},render:()=>renderSafely(renderPlans,renderFinance),close:'m-plan',success:r=>r.warning||'Payment plan created'});
 }
 
 function openExpModal(){
@@ -3092,8 +3196,8 @@ function openExpModal(){
 async function saveExpense(){
   const amt=parseFloat(document.getElementById('ef-amt').value)||0;
   if(!amt){toast('Please enter an amount.');return;}
-  await api('POST','/api/expenses',{date:document.getElementById('ef-date').value,description:document.getElementById('ef-desc').value||'Expense',category:document.getElementById('ef-cat').value,amount:amt,note:document.getElementById('ef-note').value});
-  closeM('m-exp'); await loadAll(); toast('Expense saved');
+  const body={date:document.getElementById('ef-date').value,description:document.getElementById('ef-desc').value||'Expense',category:document.getElementById('ef-cat').value,amount:amt,note:document.getElementById('ef-note').value};
+  await runMutation('expense-save-new',{buttonId:'save-expense-btn',action:'Saving expense',request:()=>api('POST','/api/expenses',body),apply:r=>upsertStateRecord('expenses',{...body,...r}),render:()=>renderSafely(renderExpenses,renderFinance,renderDashboard),close:'m-exp',success:'Expense saved'});
 }
 
 let editApptId=null, editApptEstimateId=null;
@@ -3104,7 +3208,7 @@ async function loadVehiclesForAppt(selectId){
   if(!vehicleSel)throw new Error('Appointment vehicle selector is unavailable');
   const vehicles=Array.isArray(state.vehicles)?state.vehicles:[];
   const matching=Number.isInteger(customerId)?vehicles.filter(v=>v.customer_id===customerId):[];
-  vehicleSel.innerHTML='<option value="">— Select vehicle —</option>'+matching.map(v=>`<option value="${v.id}" ${v.id===selectId?'selected':''}>${vLabel(v)}</option>`).join('');
+  vehicleSel.innerHTML='<option value="">— Select vehicle —</option>'+matching.map(v=>`<option value="${safeId(v.id)}" ${v.id===selectId?'selected':''}>${vLabel(v)}</option>`).join('');
 }
 
 async function openApptModal(dateStr, appointmentId){
@@ -3148,9 +3252,8 @@ async function openApptModal(dateStr, appointmentId){
 
 async function saveAppt(){
   const body={cust:document.getElementById('af-cust').value||'Appointment',phone:document.getElementById('af-phone').value,service:document.getElementById('af-service').value,date:document.getElementById('af-date').value,time:document.getElementById('af-time').value,customer_id:parseInt(document.getElementById('af-customer-id').value)||null,vehicle_id:parseInt(document.getElementById('af-vehicle-id').value)||null,address:document.getElementById('af-address').value,notes:document.getElementById('af-notes').value,estimate_id:editApptEstimateId};
-  if(editApptId)await api('PUT',`/api/appointments/${editApptId}`,body);
-  else await api('POST','/api/appointments',body);
-  closeM('m-appt'); await loadAll(); toast(editApptId?'Appointment updated':'Appointment saved');
+  const id=editApptId, existing=id?state.appts.find(a=>a.id===id):null;
+  await runMutation(`appt-save-${id||'new'}`,{buttonId:'save-appt-btn',action:'Saving appointment',request:()=>id?api('PUT',`/api/appointments/${id}`,body):api('POST','/api/appointments',body),apply:r=>upsertStateRecord('appts',id?{...existing,...body,id}:{...body,...r}),render:()=>renderSafely(renderCalendar,renderDashboard),close:'m-appt',success:id?'Appointment updated':'Appointment saved'});
 }
 
 // ── Settings ──
@@ -3237,13 +3340,7 @@ async function saveSettings(){
     warranty_terms:      document.getElementById('s-warranty-terms').value,
     estimate_terms:      document.getElementById('s-est-terms').value,
   };
-  await api('PUT','/api/settings',body);
-  state.settings = {...state.settings, ...body};
-  delete state.settings._pendingLogo;
-  const saved = document.getElementById('s-saved');
-  saved.style.display='';
-  setTimeout(()=>saved.style.display='none', 2500);
-  toast('Settings saved');
+  await runMutation('settings-save',{buttonId:'settings-save-btn',action:'Saving settings',request:()=>api('PUT','/api/settings',body),apply:()=>{state.settings={...state.settings,...body};delete state.settings._pendingLogo;},render:()=>{const saved=document.getElementById('s-saved');saved.style.display='';setTimeout(()=>saved.style.display='none',2500);},success:'Settings saved'});
 }
 
 // ── Invoice ──
@@ -3254,7 +3351,7 @@ function openInvoice(jobId){
   const v = state.vehicles.find(x=>x.id===j.vehicle_id);
   const s = state.settings;
   const taxRate = s.tax_rate || 0;
-  const invoiceNum = `INV-${String(j.id).padStart(4,'0')}`;
+  const invoiceNum = `INV-${String(safeId(j.id)).padStart(4,'0')}`;
 
   // Build line rows and compute breakdowns from items when available
   let lineRows = '';
@@ -3262,10 +3359,10 @@ function openInvoice(jobId){
   const items = j.items || [];
   if(items.length){
     items.forEach(i=>{
-      const typeLabel = i.type==='shop_supply'?'Supply':i.type.charAt(0).toUpperCase()+i.type.slice(1);
+      const typeLabel = i.type==='shop_supply'?'Supply':String(i.type||'').charAt(0).toUpperCase()+String(i.type||'').slice(1);
       lineRows += `<tr>
         <td style="padding:7px 0;border-bottom:1px solid #f0f0ec;">
-          <span style="font-size:10px;color:#aaa;text-transform:uppercase;margin-right:6px;">${typeLabel}</span>${esc(i.description||'')}
+          <span style="font-size:10px;color:#aaa;text-transform:uppercase;margin-right:6px;">${esc(typeLabel)}</span>${esc(i.description||'')}
           ${i.qty!==1?`<div style="font-size:11px;color:#888;margin-top:1px;">${i.qty} × ${fmt$(i.rate)}</div>`:''}
         </td>
         <td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.amount||0)}</td>
@@ -3289,36 +3386,36 @@ function openInvoice(jobId){
   document.getElementById('invoice-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a1a1a;">
       <div>
-        ${s.invoice_logo?`<img src="${s.invoice_logo}" style="max-height:70px;max-width:200px;margin-bottom:8px;display:block;">`:''}
-        <div style="font-size:20px;font-weight:700;">${s.business_name||'WrenchPro'}</div>
-        ${s.owner_name?`<div style="font-size:13px;color:#555;">${s.owner_name}</div>`:''}
-        ${s.phone?`<div style="font-size:12px;color:#888;">${s.phone}</div>`:''}
-        ${s.email?`<div style="font-size:12px;color:#888;">${s.email}</div>`:''}
-        ${s.address?`<div style="font-size:12px;color:#888;">${s.address}</div>`:''}
-        ${s.tax_id?`<div style="font-size:11px;color:#aaa;margin-top:4px;">Tax ID: ${s.tax_id}</div>`:''}
+        ${safeImageSrc(s.invoice_logo)?`<img src="${safeImageSrc(s.invoice_logo)}" style="max-height:70px;max-width:200px;margin-bottom:8px;display:block;">`:''}
+        <div style="font-size:20px;font-weight:700;">${esc(s.business_name||'WrenchPro')}</div>
+        ${s.owner_name?`<div style="font-size:13px;color:#555;">${esc(s.owner_name)}</div>`:''}
+        ${s.phone?`<div style="font-size:12px;color:#888;">${esc(s.phone)}</div>`:''}
+        ${s.email?`<div style="font-size:12px;color:#888;">${esc(s.email)}</div>`:''}
+        ${s.address?`<div style="font-size:12px;color:#888;">${esc(s.address)}</div>`:''}
+        ${s.tax_id?`<div style="font-size:11px;color:#aaa;margin-top:4px;">Tax ID: ${esc(s.tax_id)}</div>`:''}
       </div>
       <div style="text-align:right;">
         <div style="font-size:22px;font-weight:700;color:#378ADD;">INVOICE</div>
         <div style="font-size:13px;color:#555;">${invoiceNum}</div>
-        <div style="font-size:12px;color:#888;margin-top:4px;">Date: ${j.date||'—'}</div>
-        <div style="font-size:12px;color:#888;">Terms: ${s.invoice_terms||'Due on receipt'}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">Date: ${esc(j.date||'—')}</div>
+        <div style="font-size:12px;color:#888;">Terms: ${esc(s.invoice_terms||'Due on receipt')}</div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
       <div>
         <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Bill To</div>
         <div style="font-weight:600;">${c?fullName(c):'—'}</div>
-        ${c&&c.phone?`<div style="font-size:12px;color:#888;">${c.phone}</div>`:''}
-        ${c&&c.email?`<div style="font-size:12px;color:#888;">${c.email}</div>`:''}
-        ${c&&c.address?`<div style="font-size:12px;color:#888;">${c.address}</div>`:''}
-        ${j.service_address?`<div style="font-size:12px;color:#555;margin-top:4px;"><strong>Service address:</strong> ${j.service_address}</div>`:''}
+        ${c&&c.phone?`<div style="font-size:12px;color:#888;">${esc(c.phone)}</div>`:''}
+        ${c&&c.email?`<div style="font-size:12px;color:#888;">${esc(c.email)}</div>`:''}
+        ${c&&c.address?`<div style="font-size:12px;color:#888;">${esc(c.address)}</div>`:''}
+        ${j.service_address?`<div style="font-size:12px;color:#555;margin-top:4px;"><strong>Service address:</strong> ${esc(j.service_address)}</div>`:''}
       </div>
       <div>
         <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Vehicle</div>
         <div style="font-weight:600;">${vLabel(v)}</div>
-        ${v&&v.plate?`<div style="font-size:12px;color:#888;">Plate: ${v.plate}${v.state?' '+v.state:''}</div>`:''}
+        ${v&&v.plate?`<div style="font-size:12px;color:#888;">Plate: ${esc(v.plate)}${v.state?' '+esc(v.state):''}</div>`:''}
         ${j.miles?`<div style="font-size:12px;color:#888;">Mileage: ${Number(j.miles).toLocaleString()} mi</div>`:''}
-        ${j.emp_first?`<div style="font-size:12px;color:#888;">Technician: ${j.emp_first} ${j.emp_last}</div>`:''}
+        ${j.emp_first?`<div style="font-size:12px;color:#888;">Technician: ${esc(j.emp_first)} ${esc(j.emp_last)}</div>`:''}
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:13px;">
@@ -3338,8 +3435,8 @@ function openInvoice(jobId){
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;margin-top:4px;"><span>Total</span><span>${fmt$(total)}</span></div>
       </div>
     </div>
-    ${j.notes?`<div style="margin-top:1rem;padding:10px;background:#f5f5f0;border-radius:6px;font-size:12px;color:#666;"><strong>Notes:</strong> ${j.notes}</div>`:''}
-    ${s.invoice_footer?`<div style="margin-top:1.5rem;text-align:center;font-size:12px;color:#aaa;border-top:1px solid #e8e8e4;padding-top:1rem;">${s.invoice_footer}</div>`:''}
+    ${j.notes?`<div style="margin-top:1rem;padding:10px;background:#f5f5f0;border-radius:6px;font-size:12px;color:#666;"><strong>Notes:</strong> ${esc(j.notes)}</div>`:''}
+    ${s.invoice_footer?`<div style="margin-top:1.5rem;text-align:center;font-size:12px;color:#aaa;border-top:1px solid #e8e8e4;padding-top:1rem;">${esc(s.invoice_footer)}</div>`:''}
   `;
   document.getElementById('m-invoice').classList.add('open');
 }
@@ -3414,6 +3511,7 @@ function qfAutocomplete(){
 }
 
 async function saveQuickEntry(){
+  if(activeMutations.has('quick-entry'))return;
   const statusEl = document.getElementById('qf-status');
   const first = document.getElementById('qf-first').value.trim();
   const last  = document.getElementById('qf-last').value.trim();
@@ -3426,7 +3524,8 @@ async function saveQuickEntry(){
   if(!service){ toast('Please enter a service description.'); return; }
   if(!date){ toast('Please enter a date.'); return; }
 
-  statusEl.textContent = 'Saving...';
+  activeMutations.add('quick-entry');setProcessing('save-quick-btn',true,'Saving...');statusEl.textContent = 'Saving...';
+  try{
 
   // 1. Find or create customer
   let cust = state.customers.find(c=>
@@ -3439,6 +3538,7 @@ async function saveQuickEntry(){
       phone: document.getElementById('qf-phone').value,
       email: document.getElementById('qf-email').value,
     });
+    upsertStateRecord('customers',cust);
   }
 
   // 2. Find or create vehicle
@@ -3456,6 +3556,7 @@ async function saveQuickEntry(){
         customer_id: cust.id, year, make, model,
         plate, miles: parseInt(document.getElementById('qf-miles').value)||0,
       });
+      upsertStateRecord('vehicles',veh);
     }
   }
 
@@ -3476,11 +3577,12 @@ async function saveQuickEntry(){
     status: 'Complete',
     notes: document.getElementById('qf-notes').value,
   });
+  upsertStateRecord('jobs',job);
 
   // 4. Optionally log payment
   const paid = parseFloat(document.getElementById('qf-paid').value)||0;
   if(paid>0){
-    await api('POST','/api/payments',{
+    const payment=await api('POST','/api/payments',{
       customer_id: cust.id,
       job_id: job.id,
       description: service.slice(0,60),
@@ -3488,11 +3590,17 @@ async function saveQuickEntry(){
       method: document.getElementById('qf-method').value,
       date: document.getElementById('qf-pay-date').value,
     });
+    upsertStateRecord('payments',payment);
   }
 
+  renderSafely(renderJobs,renderDashboard,renderFinance);
   closeM('m-quick');
-  await loadAll();
   toast('Job saved successfully!');
+  }catch(error){
+    console.error('Quick entry failed:',error);toast(mutationErrorMessage(error,'Saving quick entry'),8000);
+  }finally{
+    activeMutations.delete('quick-entry');setProcessing('save-quick-btn',false);statusEl.textContent='';
+  }
 }
 
 // ── CRM ──
@@ -3500,19 +3608,15 @@ async function saveQuickEntry(){
 async function saveCustStatus(custId, status){
   const c=state.customers.find(x=>x.id===custId);
   if(!c)return;
-  await api('PUT',`/api/customers/${custId}`,{...c,status,tags:c.tags||''});
-  c.status=status;
-  toast('Status updated');
-  renderCustomers();
+  const body={...c,status,tags:c.tags||''};
+  await runMutation(`customer-status-${custId}`,{action:'Updating customer status',request:()=>api('PUT',`/api/customers/${custId}`,body),apply:()=>upsertStateRecord('customers',body),render:renderCustomers,success:'Status updated'});
 }
 
 async function saveCustTags(custId, tags){
   const c=state.customers.find(x=>x.id===custId);
   if(!c)return;
-  await api('PUT',`/api/customers/${custId}`,{...c,tags,status:c.status||'Active'});
-  c.tags=tags;
-  toast('Tags updated');
-  renderCustomers();
+  const body={...c,tags,status:c.status||'Active'};
+  await runMutation(`customer-tags-${custId}`,{action:'Updating customer tags',request:()=>api('PUT',`/api/customers/${custId}`,body),apply:()=>upsertStateRecord('customers',body),render:renderCustomers,success:'Tags updated'});
 }
 
 let crmCustId=null;
@@ -3523,29 +3627,25 @@ function openInteractionModal(custId){
   document.getElementById('if-type').value='Note';
   document.getElementById('if-summary').value='';
   const empSel=document.getElementById('if-emp');
-  empSel.innerHTML='<option value="">— Not assigned —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}</option>`).join('');
+  empSel.innerHTML='<option value="">— Not assigned —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${safeId(e.id)}">${esc(e.first)} ${esc(e.last)}</option>`).join('');
   document.getElementById('m-interaction').classList.add('open');
 }
 
 async function saveInteraction(){
   const summary=document.getElementById('if-summary').value.trim();
   if(!summary){toast('Please enter a summary.');return;}
-  await api('POST','/api/crm/interactions',{
+  const body={
     customer_id:crmCustId,
     type:document.getElementById('if-type').value,
     summary,
     employee_id:parseInt(document.getElementById('if-emp').value)||null,
     created_at:document.getElementById('if-date').value
-  });
-  closeM('m-interaction');
-  await loadAll();
-  toast('Interaction logged');
+  };
+  await runMutation('interaction-save-new',{action:'Logging interaction',request:()=>api('POST','/api/crm/interactions',body),apply:r=>upsertStateRecord('interactions',{...body,...r}),render:()=>{if(detailCustId)renderCustDetail();},close:'m-interaction',success:'Interaction logged'});
 }
 
 async function deleteInteraction(id){
-  await api('DELETE',`/api/crm/interactions/${id}`);
-  await loadAll();
-  toast('Interaction deleted');
+  await runMutation(`interaction-delete-${id}`,{action:'Deleting interaction',request:()=>api('DELETE',`/api/crm/interactions/${id}`),apply:()=>removeStateRecord('interactions',id),render:()=>{if(detailCustId)renderCustDetail();},success:'Interaction deleted'});
 }
 
 function openFollowupModal(custId){
@@ -3558,31 +3658,26 @@ function openFollowupModal(custId){
 async function saveFollowup(){
   const due=document.getElementById('fuf-date').value;
   if(!due){toast('Please select a due date.');return;}
-  await api('POST','/api/crm/followups',{
+  const body={
     customer_id:crmCustId,
     due_date:due,
     note:document.getElementById('fuf-note').value
-  });
-  closeM('m-followup');
-  await loadAll();
-  toast('Follow-up added');
+  };
+  await runMutation('followup-save-new',{action:'Saving follow-up',request:()=>api('POST','/api/crm/followups',body),apply:r=>upsertStateRecord('followups',{...body,status:'pending',...r}),render:()=>renderSafely(detailCustId?renderCustDetail:null,renderDashboard),close:'m-followup',success:'Follow-up added'});
 }
 
 async function completeFollowup(id){
-  await api('PUT',`/api/crm/followups/${id}`,{
+  const existing=state.followups.find(f=>f.id===id);
+  const body={
     status:'done',
     completed_at:today(),
-    due_date:state.followups.find(f=>f.id===id)?.due_date||today(),
-    note:state.followups.find(f=>f.id===id)?.note||''
-  });
-  await loadAll();
-  toast('Follow-up marked done');
+    due_date:existing?.due_date||today(),note:existing?.note||''
+  };
+  await runMutation(`followup-complete-${id}`,{action:'Completing follow-up',request:()=>api('PUT',`/api/crm/followups/${id}`,body),apply:()=>upsertStateRecord('followups',{...existing,...body,id}),render:()=>renderSafely(detailCustId?renderCustDetail:null,renderDashboard),success:'Follow-up marked done'});
 }
 
 async function deleteFollowup(id){
-  await api('DELETE',`/api/crm/followups/${id}`);
-  await loadAll();
-  toast('Follow-up deleted');
+  await runMutation(`followup-delete-${id}`,{action:'Deleting follow-up',request:()=>api('DELETE',`/api/crm/followups/${id}`),apply:()=>removeStateRecord('followups',id),render:()=>renderSafely(detailCustId?renderCustDetail:null,renderDashboard),success:'Follow-up deleted'});
 }
 
 function openSvcReminderModal(custId){
@@ -3592,43 +3687,38 @@ function openSvcReminderModal(custId){
   document.getElementById('srf-note').value='';
   const vehs=state.vehicles.filter(v=>v.customer_id===custId);
   const vehSel=document.getElementById('srf-veh');
-  vehSel.innerHTML='<option value="">— Any / General —</option>'+vehs.map(v=>`<option value="${v.id}">${vLabel(v)}${v.plate?' ('+v.plate+')':''}</option>`).join('');
+  vehSel.innerHTML='<option value="">— Any / General —</option>'+vehs.map(v=>`<option value="${safeId(v.id)}">${vLabel(v)}${v.plate?' ('+esc(v.plate)+')':''}</option>`).join('');
   document.getElementById('m-svc-reminder').classList.add('open');
 }
 
 async function saveSvcReminder(){
   const date=document.getElementById('srf-date').value;
   if(!date){toast('Please select a reminder date.');return;}
-  await api('POST','/api/crm/service-reminders',{
+  const body={
     customer_id:crmCustId,
     vehicle_id:parseInt(document.getElementById('srf-veh').value)||null,
     service_type:document.getElementById('srf-type').value,
     reminder_date:date,
     note:document.getElementById('srf-note').value
-  });
-  closeM('m-svc-reminder');
-  await loadAll();
-  toast('Service reminder added');
+  };
+  await runMutation('reminder-save-new',{action:'Saving service reminder',request:()=>api('POST','/api/crm/service-reminders',body),apply:r=>upsertStateRecord('serviceReminders',{...body,status:'pending',...r}),render:()=>renderSafely(detailCustId?renderCustDetail:null,renderDashboard),close:'m-svc-reminder',success:'Service reminder added'});
 }
 
 async function completeSvcReminder(id){
   const r=state.serviceReminders.find(x=>x.id===id);
   if(!r)return;
-  await api('PUT',`/api/crm/service-reminders/${id}`,{
+  const body={
     status:'done',
     vehicle_id:r.vehicle_id||null,
     service_type:r.service_type||'',
     reminder_date:r.reminder_date,
     note:r.note||''
-  });
-  await loadAll();
-  toast('Reminder marked done');
+  };
+  await runMutation(`reminder-complete-${id}`,{action:'Completing service reminder',request:()=>api('PUT',`/api/crm/service-reminders/${id}`,body),apply:()=>upsertStateRecord('serviceReminders',{...r,...body,id}),render:()=>renderSafely(detailCustId?renderCustDetail:null,renderDashboard),success:'Reminder marked done'});
 }
 
 async function deleteSvcReminder(id){
-  await api('DELETE',`/api/crm/service-reminders/${id}`);
-  await loadAll();
-  toast('Reminder deleted');
+  await runMutation(`reminder-delete-${id}`,{action:'Deleting service reminder',request:()=>api('DELETE',`/api/crm/service-reminders/${id}`),apply:()=>removeStateRecord('serviceReminders',id),render:()=>renderSafely(detailCustId?renderCustDetail:null,renderDashboard),success:'Reminder deleted'});
 }
 
 // ── Leads ──────────────────────────────────────────────────────────────────────
@@ -3637,7 +3727,7 @@ const convertingLeadIds = new Set();
 
 function leadStatusBadge(s){
   const m={New:'b-blue',Contacted:'b-amber',Quoted:'b-purple',Scheduled:'b-teal',Won:'b-green',Lost:'b-gray'};
-  return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
+  return `<span class="badge ${m[s]||'b-gray'}">${esc(s)}</span>`;
 }
 
 function renderLeads(){
@@ -3659,17 +3749,17 @@ function renderLeads(){
   const tbody=document.getElementById('leads-tbody');
   if(!filtered.length){tbody.innerHTML=`<tr><td colspan="9" class="empty">No leads found</td></tr>`;return;}
   tbody.innerHTML=filtered.map(l=>`<tr>
-    <td><div class="td-name">${l.first||''} ${l.last||''}</div></td>
-    <td><div>${l.phone||'—'}</div><div style="font-size:11px;color:#888;">${l.email||''}</div></td>
-    <td style="font-size:12px;">${l.vehicle_year||''} ${l.vehicle_make||''} ${l.vehicle_model||''}</td>
-    <td style="font-size:12px;max-width:140px;">${(l.service_needed||'').slice(0,50)}</td>
-    <td style="font-size:12px;color:#888;">${l.source||'—'}</td>
-    <td style="font-size:12px;${l.follow_up_date&&l.follow_up_date<now?'color:#A32D2D;font-weight:600;':''}">${l.follow_up_date||'—'}</td>
+    <td><div class="td-name">${esc(l.first||'')} ${esc(l.last||'')}</div></td>
+    <td><div>${esc(l.phone||'—')}</div><div style="font-size:11px;color:#888;">${esc(l.email||'')}</div></td>
+    <td style="font-size:12px;">${esc(l.vehicle_year||'')} ${esc(l.vehicle_make||'')} ${esc(l.vehicle_model||'')}</td>
+    <td style="font-size:12px;max-width:140px;">${esc((l.service_needed||'').slice(0,50))}</td>
+    <td style="font-size:12px;color:#888;">${esc(l.source||'—')}</td>
+    <td style="font-size:12px;${l.follow_up_date&&l.follow_up_date<now?'color:#A32D2D;font-weight:600;':''}">${esc(l.follow_up_date||'—')}</td>
     <td style="font-weight:500;">${l.estimated_value?fmt$(l.estimated_value):'—'}</td>
     <td>${leadStatusBadge(l.status)}</td>
     <td style="display:flex;gap:4px;">
-      <button class="btn btn-sm" onclick="openLeadModal(${l.id})">Edit</button>
-      ${l.status!=='Won'?`<button class="btn btn-sm btn-success" id="lead-convert-${l.id}" onclick="convertLeadToCustomer(${l.id})" style="font-size:10px;">Convert</button>`:''}
+      <button class="btn btn-sm" onclick="openLeadModal(${safeId(l.id)})">Edit</button>
+      ${l.status!=='Won'?`<button class="btn btn-sm btn-success" id="lead-convert-${safeId(l.id)}" onclick="convertLeadToCustomer(${safeId(l.id)})" style="font-size:10px;">Convert</button>`:''}
     </td>
   </tr>`).join('');
 }
@@ -3695,7 +3785,7 @@ function openLeadModal(id){
     document.getElementById('ldf-value').value=l.estimated_value||'';
     document.getElementById('ldf-followup').value=l.follow_up_date||'';
     document.getElementById('ldf-notes').value=l.notes||'';
-    document.getElementById('ldf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteLead(${id})">Delete</button>`;
+    document.getElementById('ldf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteLead(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-lead-title').textContent='New Lead';
     ['ldf-first','ldf-last','ldf-phone','ldf-email','ldf-year','ldf-make','ldf-model','ldf-vin','ldf-service','ldf-value','ldf-followup','ldf-notes'].forEach(x=>document.getElementById(x).value='');
@@ -3709,15 +3799,13 @@ async function saveLead(){
   const first=document.getElementById('ldf-first').value.trim();
   if(!first){toast('Please enter a first name.');return;}
   const body={first,last:document.getElementById('ldf-last').value,phone:document.getElementById('ldf-phone').value,email:document.getElementById('ldf-email').value,source:document.getElementById('ldf-source').value,status:document.getElementById('ldf-status').value,vehicle_year:parseInt(document.getElementById('ldf-year').value)||null,vehicle_make:document.getElementById('ldf-make').value,vehicle_model:document.getElementById('ldf-model').value,vin:document.getElementById('ldf-vin').value,service_needed:document.getElementById('ldf-service').value,estimated_value:parseFloat(document.getElementById('ldf-value').value)||0,follow_up_date:document.getElementById('ldf-followup').value||null,notes:document.getElementById('ldf-notes').value};
-  if(editLeadId) await api('PUT',`/api/leads/${editLeadId}`,body);
-  else await api('POST','/api/leads',body);
-  closeM('m-lead'); await loadAll(); toast(editLeadId?'Lead updated':'Lead added');
+  const id=editLeadId, existing=id?state.leads.find(l=>l.id===id):null;
+  await runMutation(`lead-save-${id||'new'}`,{buttonId:'save-lead-btn',action:'Saving lead',request:()=>id?api('PUT',`/api/leads/${id}`,body):api('POST','/api/leads',body),apply:r=>upsertStateRecord('leads',id?{...existing,...body,id}:{...body,...r}),render:renderLeads,close:'m-lead',success:id?'Lead updated':'Lead added'});
 }
 
 async function deleteLead(id){
   if(!confirm('Delete this lead?'))return;
-  await api('DELETE',`/api/leads/${id}`);
-  closeM('m-lead'); await loadAll(); toast('Lead deleted');
+  await runMutation(`lead-delete-${id}`,{action:'Deleting lead',request:()=>api('DELETE',`/api/leads/${id}`),apply:()=>removeStateRecord('leads',id),render:renderLeads,close:'m-lead',success:'Lead deleted'});
 }
 
 async function convertLeadToCustomer(id){
@@ -3756,7 +3844,7 @@ let estItems = [];
 
 function estStatusBadge(s){
   const m={Draft:'b-gray',Sent:'b-blue',Approved:'b-green',Declined:'b-red',Expired:'b-amber'};
-  return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
+  return `<span class="badge ${m[s]||'b-gray'}">${esc(s)}</span>`;
 }
 
 function renderEstimates(){
@@ -3769,16 +3857,16 @@ function renderEstimates(){
   const tbody=document.getElementById('estimates-tbody');
   if(!filtered.length){tbody.innerHTML=`<tr><td colspan="8" class="empty">No estimates found</td></tr>`;return;}
   tbody.innerHTML=filtered.map(e=>`<tr>
-    <td style="font-family:monospace;font-size:12px;">${e.estimate_number||'—'}</td>
-    <td class="td-name">${e.first||''} ${e.last||''}</td>
-    <td style="font-size:12px;">${e.year||''} ${e.make||''} ${e.model||''}</td>
-    <td style="color:#888;font-size:12px;">${e.date||'—'}</td>
-    <td style="font-size:12px;${e.expires_date&&e.expires_date<today()?'color:#A32D2D;':''}">${e.expires_date||'—'}</td>
+    <td style="font-family:monospace;font-size:12px;">${esc(e.estimate_number||'—')}</td>
+    <td class="td-name">${esc(e.first||'')} ${esc(e.last||'')}</td>
+    <td style="font-size:12px;">${esc(e.year||'')} ${esc(e.make||'')} ${esc(e.model||'')}</td>
+    <td style="color:#888;font-size:12px;">${esc(e.date||'—')}</td>
+    <td style="font-size:12px;${e.expires_date&&e.expires_date<today()?'color:#A32D2D;':''}">${esc(e.expires_date||'—')}</td>
     <td style="font-weight:600;">${fmt$(e.total)}</td>
     <td>${estStatusBadge(e.status)}</td>
     <td style="display:flex;gap:4px;">
-      <button class="btn btn-sm" onclick="openEstimateModal(${e.id})">Edit</button>
-      <button class="btn btn-sm" onclick="openEstimateInvoice(${e.id})">Print</button>
+      <button class="btn btn-sm" onclick="openEstimateModal(${safeId(e.id)})">Edit</button>
+      <button class="btn btn-sm" onclick="openEstimateInvoice(${safeId(e.id)})">Print</button>
     </td>
   </tr>`).join('');
 }
@@ -3807,7 +3895,7 @@ async function openEstimateModal(id){
     document.getElementById('est-taxrate').value=e.tax_rate||state.settings.tax_rate||'';
     estItems=(e.items||[]).map(i=>({type:i.type||'labor',description:i.description||'',qty:i.qty||1,rate:i.rate||0,amount:i.amount||0}));
     document.getElementById('estf-convert-btn').style.display=(e.status==='Approved'||e.status==='Draft'||e.status==='Sent')?'':'none';
-    document.getElementById('estf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEstimate(${id})">Delete</button>`;
+    document.getElementById('estf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEstimate(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-est-title').textContent='New Estimate';
     ['estf-complaint','estf-notes'].forEach(x=>document.getElementById(x).value='');
@@ -3825,7 +3913,7 @@ async function loadVehiclesForEst(selectId){
   const sel=document.getElementById('estf-veh');
   if(isNaN(custId)){sel.innerHTML='<option value="">— Select vehicle —</option>';return;}
   const vehs=state.vehicles.filter(v=>v.customer_id===custId);
-  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${v.id}" ${selectId===v.id?'selected':''}>${vLabel(v)}${v.plate?' · '+v.plate:''}</option>`).join('');
+  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${safeId(v.id)}" ${selectId===v.id?'selected':''}>${vLabel(v)}${v.plate?' · '+esc(v.plate):''}</option>`).join('');
 }
 
 function addEstItem(type='labor',desc='',qty=1,rate=0){
@@ -3850,7 +3938,7 @@ function renderEstItems(){
       <select style="padding:4px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onchange="estItems[${i}].type=this.value">
         ${['labor','parts','fee','diagnostic','sublet'].map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t[0].toUpperCase()+t.slice(1)}</option>`).join('')}
       </select>
-      <input style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${(item.description||'').replace(/"/g,'&quot;')}" placeholder="Description" oninput="estItems[${i}].description=this.value">
+      <input style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${attrEsc(item.description||'')}" placeholder="Description" oninput="estItems[${i}].description=this.value">
       <input type="number" style="padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">
       <input type="number" style="padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="estItems[${i}].rate=parseFloat(this.value)||0;_calcEst()">
       <span class="est-item-amt">${fmt$((item.qty||0)*(item.rate||0))}</span>
@@ -3886,24 +3974,24 @@ async function saveEstimate(){
   const sub=estItems.reduce((a,i)=>a+(i.amount||0),0);
   const total=Math.max(0,sub-disc)*(1+taxRate/100);
   const body={customer_id:custId,vehicle_id:parseInt(document.getElementById('estf-veh').value)||null,date:document.getElementById('estf-date').value,status:document.getElementById('estf-status').value,customer_complaint:document.getElementById('estf-complaint').value,notes:document.getElementById('estf-notes').value,discount:disc,tax_rate:taxRate,expires_date:document.getElementById('estf-expires').value||null,total,items:estItems};
-  if(editEstId) await api('PUT',`/api/estimates/${editEstId}`,body);
-  else await api('POST','/api/estimates',body);
-  closeM('m-estimate'); await loadAll(); toast(editEstId?'Estimate updated':'Estimate saved');
+  const id=editEstId, existing=id?state.estimates.find(e=>e.id===id):null;
+  await runMutation(`estimate-save-${id||'new'}`,{buttonId:'save-estimate-btn',action:'Saving estimate',request:()=>id?api('PUT',`/api/estimates/${id}`,body):api('POST','/api/estimates',body),apply:r=>upsertStateRecord('estimates',id?{...existing,...body,id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,date:existing.date,items:estItems}:{...body,...r,items:estItems}),render:renderEstimates,close:'m-estimate',success:id?'Estimate updated':'Estimate saved'});
 }
 
 async function deleteEstimate(id){
   if(!confirm('Delete this estimate?'))return;
-  await api('DELETE',`/api/estimates/${id}`);
-  closeM('m-estimate'); await loadAll(); toast('Estimate deleted');
+  await runMutation(`estimate-delete-${id}`,{action:'Deleting estimate',request:()=>api('DELETE',`/api/estimates/${id}`),apply:()=>removeStateRecord('estimates',id),render:renderEstimates,close:'m-estimate',success:'Estimate deleted'});
 }
 
 async function convertEstToJob(){
   if(!editEstId){toast('Save the estimate first.');return;}
   if(!confirm('Convert this estimate to a work order?'))return;
-  const r=await api('POST',`/api/estimates/${editEstId}/convert`);
-  closeM('m-estimate'); await loadAll();
-  toast('Estimate converted to job!');
-  if(r.job_id){ sp('jobs',document.querySelector('.nav-item[onclick*="\'jobs\'"]')); setTimeout(()=>openJobModal(r.job_id),300); }
+  const id=editEstId;
+  const r=await runMutation(`estimate-convert-${id}`,{action:'Converting estimate',request:()=>api('POST',`/api/estimates/${id}/convert`),apply:()=>{const e=state.estimates.find(x=>x.id===id);if(e)upsertStateRecord('estimates',{...e,status:'Approved'});},render:renderEstimates,close:'m-estimate',success:'Estimate converted to job!'});
+  if(r?.job_id){
+    try{await refreshResource('/api/jobs','jobs');await refreshResource('/api/inventory','inventory');}catch(error){console.error('Estimate converted, but related state refresh failed:',error);toast('Estimate converted. Refresh to see the latest job or inventory values.',8000);}
+    sp('jobs',document.querySelector('.nav-item[onclick*="\'jobs\'"]'));setTimeout(()=>openJobModal(r.job_id),300);
+  }
 }
 
 function openEstimateInvoice(id){
@@ -3916,27 +4004,27 @@ function openEstimateInvoice(id){
   const tax=e.total-Math.max(0,sub-disc);
   document.getElementById('invoice-content').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a1a1a;">
-      <div>${s.invoice_logo?`<img src="${s.invoice_logo}" style="max-height:60px;max-width:180px;margin-bottom:6px;display:block;">`:''}
-        <div style="font-size:18px;font-weight:700;">${s.business_name||'WrenchPro'}</div>
-        ${s.phone?`<div style="font-size:12px;color:#888;">${s.phone}</div>`:''}
+      <div>${safeImageSrc(s.invoice_logo)?`<img src="${safeImageSrc(s.invoice_logo)}" style="max-height:60px;max-width:180px;margin-bottom:6px;display:block;">`:''}
+        <div style="font-size:18px;font-weight:700;">${esc(s.business_name||'WrenchPro')}</div>
+        ${s.phone?`<div style="font-size:12px;color:#888;">${esc(s.phone)}</div>`:''}
       </div>
       <div style="text-align:right;">
         <div style="font-size:20px;font-weight:700;color:#378ADD;">ESTIMATE</div>
-        <div style="font-size:12px;color:#555;">${e.estimate_number||''}</div>
-        <div style="font-size:12px;color:#888;">Date: ${e.date||'—'}</div>
-        ${e.expires_date?`<div style="font-size:12px;color:#888;">Expires: ${e.expires_date}</div>`:''}
+        <div style="font-size:12px;color:#555;">${esc(e.estimate_number||'')}</div>
+        <div style="font-size:12px;color:#888;">Date: ${esc(e.date||'—')}</div>
+        ${e.expires_date?`<div style="font-size:12px;color:#888;">Expires: ${esc(e.expires_date)}</div>`:''}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
       <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:4px;">Bill To</div>
         <div style="font-weight:600;">${c?fullName(c):'—'}</div>
-        ${c&&c.phone?`<div style="font-size:12px;color:#888;">${c.phone}</div>`:''}
+        ${c&&c.phone?`<div style="font-size:12px;color:#888;">${esc(c.phone)}</div>`:''}
       </div>
       <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:4px;">Vehicle</div>
         <div style="font-weight:600;">${vLabel(v)}</div>
       </div>
     </div>
-    ${e.customer_complaint?`<div style="background:#f5f5f0;padding:8px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px;"><strong>Customer concern:</strong> ${e.customer_complaint}</div>`:''}
+    ${e.customer_complaint?`<div style="background:#f5f5f0;padding:8px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px;"><strong>Customer concern:</strong> ${esc(e.customer_complaint)}</div>`:''}
     <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:1rem;">
       <thead><tr style="border-bottom:2px solid #1a1a1a;">
         <th style="text-align:left;padding:6px 0;font-size:11px;color:#888;text-transform:uppercase;">Description</th>
@@ -3944,7 +4032,7 @@ function openEstimateInvoice(id){
         <th style="text-align:right;padding:6px 0;font-size:11px;color:#888;">Rate</th>
         <th style="text-align:right;padding:6px 0;font-size:11px;color:#888;">Amount</th>
       </tr></thead>
-      <tbody>${(e.items||[]).map(i=>`<tr><td style="padding:7px 0;border-bottom:1px solid #f0f0ec;">${i.description||''}<span style="color:#aaa;font-size:10px;margin-left:6px;">${i.type}</span></td><td style="text-align:center;padding:7px 0;border-bottom:1px solid #f0f0ec;">${i.qty}</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.rate)}</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.amount)}</td></tr>`).join('')}</tbody>
+      <tbody>${(e.items||[]).map(i=>`<tr><td style="padding:7px 0;border-bottom:1px solid #f0f0ec;">${esc(i.description||'')}<span style="color:#aaa;font-size:10px;margin-left:6px;">${esc(i.type)}</span></td><td style="text-align:center;padding:7px 0;border-bottom:1px solid #f0f0ec;">${esc(i.qty)}</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.rate)}</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.amount)}</td></tr>`).join('')}</tbody>
     </table>
     <div style="display:flex;justify-content:flex-end;">
       <div style="min-width:200px;">
@@ -3953,8 +4041,8 @@ function openEstimateInvoice(id){
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;"><span>Total</span><span>${fmt$(e.total)}</span></div>
       </div>
     </div>
-    ${s.estimate_terms?`<div style="margin-top:1rem;font-size:11px;color:#888;border-top:1px solid #e8e8e4;padding-top:8px;">${s.estimate_terms}</div>`:''}
-    ${s.invoice_footer?`<div style="margin-top:1rem;text-align:center;font-size:11px;color:#aaa;">${s.invoice_footer}</div>`:''}
+    ${s.estimate_terms?`<div style="margin-top:1rem;font-size:11px;color:#888;border-top:1px solid #e8e8e4;padding-top:8px;">${esc(s.estimate_terms)}</div>`:''}
+    ${s.invoice_footer?`<div style="margin-top:1rem;text-align:center;font-size:11px;color:#aaa;">${esc(s.invoice_footer)}</div>`:''}
   `;
   document.getElementById('m-invoice').classList.add('open');
 }
@@ -3992,15 +4080,15 @@ function renderInspections(){
     const adv=(i.items||[]).filter(x=>x.condition==='advisory').length;
     const fail=(i.items||[]).filter(x=>x.condition==='fail').length;
     return `<tr>
-      <td style="color:#888;font-size:12px;">${i.date||'—'}</td>
-      <td class="td-name">${i.first||''} ${i.last||''}</td>
-      <td style="font-size:12px;">${i.year||''} ${i.make||''} ${i.model||''}</td>
-      <td style="font-size:12px;color:#555;">${i.emp_first?i.emp_first+' '+i.emp_last:'—'}</td>
+      <td style="color:#888;font-size:12px;">${esc(i.date||'—')}</td>
+      <td class="td-name">${esc(i.first||'')} ${esc(i.last||'')}</td>
+      <td style="font-size:12px;">${esc(i.year||'')} ${esc(i.make||'')} ${esc(i.model||'')}</td>
+      <td style="font-size:12px;color:#555;">${esc(i.emp_first?i.emp_first+' '+i.emp_last:'—')}</td>
       <td style="color:#3B6D11;font-weight:600;">${pass}</td>
       <td style="color:#854F0B;font-weight:600;">${adv}</td>
       <td style="color:#A32D2D;font-weight:600;">${fail}</td>
       <td>${i.status==='Complete'?'<span class="badge b-green">Complete</span>':'<span class="badge b-gray">Draft</span>'}</td>
-      <td><button class="btn btn-sm" onclick="openInspModal(${i.id})">Edit</button></td>
+      <td><button class="btn btn-sm" onclick="openInspModal(${safeId(i.id)})">Edit</button></td>
     </tr>`;
   }).join('');
 }
@@ -4011,7 +4099,7 @@ async function openInspModal(id){
   document.getElementById('if2-date').value=today();
   document.getElementById('if2-del').innerHTML='';
   const empSel=document.getElementById('if2-emp');
-  empSel.innerHTML='<option value="">— Select —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}</option>`).join('');
+  empSel.innerHTML='<option value="">— Select —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${safeId(e.id)}">${esc(e.first)} ${esc(e.last)}</option>`).join('');
   if(id){
     const insp=state.inspections.find(x=>x.id===id);
     if(!insp)return;
@@ -4024,7 +4112,7 @@ async function openInspModal(id){
     document.getElementById('if2-notes').value=insp.notes||'';
     inspItems=(insp.items||[]).map(i=>({category:i.category,item_name:i.item_name,condition:i.condition||'pass',notes:i.notes||''}));
     if(!inspItems.length) initInspChecklist();
-    document.getElementById('if2-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteInspection(${id})">Delete</button>`;
+    document.getElementById('if2-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteInspection(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-insp-title').textContent='New Inspection';
     document.getElementById('if2-notes').value='';
@@ -4040,7 +4128,7 @@ async function loadVehiclesForInsp(selectId){
   const sel=document.getElementById('if2-veh');
   if(isNaN(custId)){sel.innerHTML='<option value="">— Select vehicle —</option>';return;}
   const vehs=state.vehicles.filter(v=>v.customer_id===custId);
-  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${v.id}" ${selectId===v.id?'selected':''}>${vLabel(v)}</option>`).join('');
+  sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${safeId(v.id)}" ${selectId===v.id?'selected':''}>${vLabel(v)}</option>`).join('');
 }
 
 function initInspChecklist(){
@@ -4053,10 +4141,10 @@ function renderInspChecklist(){
   document.getElementById('insp-checklist').innerHTML=cats.map(cat=>{
     const catItems=inspItems.map((item,idx)=>({item,idx})).filter(({item})=>item.category===cat);
     return `<div class="insp-cat">
-      <div class="insp-cat-hdr">${cat}</div>
+      <div class="insp-cat-hdr">${esc(cat)}</div>
       ${catItems.map(({item,idx})=>`
         <div class="insp-item-row">
-          <span style="font-size:13px;">${item.item_name}</span>
+          <span style="font-size:13px;">${esc(item.item_name)}</span>
           <div style="display:flex;gap:3px;">
             <button class="cond-btn ${item.condition==='pass'?'cond-pass':''}" onclick="setInspCond(${idx},'pass')">Pass</button>
             <button class="cond-btn ${item.condition==='advisory'?'cond-advisory':''}" onclick="setInspCond(${idx},'advisory')">Adv</button>
@@ -4074,15 +4162,13 @@ async function saveInspection(){
   const custId=parseInt(document.getElementById('if2-cust').value);
   if(!custId){toast('Please select a customer.');return;}
   const body={customer_id:custId,vehicle_id:parseInt(document.getElementById('if2-veh').value)||null,employee_id:parseInt(document.getElementById('if2-emp').value)||null,date:document.getElementById('if2-date').value,notes:document.getElementById('if2-notes').value,status:document.getElementById('if2-status').value,items:inspItems};
-  if(editInspId) await api('PUT',`/api/inspections/${editInspId}`,body);
-  else await api('POST','/api/inspections',body);
-  closeM('m-insp'); await loadAll(); toast(editInspId?'Inspection updated':'Inspection saved');
+  const id=editInspId, existing=id?state.inspections.find(i=>i.id===id):null;
+  await runMutation(`inspection-save-${id||'new'}`,{buttonId:'save-inspection-btn',action:'Saving inspection',request:()=>id?api('PUT',`/api/inspections/${id}`,body):api('POST','/api/inspections',body),apply:r=>upsertStateRecord('inspections',id?{...existing,...body,id,items:inspItems}:{...body,...r,items:inspItems}),render:renderInspections,close:'m-insp',success:id?'Inspection updated':'Inspection saved'});
 }
 
 async function deleteInspection(id){
   if(!confirm('Delete this inspection?'))return;
-  await api('DELETE',`/api/inspections/${id}`);
-  closeM('m-insp'); await loadAll(); toast('Inspection deleted');
+  await runMutation(`inspection-delete-${id}`,{action:'Deleting inspection',request:()=>api('DELETE',`/api/inspections/${id}`),apply:()=>removeStateRecord('inspections',id),render:renderInspections,close:'m-insp',success:'Inspection deleted'});
 }
 
 // ── Parts / Inventory ─────────────────────────────────────────────────────────
@@ -4109,15 +4195,15 @@ function renderInventory(){
   tbody.innerHTML=parts.map(p=>{
     const isLow=p.quantity<=p.reorder_qty&&p.reorder_qty>0;
     return `<tr class="${isLow?'low-stock':''}">
-      <td class="td-name">${p.name}${isLow?'<span class="badge b-red" style="margin-left:6px;">Low</span>':''}</td>
-      <td style="font-size:11px;font-family:monospace;color:#888;">${p.part_number||'—'}</td>
-      <td style="font-size:12px;">${p.vendor||'—'}</td>
+      <td class="td-name">${esc(p.name)}${isLow?'<span class="badge b-red" style="margin-left:6px;">Low</span>':''}</td>
+      <td style="font-size:11px;font-family:monospace;color:#888;">${esc(p.part_number||'—')}</td>
+      <td style="font-size:12px;">${esc(p.vendor||'—')}</td>
       <td style="color:#888;">${p.cost?fmt$(p.cost):'—'}</td>
       <td style="color:#3B6D11;font-weight:500;">${p.retail_price?fmt$(p.retail_price):'—'}</td>
       <td style="font-weight:600;${isLow?'color:#A32D2D;':''}">${p.quantity}</td>
       <td style="color:#888;">${p.reorder_qty||0}</td>
-      <td style="font-size:12px;color:#888;">${p.location||'—'}</td>
-      <td><button class="btn btn-sm" onclick="openPartModal(${p.id})">Edit</button></td>
+      <td style="font-size:12px;color:#888;">${esc(p.location||'—')}</td>
+      <td><button class="btn btn-sm" onclick="openPartModal(${safeId(p.id)})">Edit</button></td>
     </tr>`;
   }).join('');
 }
@@ -4172,7 +4258,7 @@ function openPartModal(id){
     document.getElementById('prf-qty').value=p.quantity||0;
     document.getElementById('prf-reorder').value=p.reorder_qty||0;
     document.getElementById('prf-notes').value=p.notes||'';
-    document.getElementById('prf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deletePart(${id})">Delete</button>`;
+    document.getElementById('prf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deletePart(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-part-title').textContent='Add Part';
     ['prf-name','prf-num','prf-vendor','prf-loc','prf-cost','prf-markup','prf-retail','prf-notes'].forEach(x=>document.getElementById(x).value='');
@@ -4193,15 +4279,13 @@ async function savePart(){
   if(markup<0){toast('Markup percentage cannot be negative.',8000);return;}
   if(retailPrice<0){toast('Retail price cannot be negative.',8000);return;}
   const body={name,part_number:document.getElementById('prf-num').value,vendor:document.getElementById('prf-vendor').value,location:document.getElementById('prf-loc').value,cost:partPriceToCents(cost),retail_price:partPriceToCents(retailPrice),quantity:parseInt(document.getElementById('prf-qty').value)||0,reorder_qty:parseInt(document.getElementById('prf-reorder').value)||0,notes:document.getElementById('prf-notes').value};
-  if(editPartId) await api('PUT',`/api/inventory/${editPartId}`,body);
-  else await api('POST','/api/inventory',body);
-  closeM('m-part'); await loadAll(); toast(editPartId?'Part updated':'Part added');
+  const id=editPartId, existing=id?state.inventory.find(p=>p.id===id):null;
+  await runMutation(`part-save-${id||'new'}`,{buttonId:'save-part-btn',action:'Saving part',request:()=>id?api('PUT',`/api/inventory/${id}`,body):api('POST','/api/inventory',body),apply:r=>upsertStateRecord('inventory',id?{...existing,...body,id}:{...body,...r}),render:renderInventory,close:'m-part',success:id?'Part updated':'Part added'});
 }
 
 async function deletePart(id){
   if(!confirm('Delete this part?'))return;
-  await api('DELETE',`/api/inventory/${id}`);
-  closeM('m-part'); await loadAll(); toast('Part deleted');
+  await runMutation(`part-delete-${id}`,{action:'Deleting part',request:()=>api('DELETE',`/api/inventory/${id}`),apply:()=>removeStateRecord('inventory',id),render:renderInventory,close:'m-part',success:'Part deleted'});
 }
 
 // ── Service Catalog ───────────────────────────────────────────────────────────
@@ -4213,18 +4297,18 @@ function renderCatalog(){
   const cats=[...new Set(state.catalog.map(s=>s.category))].sort();
   const catSel=document.getElementById('cat-category-filter');
   const curCat=catSel.value;
-  catSel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${c}" ${c===curCat?'selected':''}>${c}</option>`).join('');
+  catSel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${attrEsc(c)}" ${c===curCat?'selected':''}>${esc(c)}</option>`).join('');
   const filtered=state.catalog.filter(s=>(!q||(s.name||'').toLowerCase().includes(q)||( s.category||'').toLowerCase().includes(q))&&(!cf||s.category===cf));
   const tbody=document.getElementById('catalog-tbody');
   if(!filtered.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">No services found</td></tr>`;return;}
   tbody.innerHTML=filtered.map(s=>`<tr>
-    <td class="td-name">${s.name}</td>
-    <td><span class="badge b-gray">${s.category||'General'}</span></td>
+    <td class="td-name">${esc(s.name)}</td>
+    <td><span class="badge b-gray">${esc(s.category||'General')}</span></td>
     <td style="color:#888;">${s.default_hours?s.default_hours+' hrs':'—'}</td>
     <td style="font-weight:500;color:#3B6D11;">${s.default_price?fmt$(s.default_price):'—'}</td>
     <td>${s.taxable?'<span class="badge b-green">Yes</span>':'<span class="badge b-gray">No</span>'}</td>
-    <td style="font-size:12px;color:#888;">${(s.notes||'').slice(0,40)}</td>
-    <td><button class="btn btn-sm" onclick="openCatalogModal(${s.id})">Edit</button></td>
+    <td style="font-size:12px;color:#888;">${esc((s.notes||'').slice(0,40))}</td>
+    <td><button class="btn btn-sm" onclick="openCatalogModal(${safeId(s.id)})">Edit</button></td>
   </tr>`).join('');
 }
 
@@ -4242,7 +4326,7 @@ function openCatalogModal(id){
     document.getElementById('catf-price').value=s.default_price||'';
     document.getElementById('catf-taxable').value=s.taxable?'1':'0';
     document.getElementById('catf-notes').value=s.notes||'';
-    document.getElementById('catf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCatalogItem(${id})">Delete</button>`;
+    document.getElementById('catf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCatalogItem(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-cat-title').textContent='Add Service';
     ['catf-name','catf-desc','catf-hours','catf-price','catf-notes'].forEach(x=>document.getElementById(x).value='');
@@ -4256,15 +4340,13 @@ async function saveCatalogItem(){
   const name=document.getElementById('catf-name').value.trim();
   if(!name){toast('Please enter a service name.');return;}
   const body={name,description:document.getElementById('catf-desc').value,category:document.getElementById('catf-category').value,default_hours:parseFloat(document.getElementById('catf-hours').value)||0,default_price:parseFloat(document.getElementById('catf-price').value)||0,taxable:document.getElementById('catf-taxable').value==='1',notes:document.getElementById('catf-notes').value};
-  if(editCatalogId) await api('PUT',`/api/catalog/${editCatalogId}`,body);
-  else await api('POST','/api/catalog',body);
-  closeM('m-catalog-item'); await loadAll(); toast(editCatalogId?'Service updated':'Service added');
+  const id=editCatalogId, existing=id?state.catalog.find(c=>c.id===id):null;
+  await runMutation(`catalog-save-${id||'new'}`,{buttonId:'save-catalog-btn',action:'Saving service',request:()=>id?api('PUT',`/api/catalog/${id}`,body):api('POST','/api/catalog',body),apply:r=>upsertStateRecord('catalog',id?{...existing,...body,id}:{...body,...r}),render:renderCatalog,close:'m-catalog-item',success:id?'Service updated':'Service added'});
 }
 
 async function deleteCatalogItem(id){
   if(!confirm('Delete this service?'))return;
-  await api('DELETE',`/api/catalog/${id}`);
-  closeM('m-catalog-item'); await loadAll(); toast('Service deleted');
+  await runMutation(`catalog-delete-${id}`,{action:'Deleting service',request:()=>api('DELETE',`/api/catalog/${id}`),apply:()=>removeStateRecord('catalog',id),render:renderCatalog,close:'m-catalog-item',success:'Service deleted'});
 }
 
 // ── Warranties ────────────────────────────────────────────────────────────────
@@ -4284,15 +4366,15 @@ function renderWarranties(){
   tbody.innerHTML=filtered.map(w=>{
     const expired=w.expires_date&&w.expires_date<now;
     return `<tr>
-      <td class="td-name">${w.first||''} ${w.last||''}</td>
-      <td style="font-size:12px;">${w.year||''} ${w.make||''} ${w.model||''}</td>
-      <td>${(w.description||'').slice(0,40)}</td>
+      <td class="td-name">${esc(w.first||'')} ${esc(w.last||'')}</td>
+      <td style="font-size:12px;">${esc(w.year||'')} ${esc(w.make||'')} ${esc(w.model||'')}</td>
+      <td>${esc((w.description||'').slice(0,40))}</td>
       <td style="font-size:12px;">${w.labor_months} mo</td>
       <td style="font-size:12px;">${w.parts_months} mo</td>
       <td style="font-size:12px;">${w.mileage_limit?Number(w.mileage_limit).toLocaleString()+' mi':'—'}</td>
-      <td class="${expired?'warranty-expired':'warranty-active'}">${w.expires_date||'—'}</td>
+      <td class="${expired?'warranty-expired':'warranty-active'}">${esc(w.expires_date||'—')}</td>
       <td>${w.status==='Active'&&!expired?'<span class="badge b-green">Active</span>':w.status==='Voided'?'<span class="badge b-gray">Voided</span>':'<span class="badge b-red">Expired</span>'}</td>
-      <td><button class="btn btn-sm" onclick="openWarrantyModal(null,null,null,${w.id})">Edit</button></td>
+      <td><button class="btn btn-sm" onclick="openWarrantyModal(null,null,null,${safeId(w.id)})">Edit</button></td>
     </tr>`;
   }).join('');
 }
@@ -4311,7 +4393,7 @@ function openWarrantyModal(jobId,custId,vehId,warrId){
     document.getElementById('wrf-start').value=w.start_date||today();
     document.getElementById('wrf-status').value=w.status||'Active';
     document.getElementById('wrf-notes').value=w.notes||'';
-    document.getElementById('wrf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteWarranty(${warrId})">Delete</button>`;
+    document.getElementById('wrf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteWarranty(${safeId(warrId)})">Delete</button>`;
   } else {
     document.getElementById('m-warr-title').textContent='Add Warranty';
     document.getElementById('wrf-desc').value='';
@@ -4330,15 +4412,13 @@ async function saveWarranty(){
   if(!desc&&!editWarrId){toast('Please enter a description.');return;}
   const body={job_id:warrJobId||null,customer_id:warrCustId||(editWarrId?state.warranties.find(w=>w.id===editWarrId)?.customer_id:null),vehicle_id:warrVehId||null,description:desc,labor_months:parseInt(document.getElementById('wrf-labor').value)||12,parts_months:parseInt(document.getElementById('wrf-parts').value)||12,mileage_limit:parseInt(document.getElementById('wrf-miles').value)||12000,start_date:document.getElementById('wrf-start').value,status:document.getElementById('wrf-status').value,notes:document.getElementById('wrf-notes').value};
   if(!body.customer_id&&!editWarrId){toast('No customer linked. Open from a job or customer record.');return;}
-  if(editWarrId) await api('PUT',`/api/warranties/${editWarrId}`,body);
-  else await api('POST','/api/warranties',body);
-  closeM('m-warranty'); await loadAll(); toast(editWarrId?'Warranty updated':'Warranty added');
+  const id=editWarrId, existing=id?state.warranties.find(w=>w.id===id):null;
+  await runMutation(`warranty-save-${id||'new'}`,{buttonId:'save-warranty-btn',action:'Saving warranty',request:()=>id?api('PUT',`/api/warranties/${id}`,body):api('POST','/api/warranties',body),apply:r=>upsertStateRecord('warranties',id?{...existing,...body,id,job_id:existing.job_id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,start_date:existing.start_date}:{...body,...r}),render:renderWarranties,close:'m-warranty',success:id?'Warranty updated':'Warranty added'});
 }
 
 async function deleteWarranty(id){
   if(!confirm('Delete this warranty?'))return;
-  await api('DELETE',`/api/warranties/${id}`);
-  closeM('m-warranty'); await loadAll(); toast('Warranty deleted');
+  await runMutation(`warranty-delete-${id}`,{action:'Deleting warranty',request:()=>api('DELETE',`/api/warranties/${id}`),apply:()=>removeStateRecord('warranties',id),render:renderWarranties,close:'m-warranty',success:'Warranty deleted'});
 }
 
 // ── Time Tracking ─────────────────────────────────────────────────────────────
@@ -4347,11 +4427,11 @@ function renderTime(){
   const dateF=(document.getElementById('time-date-filter')||{value:''}).value;
   const empSel=document.getElementById('time-emp-filter');
   const cur=empSel.value;
-  empSel.innerHTML='<option value="">All employees</option>'+state.employees.map(e=>`<option value="${e.id}" ${String(e.id)===cur?'selected':''}>${e.first} ${e.last}</option>`).join('');
-  const months=[...new Set(state.timeLogs.map(t=>(t.clock_in||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  empSel.innerHTML='<option value="">All employees</option>'+state.employees.map(e=>`<option value="${safeId(e.id)}" ${String(e.id)===cur?'selected':''}>${esc(e.first)} ${esc(e.last)}</option>`).join('');
+  const months=[...new Set(state.timeLogs.map(t=>safeMonth((t.clock_in||'').slice(0,7))).filter(Boolean))].sort().reverse();
   const dateSel=document.getElementById('time-date-filter');
   const curDate=dateSel.value;
-  dateSel.innerHTML='<option value="">All time</option>'+months.map(m=>`<option value="${m}" ${m===curDate?'selected':''}>${m}</option>`).join('');
+  dateSel.innerHTML='<option value="">All time</option>'+months.map(m=>`<option value="${attrEsc(m)}" ${m===curDate?'selected':''}>${esc(m)}</option>`).join('');
   const filtered=state.timeLogs.filter(t=>(!empF||String(t.employee_id)===empF)&&(!dateF||(t.clock_in||'').startsWith(dateF)));
   const totalMins=filtered.reduce((a,t)=>{
     if(!t.clock_in||!t.clock_out)return a;
@@ -4372,23 +4452,23 @@ function renderTime(){
       dur=`${Math.floor(mins/60)}h ${mins%60}m`;
     }
     return `<tr>
-      <td class="td-name">${t.first||''} ${t.last||''}</td>
-      <td><span class="badge b-gray">${t.type||'general'}</span></td>
-      <td style="font-size:12px;">${t.clock_in?t.clock_in.replace('T',' ').slice(0,16):'—'}</td>
-      <td style="font-size:12px;">${t.clock_out?t.clock_out.replace('T',' ').slice(0,16):'—'}</td>
+      <td class="td-name">${esc(t.first||'')} ${esc(t.last||'')}</td>
+      <td><span class="badge b-gray">${esc(t.type||'general')}</span></td>
+      <td style="font-size:12px;">${esc(t.clock_in?t.clock_in.replace('T',' ').slice(0,16):'—')}</td>
+      <td style="font-size:12px;">${esc(t.clock_out?t.clock_out.replace('T',' ').slice(0,16):'—')}</td>
       <td style="font-weight:500;">${dur}</td>
-      <td style="font-size:12px;color:#888;">${t.job_service?(t.job_service||'').slice(0,30):'—'}</td>
-      <td style="font-size:12px;color:#888;">${t.notes||''}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="deleteTimeLog(${t.id})">×</button></td>
+      <td style="font-size:12px;color:#888;">${esc(t.job_service?(t.job_service||'').slice(0,30):'—')}</td>
+      <td style="font-size:12px;color:#888;">${esc(t.notes||'')}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteTimeLog(${safeId(t.id)})">×</button></td>
     </tr>`;
   }).join('');
 }
 
 function openTimeModal(){
   const empSel=document.getElementById('tmf-emp');
-  empSel.innerHTML='<option value="">— Select —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}</option>`).join('');
+  empSel.innerHTML='<option value="">— Select —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${safeId(e.id)}">${esc(e.first)} ${esc(e.last)}</option>`).join('');
   const jobSel=document.getElementById('tmf-job');
-  jobSel.innerHTML='<option value="">— Not job-specific —</option>'+state.jobs.map(j=>`<option value="${j.id}">${j.date} · ${j.first} ${j.last} · ${(j.service||'').slice(0,30)}</option>`).join('');
+  jobSel.innerHTML='<option value="">— Not job-specific —</option>'+state.jobs.map(j=>`<option value="${safeId(j.id)}">${esc(j.date)} · ${esc(j.first)} ${esc(j.last)} · ${esc((j.service||'').slice(0,30))}</option>`).join('');
   const now=new Date();
   const localNow=new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
   document.getElementById('tmf-in').value=localNow;
@@ -4404,18 +4484,16 @@ async function saveTimeEntry(){
   const clockIn=document.getElementById('tmf-in').value;
   if(!clockIn){toast('Please enter clock-in time.');return;}
   const body={employee_id:empId,job_id:parseInt(document.getElementById('tmf-job').value)||null,type:document.getElementById('tmf-type').value,clock_in:clockIn,clock_out:document.getElementById('tmf-out').value||null,notes:document.getElementById('tmf-notes').value};
-  await api('POST','/api/time',body);
-  closeM('m-time'); await loadAll(); toast('Time entry saved');
+  await runMutation('time-save-new',{buttonId:'save-time-btn',action:'Saving time entry',request:()=>api('POST','/api/time',body),apply:r=>upsertStateRecord('timeLogs',{...body,...r}),render:renderTime,close:'m-time',success:'Time entry saved'});
 }
 
 async function deleteTimeLog(id){
   if(!confirm('Delete this time entry?'))return;
-  await api('DELETE',`/api/time/${id}`);
-  await loadAll(); toast('Entry deleted');
+  await runMutation(`time-delete-${id}`,{action:'Deleting time entry',request:()=>api('DELETE',`/api/time/${id}`),apply:()=>removeStateRecord('timeLogs',id),render:renderTime,success:'Entry deleted'});
 }
 
 // ── Utilities ──
-function htmlEnc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+const htmlEnc=esc;
 
 // ── Command Palette ──
 let _cpIdx=0;
@@ -4462,8 +4540,8 @@ function cpSearch(q){
   let items=[...CP_NAV,...CP_ACTIONS];
   if(state.customers.length||state.jobs.length){
     items=[...items,
-      ...state.customers.slice(0,20).map(c=>({kind:'customer',label:`${c.first} ${c.last}`.trim(),sub:c.phone||c.email||'',id:c.id})),
-      ...state.jobs.slice(0,10).map(j=>({kind:'job',label:`${j.service||'Job'} — ${j.first||''} ${j.last||''}`.trim(),sub:j.date,id:j.id})),
+      ...state.customers.slice(0,20).map(c=>({kind:'customer',label:`${c.first} ${c.last}`.trim(),sub:c.phone||c.email||'',id:safeId(c.id)})),
+      ...state.jobs.slice(0,10).map(j=>({kind:'job',label:`${j.service||'Job'} — ${j.first||''} ${j.last||''}`.trim(),sub:j.date,id:safeId(j.id)})),
     ];
   }
   const filtered=needle

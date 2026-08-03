@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, getTenantCustomer, shopTenantWhere } = require('../tenant');
+const { fail, requiredText, positiveId, isoDate } = require('../validation');
 
 function tenantCustomerOr400(req, customerId) {
   const { customer } = getTenantCustomer(req, customerId, 'c');
@@ -61,8 +62,12 @@ router.get('/interactions', (req, res) => {
 
 router.post('/interactions', (req, res) => {
   const { customer_id, type, summary, employee_id, created_at } = req.body;
-  if (!tenantCustomerOr400(req, customer_id)) return res.status(400).json({ error: 'Customer is outside the active shop context' });
-  if (!employeeInTenant(req, employee_id)) return res.status(400).json({ error: 'Employee is outside the active shop context' });
+  if (!positiveId(res, customer_id, 'customer_id', { required: true })) return;
+  if (!positiveId(res, employee_id, 'employee_id')) return;
+  if (!requiredText(res, req.body, 'summary', 'Summary')) return;
+  if (!isoDate(res, req.body, 'created_at', { label: 'Interaction date' })) return;
+  if (!tenantCustomerOr400(req, customer_id)) return fail(res, 'customer_id', 'Customer not found', 404);
+  if (!employeeInTenant(req, employee_id)) return fail(res, 'employee_id', 'Employee not found', 404);
   const result = db.prepare(
     `INSERT INTO customer_interactions (customer_id, type, summary, employee_id, created_at)
      VALUES (?, ?, ?, ?, ?)`
@@ -113,7 +118,9 @@ router.get('/followups', (req, res) => {
 
 router.post('/followups', (req, res) => {
   const { customer_id, due_date, note } = req.body;
-  if (!tenantCustomerOr400(req, customer_id)) return res.status(400).json({ error: 'Customer is outside the active shop context' });
+  if (!positiveId(res, customer_id, 'customer_id', { required: true })) return;
+  if (!isoDate(res, req.body, 'due_date', { required: true, label: 'Due date' })) return;
+  if (!tenantCustomerOr400(req, customer_id)) return fail(res, 'customer_id', 'Customer not found', 404);
   const result = db.prepare(
     `INSERT INTO follow_ups (customer_id, due_date, note) VALUES (?, ?, ?)`
   ).run(customer_id, due_date, note || '');
@@ -121,6 +128,7 @@ router.post('/followups', (req, res) => {
 });
 
 router.put('/followups/:id', (req, res) => {
+  if (!isoDate(res, req.body, 'due_date', { required: true, label: 'Due date' })) return;
   const { due_date, note, status, completed_at } = req.body;
   const tenant = customerTenantWhere(req, 'c');
   const result = db.prepare(`
@@ -174,8 +182,11 @@ router.get('/service-reminders', (req, res) => {
 
 router.post('/service-reminders', (req, res) => {
   const { customer_id, vehicle_id, service_type, reminder_date, note } = req.body;
-  if (!tenantCustomerOr400(req, customer_id)) return res.status(400).json({ error: 'Customer is outside the active shop context' });
-  if (!vehicleBelongsToTenantCustomer(req, vehicle_id, customer_id)) return res.status(400).json({ error: 'Vehicle is outside the active shop context' });
+  if (!positiveId(res, customer_id, 'customer_id', { required: true })) return;
+  if (!positiveId(res, vehicle_id, 'vehicle_id')) return;
+  if (!isoDate(res, req.body, 'reminder_date', { required: true, label: 'Reminder date' })) return;
+  if (!tenantCustomerOr400(req, customer_id)) return fail(res, 'customer_id', 'Customer not found', 404);
+  if (!vehicleBelongsToTenantCustomer(req, vehicle_id, customer_id)) return fail(res, 'vehicle_id', 'Vehicle not found', 404);
   const result = db.prepare(
     `INSERT INTO service_reminders (customer_id, vehicle_id, service_type, reminder_date, note)
      VALUES (?, ?, ?, ?, ?)`
@@ -184,8 +195,10 @@ router.post('/service-reminders', (req, res) => {
 });
 
 router.put('/service-reminders/:id', (req, res) => {
+  if (!positiveId(res, req.body.vehicle_id, 'vehicle_id')) return;
+  if (!isoDate(res, req.body, 'reminder_date', { required: true, label: 'Reminder date' })) return;
   const { vehicle_id, service_type, reminder_date, note, status } = req.body;
-  if (!vehicleBelongsToReminderTenant(req, vehicle_id, req.params.id)) return res.status(400).json({ error: 'Vehicle is outside the active shop context' });
+  if (!vehicleBelongsToReminderTenant(req, vehicle_id, req.params.id)) return fail(res, 'vehicle_id', 'Vehicle not found', 404);
   const tenant = customerTenantWhere(req, 'c');
   const result = db.prepare(`
     UPDATE service_reminders SET vehicle_id=?, service_type=?, reminder_date=?, note=?, status=?

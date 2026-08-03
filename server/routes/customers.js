@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, customerTenantWhere } = require('../tenant');
+const { requiredText, positiveId } = require('../validation');
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req);
@@ -20,8 +21,8 @@ router.get('/:id', (req, res) => {
 
 router.post('/', (req, res) => {
   const { first, last, phone, email, address, billing_address, notes, status, tags, customer_type, preferred_contact } = req.body;
-  if (!first || !first.trim()) return res.status(400).json({ error: 'Customer first name is required' });
-  if (!last  || !last.trim())  return res.status(400).json({ error: 'Customer last name is required' });
+  if (!requiredText(res, req.body, 'first', 'Customer first name')) return;
+  if (!requiredText(res, req.body, 'last', 'Customer last name')) return;
   const shopId = resolveShopId(req);
   const result = db.prepare(
     'INSERT INTO customers (shop_id, first, last, phone, email, address, billing_address, notes, status, tags, customer_type, preferred_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -31,6 +32,9 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!positiveId(res, req.params.id, 'id')) return;
+  if (!requiredText(res, req.body, 'first', 'Customer first name')) return;
+  if (!requiredText(res, req.body, 'last', 'Customer last name')) return;
   const { first, last, phone, email, address, billing_address, notes, status, tags, customer_type, preferred_contact } = req.body;
   const tenant = customerTenantWhere(req);
   const result = db.prepare(

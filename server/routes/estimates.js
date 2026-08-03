@@ -2,6 +2,22 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, shopTenantWhere, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
+const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
+
+function validateEstimate(res, body, create) {
+  if (create && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
+  if (create && !positiveId(res, body.vehicle_id, 'vehicle_id')) return false;
+  if (!positiveId(res, body.employee_id, 'employee_id')) return false;
+  if (create && !isoDate(res, body, 'date', { required: true, label: 'Estimate date' })) return false;
+  if (!isoDate(res, body, 'expires_date', { label: 'Expiration date' })) return false;
+  for (const field of ['discount','tax_rate','total']) if (!finiteNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
+  if (body.items !== undefined && !Array.isArray(body.items)) return fail(res, 'items', 'Items must be an array');
+  for (const item of body.items || []) {
+    for (const field of ['qty','rate','amount']) if (!finiteNumber(res, item, field, { label: `Item ${field}` })) return false;
+    if (!positiveId(res, item.inventory_id, 'inventory_id')) return false;
+  }
+  return true;
+}
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -32,18 +48,18 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validateEstimate(res, req.body, true)) return;
   const {
     customer_id, vehicle_id, employee_id, date, status, notes,
     customer_complaint, discount, tax_rate, expires_date, total, items,
     approved_by, approval_notes
   } = req.body;
-  if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
   const tenant = customerTenantWhere(req, 'c');
   const cust = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
-  if (!cust) return res.status(400).json({ error: 'Customer not found' });
+  if (!cust) return fail(res, 'customer_id', 'Customer not found', 404);
   if (vehicle_id) {
     const veh = db.prepare('SELECT id FROM vehicles WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(vehicle_id, customer_id);
-    if (!veh) return res.status(400).json({ error: 'Vehicle not found or does not belong to this customer' });
+    if (!veh) return fail(res, 'vehicle_id', 'Vehicle not found or does not belong to this customer', 404);
   }
   if (!employeeInTenant(req, employee_id)) {
     return res.status(400).json({ error: 'Employee is outside the active shop context' });
@@ -76,6 +92,7 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!validateEstimate(res, req.body, false)) return;
   const {
     status, notes, customer_complaint, discount, tax_rate, expires_date, total, items,
     approved_by, approval_notes

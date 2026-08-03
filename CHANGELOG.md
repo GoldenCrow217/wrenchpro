@@ -21,6 +21,35 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.23 - 2026-08-03
+
+### Added
+
+- Focused QA coverage for rendering security, IPv4 port selection, installment payments, mutation reliability, API validation, inventory values, and focus refreshes.
+
+### Changed
+
+- Successful create, edit, delete, status, and conversion workflows now update only directly affected frontend state instead of depending on the global `loadAll()` refresh.
+- API mutation routes consistently validate required text, finite numbers, dates, times, stable IDs, and related records before database execution.
+- Inventory cost, retail price, quantity, and reorder quantity now reject negative or malformed values at the API boundary while retaining fractional quantities.
+
+### Fixed
+
+- Stored customer and application text is escaped before HTML rendering to prevent persisted script injection.
+- Electron free-port probing now uses the same IPv4 loopback address as the Express server.
+- Installment payment creation and paid-state updates are transactional, linked, and idempotent.
+- Window-focus refresh failures retain existing state, avoid unhandled promise rejections, and show one consolidated warning.
+
+### Known limitations
+
+- Quick Entry is not fully transactional.
+- Payment-plan creation and optional down-payment recording remain separate operations.
+- Appointments do not yet support duration, status, or assigned employee fields.
+- Markup percentage is derived from rounded cost and retail values rather than stored.
+- Full CSP hardening and removal of `unsafe-inline` remain future work.
+- Some destructive actions still lack confirmation.
+- Modal Escape-key support and broader accessibility improvements remain future work.
+
 ## v1.0.22 - 2026-08-03
 
 ### Added
