@@ -992,7 +992,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="cf-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-cust')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveCustomer()">Save</button>
+        <button class="btn btn-primary" id="cf-save" type="button" onclick="saveCustomer()">Save</button>
       </div>
     </div>
   </div>
@@ -1611,6 +1611,7 @@ const API = '';
 let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[], estimates:[], inventory:[], catalog:[], inspections:[], warranties:[], timeLogs:[], leads:[] };
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
+let savingCustomer = false, pendingCustVehicleCustomerId = null;
 let detailCustId = null, detailTab = 'vehicles';
 let calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
 
@@ -1663,10 +1664,12 @@ function buildSpark(data){
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="none"><path d="${fill}" fill="var(--accent)" opacity="0.15"/><polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
-function toast(msg){
+let _toastTimer = null;
+function toast(msg, duration = 2500){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2500);
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), duration);
 }
 
 function addDays(d, n){
@@ -2808,6 +2811,7 @@ function toggleCustVehicle(){
 
 async function openCustModal(id){
   editCustId=id||null;
+  pendingCustVehicleCustomerId=null;
   document.getElementById('cf-del').innerHTML='';
   // Reset vehicle section
   document.getElementById('cf-veh-section').style.display='none';
@@ -2842,19 +2846,55 @@ async function openCustModal(id){
 }
 
 async function saveCustomer(){
-  const body={first:document.getElementById('cf-first').value||'New',last:document.getElementById('cf-last').value||'Customer',phone:document.getElementById('cf-phone').value,email:document.getElementById('cf-email').value,address:document.getElementById('cf-addr').value,billing_address:document.getElementById('cf-billing').value,notes:document.getElementById('cf-notes').value,status:document.getElementById('cf-status').value||'Active',tags:document.getElementById('cf-tags').value,customer_type:document.getElementById('cf-type').value||'Personal',preferred_contact:document.getElementById('cf-contact').value||'Phone'};
-  let r;
-  if(editCustId){ await api('PUT',`/api/customers/${editCustId}`,body); r={id:editCustId}; }
-  else r = await api('POST','/api/customers',body);
+  if(savingCustomer) return;
+  savingCustomer=true;
+  const saveBtn=document.getElementById('cf-save');
+  saveBtn.disabled=true;
+  const originalLabel=saveBtn.textContent;
+  saveBtn.textContent='Saving...';
+  let customerSaved=false;
+  try{
+    const body={first:document.getElementById('cf-first').value||'New',last:document.getElementById('cf-last').value||'Customer',phone:document.getElementById('cf-phone').value,email:document.getElementById('cf-email').value,address:document.getElementById('cf-addr').value,billing_address:document.getElementById('cf-billing').value,notes:document.getElementById('cf-notes').value,status:document.getElementById('cf-status').value||'Active',tags:document.getElementById('cf-tags').value,customer_type:document.getElementById('cf-type').value||'Personal',preferred_contact:document.getElementById('cf-contact').value||'Phone'};
+    let r;
+    if(editCustId){
+      await api('PUT',`/api/customers/${editCustId}`,body);
+      r={...(state.customers.find(c=>c.id===editCustId)||{}),...body,id:editCustId};
+    } else if(pendingCustVehicleCustomerId){
+      r=state.customers.find(c=>c.id===pendingCustVehicleCustomerId)||{id:pendingCustVehicleCustomerId,...body};
+    } else {
+      r=await api('POST','/api/customers',body);
+      pendingCustVehicleCustomerId=r.id;
+    }
+    customerSaved=true;
+    const existingIndex=state.customers.findIndex(c=>c.id===r.id);
+    if(existingIndex>=0) state.customers[existingIndex]=r;
+    else state.customers.push(r);
+    renderCustomers();
 
-  // Create vehicle if the section was filled in
-  const vehMake=document.getElementById('cf-veh-make').value.trim();
-  const vehModel=document.getElementById('cf-veh-model').value.trim();
-  if(!editCustId && (vehMake||vehModel) && r?.id){
-    await api('POST','/api/vehicles',{customer_id:r.id,year:parseInt(document.getElementById('cf-veh-year').value)||null,make:vehMake,model:vehModel,vin:document.getElementById('cf-veh-vin').value,plate:document.getElementById('cf-veh-plate').value});
+    // Create vehicle if the section was filled in
+    const vehMake=document.getElementById('cf-veh-make').value.trim();
+    const vehModel=document.getElementById('cf-veh-model').value.trim();
+    if(!editCustId && (vehMake||vehModel) && r?.id){
+      try{
+        const vehicle=await api('POST','/api/vehicles',{customer_id:r.id,year:parseInt(document.getElementById('cf-veh-year').value)||null,make:vehMake,model:vehModel,vin:document.getElementById('cf-veh-vin').value,plate:document.getElementById('cf-veh-plate').value});
+        state.vehicles.push(vehicle);
+      } catch(e){
+        toast(`Customer saved, but the vehicle was not saved. Check the vehicle details and click Save to retry. (${e.message})`, 8000);
+        return;
+      }
+    }
+    pendingCustVehicleCustomerId=null;
+    closeM('m-cust');
+    toast(editCustId?'Customer updated':'Customer added');
+    if(detailCustId) renderCustDetail();
+  } catch(e){
+    const message=e?.message||'Unknown error';
+    toast(customerSaved?`Customer saved, but a later step failed. Please retry. (${message})`:`Customer was not saved. Check your connection and try again. (${message})`, 8000);
+  } finally {
+    savingCustomer=false;
+    saveBtn.disabled=false;
+    saveBtn.textContent=originalLabel;
   }
-  closeM('m-cust'); await loadAll(); toast(editCustId?'Customer updated':'Customer added');
-  if(detailCustId) renderCustDetail();
 }
 
 async function deleteCustomer(id){
