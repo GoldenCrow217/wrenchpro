@@ -393,7 +393,7 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="brand-text">
       <span class="brand-name">WrenchPro</span>
-      <span class="brand-sub" id="brand-version">v1.0.21</span>
+      <span class="brand-sub" id="brand-version">v1.0.22</span>
     </div>
   </div>
 
@@ -521,7 +521,7 @@ tr:hover td{background:var(--bg-subtle);}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>
       </button>
       <button class="btn" id="sec-btn" style="display:none;" onclick="secAction()"></button>
-      <button class="btn btn-primary" id="pri-btn" onclick="priAction()">+ New Job</button>
+      <button class="btn btn-primary" id="pri-btn" type="button" onclick="priAction()">+ New Job</button>
     </div>
   </div>
   <div class="content">
@@ -1156,7 +1156,11 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Appointment -->
 <div class="modal-overlay" id="m-appt">
   <div class="modal">
-    <h2>New appointment</h2>
+    <h2 id="m-appt-title">New appointment</h2>
+    <div class="f2">
+      <div class="fr"><label>Linked customer <span style="font-weight:400;color:#aaa;">(optional)</span></label><select id="af-customer-id" onchange="loadVehiclesForAppt()"><option value="">— Select customer —</option></select></div>
+      <div class="fr"><label>Linked vehicle <span style="font-weight:400;color:#aaa;">(optional)</span></label><select id="af-vehicle-id"><option value="">— Select vehicle —</option></select></div>
+    </div>
     <div class="f2">
       <div class="fr"><label>Customer name</label><input id="af-cust" placeholder="John Smith"></div>
       <div class="fr"><label>Phone</label><input id="af-phone" placeholder="(555) 000-0000"></div>
@@ -1166,6 +1170,8 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="fr"><label>Date</label><input type="date" id="af-date"></div>
       <div class="fr"><label>Time</label><input type="time" id="af-time"></div>
     </div>
+    <div class="fr"><label>Address</label><input id="af-address" placeholder="123 Main St, City, State"></div>
+    <div class="fr"><label>Notes</label><input id="af-notes" placeholder="Appointment notes..."></div>
     <div class="mfooter"><div></div><div class="mfooter-r">
       <button class="btn" onclick="closeM('m-appt')">Cancel</button>
       <button class="btn btn-primary" onclick="saveAppt()">Save</button>
@@ -1416,9 +1422,9 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="fr"><label>Location</label><input id="prf-loc" placeholder="Truck bin 3, shelf A..."></div>
     </div>
     <div class="f3">
-      <div class="fr"><label>Cost ($)</label><input type="number" id="prf-cost" placeholder="0.00" step="0.01" min="0" oninput="calcPartMarkup()"></div>
-      <div class="fr"><label>Retail / list price ($) <span style="font-weight:400;color:#aaa;" id="prf-markup-hint"></span></label><input type="number" id="prf-retail" placeholder="0.00" step="0.01" min="0"></div>
-      <div class="fr"></div>
+      <div class="fr"><label>Cost ($)</label><input type="number" id="prf-cost" placeholder="0.00" step="0.01" min="0" oninput="updatePartRetailFromMarkup()"></div>
+      <div class="fr"><label>Markup %</label><input type="number" id="prf-markup" placeholder="0" step="0.01" min="0" oninput="updatePartRetailFromMarkup()"></div>
+      <div class="fr"><label>Retail / list price ($)</label><input type="number" id="prf-retail" placeholder="0.00" step="0.01" min="0" oninput="updatePartMarkupFromRetail()"></div>
     </div>
     <div class="f3">
       <div class="fr"><label>Qty on hand</label><input type="number" id="prf-qty" placeholder="0" min="0"></div>
@@ -1715,7 +1721,7 @@ async function initVersionLabels() {
     const health = await api('GET', '/api/health');
     setVersionLabels(health.version);
   } catch (_) {
-    setVersionLabels('1.0.21');
+    setVersionLabels('1.0.22');
   }
 }
 
@@ -1930,7 +1936,7 @@ async function renderDashboard(){
   <div class="page-actions">
     <button class="btn" onclick="openQuickEntry()">${iBolt} Quick entry</button>
     <button class="btn" onclick="openCustModal()">${iPlus} New Customer</button>
-    <button class="btn btn-primary" onclick="openJobModal()">${iPlus} New Job</button>
+    <button class="btn btn-primary" type="button" onclick="openJobModal()">${iPlus} New Job</button>
   </div>
 </div>
 
@@ -2090,9 +2096,9 @@ function renderCalendar(){
     const dayJobs=state.jobs.filter(j=>j.date===ds);
     const dayAppts=(state.appts||[]).filter(a=>a.date===ds);
     const evs=[
-      ...dayAppts.map(a=>`<div class="cal-ev">${a.time?fmtTime(a.time)+' ':''} ${a.cust}</div>`),
+      ...dayAppts.map(a=>`<div class="cal-ev" data-appointment-id="${a.id}" onclick="event.stopPropagation();openApptModal(null,${a.id})">${a.time?fmtTime(a.time)+' ':''} ${a.cust}</div>`),
       ...dayJobs.map(j=>`<div class="cal-ev ${j.status==='Complete'?'green':j.status==='Pending'?'amber':''}">${(j.service||'').slice(0,14)}</div>`)
-    ].slice(0,2).join('');
+    ].join('');
     cells+=`<div class="cal-cell${isToday?' today':''}" onclick="openApptModal('${ds}')"><div class="cal-num">${d}</div>${evs}</div>`;
   }
   document.getElementById('cal-body').innerHTML=cells;
@@ -2502,7 +2508,7 @@ function renderReport(){
   const pmtByMethod={}; pmts.forEach(p=>{pmtByMethod[p.method]=(pmtByMethod[p.method]||0)+p.amount;});
   const outstanding=state.plans.filter(p=>planBalance(p)>0);
   document.getElementById('report-body').innerHTML=`
-    <div class="card">
+    <div class="card card-pad">
       <div class="report-sect"><h3>Income</h3>
         <div class="report-line"><span>Labor revenue (est. 58%)</span><span style="color:#3B6D11;">${fmt$(laborEst)}</span></div>
         <div class="report-line"><span>Parts / materials (est. 42%)</span><span style="color:#3B6D11;">${fmt$(partsEst)}</span></div>
@@ -2725,50 +2731,63 @@ function addJobItemFromCatalog(){
 
 async function openJobModal(id){
   editJobId = id||null;
-  await populateCustomerDropdown('jf-cust');
-  const empSel=document.getElementById('jf-emp');
-  empSel.innerHTML='<option value="">— Unassigned —</option>'+state.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}${e.role?' ('+e.role+')':''}</option>`).join('');
-  document.getElementById('jf-date').value=today();
-  document.getElementById('jf-del').innerHTML='';
-  if(id){
-    const j=state.jobs.find(x=>x.id===id);
-    if(!j)return;
-    document.getElementById('m-job-title').textContent='Edit job';
-    document.getElementById('jf-cust').value=j.customer_id;
-    await loadVehiclesForJob(j.vehicle_id);
-    document.getElementById('jf-service').value=j.service||'';
-    document.getElementById('jf-date').value=j.date||today();
-    document.getElementById('jf-miles').value=j.miles||'';
-    document.getElementById('jf-status').value=j.status||'Pending';
-    document.getElementById('jf-notes').value=j.notes||'';
-    document.getElementById('jf-emp').value=j.employee_id||'';
-    document.getElementById('jf-complaint').value=j.complaint||'';
-    document.getElementById('jf-diagnosis').value=j.diagnosis||'';
-    document.getElementById('jf-inv-status').value=j.invoice_status||'Unpaid';
-    document.getElementById('jf-service-addr').value=j.service_address||'';
-    document.getElementById('jf-travel-fee').value=j.travel_fee||'';
-    jobItems = (j.items||[]).map(i=>({...i}));
-    if(!jobItems.length && (j.labor||j.parts)){
-      if(j.labor) jobItems.push({type:'labor',description:j.service||'Labor',qty:j.labor_hours||1,rate:j.labor_hours>0?+(j.labor/j.labor_hours).toFixed(2):j.labor,amount:j.labor,taxable:0});
-      if(j.parts) jobItems.push({type:'part',description:'Parts & materials',qty:1,rate:j.parts,amount:j.parts,taxable:1});
+  const modal=document.getElementById('m-job');
+  if(!modal){toast('The job form is unavailable. Refresh the application and try again.',8000);return;}
+  modal.classList.add('open');
+  try{
+    await populateCustomerDropdown('jf-cust');
+    const empSel=document.getElementById('jf-emp');
+    if(!empSel)throw new Error('Employee selector is unavailable');
+    const employees=Array.isArray(state.employees)?state.employees:[];
+    empSel.innerHTML='<option value="">— Unassigned —</option>'+employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.first} ${e.last}${e.role?' ('+e.role+')':''}</option>`).join('');
+    document.getElementById('jf-date').value=today();
+    document.getElementById('jf-del').innerHTML='';
+    if(id){
+      const jobs=Array.isArray(state.jobs)?state.jobs:[];
+      const j=jobs.find(x=>x.id===id);
+      if(!j)throw new Error('Job details are unavailable');
+      document.getElementById('m-job-title').textContent='Edit job';
+      document.getElementById('jf-cust').value=j.customer_id;
+      await loadVehiclesForJob(j.vehicle_id);
+      document.getElementById('jf-service').value=j.service||'';
+      document.getElementById('jf-date').value=j.date||today();
+      document.getElementById('jf-miles').value=j.miles||'';
+      document.getElementById('jf-status').value=j.status||'Pending';
+      document.getElementById('jf-notes').value=j.notes||'';
+      document.getElementById('jf-emp').value=j.employee_id||'';
+      document.getElementById('jf-complaint').value=j.complaint||'';
+      document.getElementById('jf-diagnosis').value=j.diagnosis||'';
+      document.getElementById('jf-inv-status').value=j.invoice_status||'Unpaid';
+      document.getElementById('jf-service-addr').value=j.service_address||'';
+      document.getElementById('jf-travel-fee').value=j.travel_fee||'';
+      jobItems = (j.items||[]).map(i=>({...i}));
+      if(!jobItems.length && (j.labor||j.parts)){
+        if(j.labor) jobItems.push({type:'labor',description:j.service||'Labor',qty:j.labor_hours||1,rate:j.labor_hours>0?+(j.labor/j.labor_hours).toFixed(2):j.labor,amount:j.labor,taxable:0});
+        if(j.parts) jobItems.push({type:'part',description:'Parts & materials',qty:1,rate:j.parts,amount:j.parts,taxable:1});
+      }
+      document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${id})">Delete job</button>`;
+    } else {
+      document.getElementById('m-job-title').textContent='New Job';
+      ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
+      document.getElementById('jf-status').value='Pending';
+      document.getElementById('jf-inv-status').value='Unpaid';
+      jobItems = [];
+      if(!(Array.isArray(state.customers)&&state.customers.length))toast('No customers are available. Add a customer before saving a job.',8000);
     }
-    document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${id})">Delete job</button>`;
-  } else {
-    document.getElementById('m-job-title').textContent='New Job';
-    ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
-    document.getElementById('jf-status').value='Pending';
-    document.getElementById('jf-inv-status').value='Unpaid';
-    jobItems = [];
+    renderJobItems();
+  }catch(e){
+    console.error('Unable to initialize job form:',e);
+    toast(`The job form opened, but some information could not be loaded. Refresh and try again. (${e?.message||'Unknown error'})`,8000);
   }
-  renderJobItems();
-  document.getElementById('m-job').classList.add('open');
 }
 
 async function loadVehiclesForJob(selectId){
   const custId=parseInt(document.getElementById('jf-cust').value);
   const sel=document.getElementById('jf-veh');
+  if(!sel)throw new Error('Vehicle selector is unavailable');
   if(isNaN(custId)){sel.innerHTML='<option value="">— Select vehicle —</option>';return;}
-  const vehs=state.vehicles.filter(v=>v.customer_id===custId);
+  const vehicles=Array.isArray(state.vehicles)?state.vehicles:[];
+  const vehs=vehicles.filter(v=>v.customer_id===custId);
   sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${v.id}" ${selectId===v.id?'selected':''}>${vLabel(v)} · ${v.plate||'no plate'}</option>`).join('');
   // Auto-fill service address from customer when creating a new job
   const addrEl=document.getElementById('jf-service-addr');
@@ -2798,7 +2817,9 @@ async function deleteJob(id){
 
 async function populateCustomerDropdown(selId){
   const sel=document.getElementById(selId);
-  sel.innerHTML='<option value="">— Select customer —</option>'+state.customers.map(c=>`<option value="${c.id}">${fullName(c)}</option>`).join('');
+  if(!sel)throw new Error('Customer selector is unavailable');
+  const customers=Array.isArray(state.customers)?state.customers:[];
+  sel.innerHTML='<option value="">— Select customer —</option>'+customers.map(c=>`<option value="${c.id}">${fullName(c)}</option>`).join('');
 }
 
 function toggleCustVehicle(){
@@ -2903,45 +2924,55 @@ async function deleteCustomer(id){
   closeM('m-cust'); showCustList(); await loadAll(); toast('Customer deleted');
 }
 
-function openVehModal(custId, vehId){
+async function openVehModal(custId, vehId){
   editVehCustId=custId; editVehId=vehId||null;
-  document.getElementById('vf-del').innerHTML='';
-  // Show customer selector when no customer context (opened from Vehicles page)
-  const custRow=document.getElementById('vf-cust-row');
-  const custSel=document.getElementById('vf-cust');
-  if(!custId){
-    custRow.style.display='';
-    custSel.innerHTML='<option value="">— Select customer —</option>'+state.customers.map(c=>`<option value="${c.id}">${fullName(c)}</option>`).join('');
-  } else {
-    custRow.style.display='none';
-    custSel.value='';
+  const modal=document.getElementById('m-veh');
+  if(!modal){toast('The vehicle form is unavailable. Refresh the application and try again.',8000);return;}
+  modal.classList.add('open');
+  try{
+    document.getElementById('vf-del').innerHTML='';
+    // Show customer selector when no customer context (opened from Vehicles page)
+    const custRow=document.getElementById('vf-cust-row');
+    const custSel=document.getElementById('vf-cust');
+    if(!custRow||!custSel)throw new Error('Customer selector is unavailable');
+    if(!custId){
+      custRow.style.display='';
+      await populateCustomerDropdown('vf-cust');
+    } else {
+      custRow.style.display='none';
+      custSel.value='';
+    }
+    if(vehId){
+      const vehicles=Array.isArray(state.vehicles)?state.vehicles:[];
+      const v=vehicles.find(x=>x.id===vehId);
+      if(!v)throw new Error('Vehicle details are unavailable');
+      document.getElementById('m-veh-title').textContent='Edit vehicle';
+      document.getElementById('vf-year').value=v.year||'';
+      document.getElementById('vf-make').value=v.make||'';
+      document.getElementById('vf-model').value=v.model||'';
+      document.getElementById('vf-trim').value=v.trim||'';
+      document.getElementById('vf-color').value=v.color||'';
+      document.getElementById('vf-plate').value=v.plate||'';
+      document.getElementById('vf-state').value=v.state||'';
+      document.getElementById('vf-vin').value=v.vin||'';
+      document.getElementById('vf-miles').value=v.miles||'';
+      document.getElementById('vf-oilmi').value=v.oil_change_miles||'';
+      document.getElementById('vf-notes').value=v.notes||'';
+      document.getElementById('vf-engine').value=v.engine||'';
+      document.getElementById('vf-fuel').value=v.fuel_type||'';
+      document.getElementById('vf-trans').value=v.transmission||'';
+      document.getElementById('vf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteVehicle(${vehId})">Remove vehicle</button>`;
+    } else {
+      document.getElementById('m-veh-title').textContent='Add vehicle';
+      ['vf-year','vf-make','vf-model','vf-trim','vf-engine','vf-color','vf-plate','vf-state','vf-vin','vf-miles','vf-oilmi','vf-notes'].forEach(x=>document.getElementById(x).value='');
+      document.getElementById('vf-fuel').value='';
+      document.getElementById('vf-trans').value='';
+      if(!(Array.isArray(state.customers)&&state.customers.length))toast('No customers are available. Add a customer before saving a vehicle.',8000);
+    }
+  }catch(e){
+    console.error('Unable to initialize vehicle form:',e);
+    toast(`The vehicle form opened, but some information could not be loaded. Refresh and try again. (${e?.message||'Unknown error'})`,8000);
   }
-  if(vehId){
-    const v=state.vehicles.find(x=>x.id===vehId);
-    if(!v)return;
-    document.getElementById('m-veh-title').textContent='Edit vehicle';
-    document.getElementById('vf-year').value=v.year||'';
-    document.getElementById('vf-make').value=v.make||'';
-    document.getElementById('vf-model').value=v.model||'';
-    document.getElementById('vf-trim').value=v.trim||'';
-    document.getElementById('vf-color').value=v.color||'';
-    document.getElementById('vf-plate').value=v.plate||'';
-    document.getElementById('vf-state').value=v.state||'';
-    document.getElementById('vf-vin').value=v.vin||'';
-    document.getElementById('vf-miles').value=v.miles||'';
-    document.getElementById('vf-oilmi').value=v.oil_change_miles||'';
-    document.getElementById('vf-notes').value=v.notes||'';
-    document.getElementById('vf-engine').value=v.engine||'';
-    document.getElementById('vf-fuel').value=v.fuel_type||'';
-    document.getElementById('vf-trans').value=v.transmission||'';
-    document.getElementById('vf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteVehicle(${vehId})">Remove vehicle</button>`;
-  } else {
-    document.getElementById('m-veh-title').textContent='Add vehicle';
-    ['vf-year','vf-make','vf-model','vf-trim','vf-engine','vf-color','vf-plate','vf-state','vf-vin','vf-miles','vf-oilmi','vf-notes'].forEach(x=>document.getElementById(x).value='');
-    document.getElementById('vf-fuel').value='';
-    document.getElementById('vf-trans').value='';
-  }
-  document.getElementById('m-veh').classList.add('open');
 }
 
 async function saveVehicle(){
@@ -3065,17 +3096,61 @@ async function saveExpense(){
   closeM('m-exp'); await loadAll(); toast('Expense saved');
 }
 
-function openApptModal(dateStr){
-  document.getElementById('af-date').value=dateStr||today();
-  document.getElementById('af-time').value='09:00';
-  ['af-cust','af-phone','af-service'].forEach(x=>document.getElementById(x).value='');
-  document.getElementById('m-appt').classList.add('open');
+let editApptId=null, editApptEstimateId=null;
+
+async function loadVehiclesForAppt(selectId){
+  const customerId=parseInt(document.getElementById('af-customer-id').value);
+  const vehicleSel=document.getElementById('af-vehicle-id');
+  if(!vehicleSel)throw new Error('Appointment vehicle selector is unavailable');
+  const vehicles=Array.isArray(state.vehicles)?state.vehicles:[];
+  const matching=Number.isInteger(customerId)?vehicles.filter(v=>v.customer_id===customerId):[];
+  vehicleSel.innerHTML='<option value="">— Select vehicle —</option>'+matching.map(v=>`<option value="${v.id}" ${v.id===selectId?'selected':''}>${vLabel(v)}</option>`).join('');
+}
+
+async function openApptModal(dateStr, appointmentId){
+  const appointment=appointmentId?(Array.isArray(state.appts)?state.appts:[]).find(a=>a.id===appointmentId):null;
+  if(appointmentId&&!appointment){
+    console.error('Appointment not found:',appointmentId);
+    toast(`Appointment ${appointmentId} could not be found. Refresh the Schedule and try again.`,8000);
+    return;
+  }
+  editApptId=appointmentId||null;
+  editApptEstimateId=appointment?.estimate_id||null;
+  const modal=document.getElementById('m-appt');
+  if(!modal){toast('The appointment form is unavailable. Refresh the application and try again.',8000);return;}
+  modal.classList.add('open');
+  try{
+    await populateCustomerDropdown('af-customer-id');
+    if(appointment){
+      document.getElementById('m-appt-title').textContent='Edit appointment';
+      document.getElementById('af-customer-id').value=appointment.customer_id||'';
+      await loadVehiclesForAppt(appointment.vehicle_id||null);
+      document.getElementById('af-cust').value=appointment.cust||'';
+      document.getElementById('af-phone').value=appointment.phone||'';
+      document.getElementById('af-service').value=appointment.service||'';
+      document.getElementById('af-date').value=appointment.date||today();
+      document.getElementById('af-time').value=appointment.time||'';
+      document.getElementById('af-address').value=appointment.address||'';
+      document.getElementById('af-notes').value=appointment.notes||'';
+    }else{
+      document.getElementById('m-appt-title').textContent='New appointment';
+      document.getElementById('af-date').value=dateStr||today();
+      document.getElementById('af-time').value='09:00';
+      ['af-cust','af-phone','af-service','af-address','af-notes'].forEach(x=>document.getElementById(x).value='');
+      document.getElementById('af-customer-id').value='';
+      await loadVehiclesForAppt();
+    }
+  }catch(e){
+    console.error('Unable to initialize appointment form:',e);
+    toast(`The appointment form opened, but some information could not be loaded. Refresh and try again. (${e?.message||'Unknown error'})`,8000);
+  }
 }
 
 async function saveAppt(){
-  const body={cust:document.getElementById('af-cust').value||'Appointment',phone:document.getElementById('af-phone').value,service:document.getElementById('af-service').value,date:document.getElementById('af-date').value,time:document.getElementById('af-time').value};
-  await api('POST','/api/appointments',body);
-  closeM('m-appt'); await loadAll(); toast('Appointment saved');
+  const body={cust:document.getElementById('af-cust').value||'Appointment',phone:document.getElementById('af-phone').value,service:document.getElementById('af-service').value,date:document.getElementById('af-date').value,time:document.getElementById('af-time').value,customer_id:parseInt(document.getElementById('af-customer-id').value)||null,vehicle_id:parseInt(document.getElementById('af-vehicle-id').value)||null,address:document.getElementById('af-address').value,notes:document.getElementById('af-notes').value,estimate_id:editApptEstimateId};
+  if(editApptId)await api('PUT',`/api/appointments/${editApptId}`,body);
+  else await api('POST','/api/appointments',body);
+  closeM('m-appt'); await loadAll(); toast(editApptId?'Appointment updated':'Appointment saved');
 }
 
 // ── Settings ──
@@ -3558,6 +3633,7 @@ async function deleteSvcReminder(id){
 
 // ── Leads ──────────────────────────────────────────────────────────────────────
 let editLeadId = null;
+const convertingLeadIds = new Set();
 
 function leadStatusBadge(s){
   const m={New:'b-blue',Contacted:'b-amber',Quoted:'b-purple',Scheduled:'b-teal',Won:'b-green',Lost:'b-gray'};
@@ -3593,7 +3669,7 @@ function renderLeads(){
     <td>${leadStatusBadge(l.status)}</td>
     <td style="display:flex;gap:4px;">
       <button class="btn btn-sm" onclick="openLeadModal(${l.id})">Edit</button>
-      ${l.status!=='Won'?`<button class="btn btn-sm btn-success" onclick="convertLeadToCustomer(${l.id})" style="font-size:10px;">Convert</button>`:''}
+      ${l.status!=='Won'?`<button class="btn btn-sm btn-success" id="lead-convert-${l.id}" onclick="convertLeadToCustomer(${l.id})" style="font-size:10px;">Convert</button>`:''}
     </td>
   </tr>`).join('');
 }
@@ -3645,11 +3721,33 @@ async function deleteLead(id){
 }
 
 async function convertLeadToCustomer(id){
+  if(convertingLeadIds.has(id))return;
+  const lead=state.leads.find(l=>l.id===id);
+  if(!lead){toast('Lead not found. Refresh the Leads page and try again.',8000);return;}
+  if(!(lead.first||'').trim()){toast('Enter a first name before converting this lead.',8000);return;}
   if(!confirm('Convert this lead to a customer? A new customer record will be created.'))return;
-  const r=await api('POST',`/api/leads/${id}/convert`);
-  await loadAll();
-  toast('Lead converted to customer!');
-  if(r.customer_id){ sp('customers',document.querySelector('.nav-item[onclick*="customers"]')); openCustDetail(r.customer_id); }
+  convertingLeadIds.add(id);
+  const button=document.getElementById(`lead-convert-${id}`);
+  const originalLabel=button?.textContent||'Convert';
+  if(button){button.disabled=true;button.textContent='Converting...';}
+  try{
+    const r=await api('POST',`/api/leads/${id}/convert`);
+    if(!r.customer_id||!r.customer)throw new Error('Conversion did not return a valid customer');
+    const customerIndex=state.customers.findIndex(c=>c.id===r.customer_id);
+    if(customerIndex>=0)state.customers[customerIndex]=r.customer;
+    else state.customers.push(r.customer);
+    const leadIndex=state.leads.findIndex(l=>l.id===id);
+    if(leadIndex>=0)state.leads[leadIndex]=r.lead||{...state.leads[leadIndex],status:'Won',converted_customer_id:r.customer_id};
+    renderLeads();
+    toast(r.already_converted?'Lead was already converted. Opening the customer.':'Lead converted to customer!');
+    sp('customers',document.querySelector('.nav-item[onclick*="customers"]'));
+    openCustDetail(r.customer_id);
+  }catch(e){
+    toast(`Lead was not converted. Review the lead details and try again. (${e?.message||'Unknown error'})`,8000);
+  }finally{
+    convertingLeadIds.delete(id);
+    if(button&&button.isConnected){button.disabled=false;button.textContent=originalLabel;}
+  }
 }
 
 // ── Estimates ─────────────────────────────────────────────────────────────────
@@ -3989,6 +4087,7 @@ async function deleteInspection(id){
 
 // ── Parts / Inventory ─────────────────────────────────────────────────────────
 let editPartId = null;
+let partPricingMode = 'markup';
 
 function renderInventory(){
   const q=(document.getElementById('inv-search')||{value:''}).value.toLowerCase();
@@ -4023,18 +4122,36 @@ function renderInventory(){
   }).join('');
 }
 
-function calcPartMarkup(){
-  const cost = parseFloat(document.getElementById('prf-cost').value) || 0;
-  if(cost <= 0){ document.getElementById('prf-markup-hint').textContent=''; return; }
-  let mult, label;
-  if(cost <= 1.00)   { mult = 3.50; label = '250%'; }
-  else if(cost <= 5.00)  { mult = 2.50; label = '150%'; }
-  else if(cost <= 25.00) { mult = 2.00; label = '100%'; }
-  else if(cost <= 100.00){ mult = 1.50; label = '50%'; }
-  else                   { mult = 1.25; label = '25%'; }
-  const retail = +(cost * mult).toFixed(2);
-  document.getElementById('prf-retail').value = retail;
-  document.getElementById('prf-markup-hint').textContent = `(${label} markup)`;
+function partPriceToCents(value){
+  return Math.round((Number(value)+Number.EPSILON)*100)/100;
+}
+
+function formatPartPercent(value){
+  return Number(partPriceToCents(value).toFixed(2)).toString();
+}
+
+function updatePartRetailFromMarkup(){
+  partPricingMode='markup';
+  const cost=parseFloat(document.getElementById('prf-cost').value);
+  const markup=parseFloat(document.getElementById('prf-markup').value);
+  const retailEl=document.getElementById('prf-retail');
+  if(!Number.isFinite(cost)||cost===0){
+    document.getElementById('prf-markup').value='';
+    retailEl.value='0.00';
+    return;
+  }
+  if(cost<0||!Number.isFinite(markup)||markup<0)return;
+  retailEl.value=partPriceToCents(cost*(1+markup/100)).toFixed(2);
+}
+
+function updatePartMarkupFromRetail(){
+  partPricingMode='retail';
+  const cost=parseFloat(document.getElementById('prf-cost').value);
+  const retail=parseFloat(document.getElementById('prf-retail').value);
+  const markupEl=document.getElementById('prf-markup');
+  if(!Number.isFinite(cost)||cost===0){markupEl.value='';return;}
+  if(cost<0||!Number.isFinite(retail)||retail<0)return;
+  markupEl.value=formatPartPercent(((retail-cost)/cost)*100);
 }
 
 function openPartModal(id){
@@ -4050,13 +4167,16 @@ function openPartModal(id){
     document.getElementById('prf-loc').value=p.location||'';
     document.getElementById('prf-cost').value=p.cost||'';
     document.getElementById('prf-retail').value=p.retail_price||'';
+    document.getElementById('prf-markup').value=p.cost>0?formatPartPercent(((p.retail_price-p.cost)/p.cost)*100):'';
+    partPricingMode='retail';
     document.getElementById('prf-qty').value=p.quantity||0;
     document.getElementById('prf-reorder').value=p.reorder_qty||0;
     document.getElementById('prf-notes').value=p.notes||'';
     document.getElementById('prf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deletePart(${id})">Delete</button>`;
   } else {
     document.getElementById('m-part-title').textContent='Add Part';
-    ['prf-name','prf-num','prf-vendor','prf-loc','prf-cost','prf-retail','prf-notes'].forEach(x=>document.getElementById(x).value='');
+    ['prf-name','prf-num','prf-vendor','prf-loc','prf-cost','prf-markup','prf-retail','prf-notes'].forEach(x=>document.getElementById(x).value='');
+    partPricingMode='markup';
     document.getElementById('prf-qty').value=0;
     document.getElementById('prf-reorder').value=1;
   }
@@ -4066,7 +4186,13 @@ function openPartModal(id){
 async function savePart(){
   const name=document.getElementById('prf-name').value.trim();
   if(!name){toast('Please enter a part name.');return;}
-  const body={name,part_number:document.getElementById('prf-num').value,vendor:document.getElementById('prf-vendor').value,location:document.getElementById('prf-loc').value,cost:parseFloat(document.getElementById('prf-cost').value)||0,retail_price:parseFloat(document.getElementById('prf-retail').value)||0,quantity:parseInt(document.getElementById('prf-qty').value)||0,reorder_qty:parseInt(document.getElementById('prf-reorder').value)||0,notes:document.getElementById('prf-notes').value};
+  const cost=parseFloat(document.getElementById('prf-cost').value)||0;
+  const markup=parseFloat(document.getElementById('prf-markup').value)||0;
+  const retailPrice=parseFloat(document.getElementById('prf-retail').value)||0;
+  if(cost<0){toast('Part cost cannot be negative.',8000);return;}
+  if(markup<0){toast('Markup percentage cannot be negative.',8000);return;}
+  if(retailPrice<0){toast('Retail price cannot be negative.',8000);return;}
+  const body={name,part_number:document.getElementById('prf-num').value,vendor:document.getElementById('prf-vendor').value,location:document.getElementById('prf-loc').value,cost:partPriceToCents(cost),retail_price:partPriceToCents(retailPrice),quantity:parseInt(document.getElementById('prf-qty').value)||0,reorder_qty:parseInt(document.getElementById('prf-reorder').value)||0,notes:document.getElementById('prf-notes').value};
   if(editPartId) await api('PUT',`/api/inventory/${editPartId}`,body);
   else await api('POST','/api/inventory',body);
   closeM('m-part'); await loadAll(); toast(editPartId?'Part updated':'Part added');

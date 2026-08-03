@@ -46,9 +46,11 @@ router.post('/:id/convert', (req, res) => {
   const tenant = leadTenantWhere(req);
   const lead = db.prepare(`SELECT * FROM leads WHERE id = ? AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
   if (!lead) return res.status(404).json({ error: 'Not found' });
+  if (!lead.first || !lead.first.trim()) return res.status(400).json({ error: 'Lead first name is required before conversion' });
   if (lead.converted_customer_id) {
-    const existing = db.prepare('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL').get(lead.converted_customer_id);
-    if (existing) return res.json({ customer_id: existing.id, already_converted: true });
+    const existing = db.prepare('SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL').get(lead.converted_customer_id);
+    if (existing) return res.json({ customer_id: existing.id, customer: existing, lead, already_converted: true });
+    return res.status(409).json({ error: 'This lead was already converted, but its customer record is unavailable' });
   }
 
   const convertLead = db.transaction(() => {
@@ -63,13 +65,17 @@ router.post('/:id/convert', (req, res) => {
       db.prepare('INSERT INTO vehicles (customer_id, year, make, model, vin) VALUES (?, ?, ?, ?, ?)')
         .run(custId, lead.vehicle_year || 0, lead.vehicle_make || '', lead.vehicle_model || '', lead.vin || '');
     }
-    db.prepare(`UPDATE leads SET status='Won', converted_customer_id=? WHERE id=? AND ${tenant.clause}`)
+    const updated = db.prepare(`UPDATE leads SET status='Won', converted_customer_id=? WHERE id=? AND ${tenant.clause}`)
       .run(custId, lead.id, ...tenant.values);
+    if (!updated.changes) throw new Error('Customer was not created because the lead conversion could not be completed');
     return { customerId: custId, alreadyConverted: false };
   });
 
   const converted = convertLead();
-  res.json({ customer_id: converted.customerId, already_converted: converted.alreadyConverted });
+  const customer = db.prepare('SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL').get(converted.customerId);
+  const convertedLead = db.prepare(`SELECT * FROM leads WHERE id = ? AND ${tenant.clause}`).get(lead.id, ...tenant.values);
+  if (!customer) return res.status(500).json({ error: 'Lead conversion completed without a valid customer record' });
+  res.json({ customer_id: customer.id, customer, lead: convertedLead, already_converted: converted.alreadyConverted });
 });
 
 module.exports = router;
