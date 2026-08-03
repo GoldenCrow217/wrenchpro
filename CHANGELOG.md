@@ -21,6 +21,30 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.22 - 2026-08-03
+
+### Added
+
+- Parts and Inventory now includes a derived Markup % input with two-way cost/markup/retail calculations, cent rounding, and nonnegative price validation.
+- Saved appointments can be selected by stable ID from the Schedule calendar and edited through the existing appointment modal and API.
+
+### Fixed
+
+- Customer saves no longer depend on unrelated data refreshes, reject duplicate clicks, clearly report failures, and retain the saved customer when optional vehicle creation needs to be retried.
+- Lead conversion remains transactional and idempotent while updating only the affected lead and customer state in the frontend.
+- New Job and Add Vehicle actions open their modals before optional initialization and provide guidance when related state is unavailable.
+- Appointment clicks no longer bubble into the calendar day action; multiple appointments on the same date remain independently selectable.
+- Profit and Loss report content uses the shared padded-card layout so the Income heading is no longer clipped.
+
+## v1.0.20 - 2026-07-29
+
+### Fixed
+
+- Release workflow now runs `electron:publish` (`--publish always`) instead of a plain build, so `latest.yml` and the installer blockmap are actually uploaded to the GitHub release. Previously published installers (including v1.0.19) had no update manifest, so **Help > Check for Updates** failed with a 404 on `latest.yml`.
+- CI now verifies `dist/latest.yml`, the installer it references, and the matching `.blockmap` all exist before the release step is considered done.
+- Auto-updater shows a clearer message when update metadata is missing instead of a raw HTTP error.
+- CI now pre-creates the GitHub release before running electron-builder, avoiding a race where concurrent asset uploads (installer + blockmap) both tried to create the release and one failed with `422 already_exists`, leaving the release incomplete.
+
 ## v1.0.13 - 2026-05-03
 
 ### Fixed

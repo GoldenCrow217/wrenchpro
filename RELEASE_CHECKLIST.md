@@ -30,6 +30,7 @@ Use this before creating or publishing a release.
 - [ ] Run app smoke test.
 - [ ] Run build command.
 - [ ] Confirm installer exists in `dist`.
+- [ ] Confirm `dist/latest.yml` and the matching `.exe.blockmap` exist.
 - [ ] Confirm installer size looks reasonable.
 
 ## Install / Update Test
@@ -48,8 +49,9 @@ Do not publish without Brandon approval.
 - [ ] Commit final changes.
 - [ ] Tag version if appropriate.
 - [ ] Create release notes.
-- [ ] Upload installer if using GitHub releases.
-- [ ] Confirm release assets are correct.
+- [ ] Push the version tag and let `.github/workflows/release.yml` publish the release artifacts.
+- [ ] Confirm the GitHub release includes `latest.yml`, the installer named by it, and the matching `.exe.blockmap`.
+- [ ] Open the installed app and confirm **Help → Check for Updates** no longer reports a missing manifest.
 
 ## Post-Release
 

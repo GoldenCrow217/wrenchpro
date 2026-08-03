@@ -1,6 +1,6 @@
 {
   "name": "wrenchpro",
-  "version": "1.0.19",
+  "version": "1.0.22",
   "description": "WrenchPro Mobile Mechanic Manager",
   "author": "GoldenCrow217",
   "main": "electron/main.js",
@@ -8,7 +8,8 @@
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
     "electron:dev": "electron .",
-    "electron:build": "electron-builder --win",
+    "electron:build": "electron-builder --win --publish never",
+    "electron:publish": "npm run electron:build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux",
     "rebuild-native": "electron-builder install-app-deps",
@@ -32,6 +33,7 @@
   "build": {
     "appId": "com.wrenchpro.app",
     "productName": "WrenchPro",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "copyright": "Copyright © 2025",
     "asar": true,
     "asarUnpack": [

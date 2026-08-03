@@ -34,9 +34,32 @@ jobs:
         run: npm run rebuild-native
 
       - name: Build Windows installer
+        run: npm run electron:build
+
+      - name: Verify updater release artifacts
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -LiteralPath 'dist/latest.yml')) {
+            throw 'dist/latest.yml was not generated'
+          }
+          $manifest = Get-Content -LiteralPath 'dist/latest.yml' -Raw
+          if ($manifest -notmatch '\.exe' -or $manifest -notmatch 'sha512:') {
+            throw 'dist/latest.yml is missing installer metadata'
+          }
+          $installerName = [regex]::Match($manifest, '(?m)^path:\s*(.+\.exe)\s*$').Groups[1].Value.Trim()
+          if (-not $installerName -or -not (Test-Path -LiteralPath (Join-Path 'dist' $installerName))) {
+            throw "The installer referenced by latest.yml was not generated: $installerName"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path 'dist' "$installerName.blockmap"))) {
+            throw "The blockmap referenced by the installer was not generated: $installerName.blockmap"
+          }
+
+      - name: Publish release artifacts
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run electron:build
+        run: |
+          ./scripts/publish-release.ps1
 
       - name: Upload artifacts (fallback)
         if: failure()
