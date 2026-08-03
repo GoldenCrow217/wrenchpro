@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere } = require('../tenant');
+const { fail, finiteNumber, positiveId } = require('../validation');
+
+function validateVehicle(res, body, requireCustomer) {
+  if (!positiveId(res, body.customer_id, 'customer_id', { required: requireCustomer })) return false;
+  for (const [field, label] of [['year','Year'],['miles','Mileage'],['oil_change_miles','Oil-change mileage']]) {
+    if (!finiteNumber(res, body, field, { label })) return false;
+  }
+  return true;
+}
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -16,11 +25,11 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validateVehicle(res, req.body, true)) return;
   const { customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes } = req.body;
-  if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
   const tenant = customerTenantWhere(req, 'c');
   const cust = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
-  if (!cust) return res.status(400).json({ error: 'Customer not found' });
+  if (!cust) return fail(res, 'customer_id', 'Customer not found', 404);
   const result = db.prepare(`
     INSERT INTO vehicles (customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -29,6 +38,7 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!validateVehicle(res, req.body, false)) return;
   const { year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes } = req.body;
   const tenant = customerTenantWhere(req, 'c');
   const result = db.prepare(`

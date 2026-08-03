@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, shopTenantWhere } = require('../tenant');
+const { fail, positiveId, isoDate } = require('../validation');
+
+function validateInspection(res, body, create) {
+  if (create && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
+  for (const field of ['vehicle_id','job_id','employee_id']) if (!positiveId(res, body[field], field)) return false;
+  if (create && !isoDate(res, body, 'date', { required: true, label: 'Inspection date' })) return false;
+  if (body.items !== undefined && !Array.isArray(body.items)) return fail(res, 'items', 'Items must be an array');
+  return true;
+}
 
 function employeeInTenant(req, employeeId) {
   if (!employeeId) return true;
@@ -26,25 +35,25 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validateInspection(res, req.body, true)) return;
   const { job_id, customer_id, vehicle_id, employee_id, date, notes, status, items } = req.body;
-  if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
 
   const tenant = customerTenantWhere(req, 'c');
   const customer = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`)
     .get(customer_id, ...tenant.values);
-  if (!customer) return res.status(400).json({ error: 'Customer not found' });
+  if (!customer) return fail(res, 'customer_id', 'Customer not found', 404);
 
   if (vehicle_id) {
     const vehicle = db.prepare('SELECT id FROM vehicles WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(vehicle_id, customer_id);
-    if (!vehicle) return res.status(400).json({ error: 'Vehicle not found or does not belong to this customer' });
+    if (!vehicle) return fail(res, 'vehicle_id', 'Vehicle not found or does not belong to this customer', 404);
   }
 
   if (job_id) {
     const job = db.prepare('SELECT id FROM jobs WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(job_id, customer_id);
-    if (!job) return res.status(400).json({ error: 'Job not found or does not belong to this customer' });
+    if (!job) return fail(res, 'job_id', 'Job not found or does not belong to this customer', 404);
   }
 
-  if (!employeeInTenant(req, employee_id)) return res.status(400).json({ error: 'Employee not found for this shop' });
+  if (!employeeInTenant(req, employee_id)) return fail(res, 'employee_id', 'Employee not found', 404);
 
   const id = db.transaction(() => {
     const result = db.prepare(`
@@ -62,6 +71,7 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!validateInspection(res, req.body, false)) return;
   const { notes, status, items } = req.body;
   const tenant = customerTenantWhere(req, 'c');
   const changes = db.transaction(() => {

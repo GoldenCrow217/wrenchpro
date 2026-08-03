@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId } = require('../tenant');
+const { requiredText, finiteNumber, positiveId, isoDate } = require('../validation');
 
 function leadTenantWhere(req) {
   const shopId = resolveShopId(req);
@@ -15,6 +16,10 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!requiredText(res, req.body, 'first', 'First name')) return;
+  if (!finiteNumber(res, req.body, 'vehicle_year', { label: 'Vehicle year' })) return;
+  if (!finiteNumber(res, req.body, 'estimated_value', { label: 'Estimated value' })) return;
+  if (!isoDate(res, req.body, 'follow_up_date', { label: 'Follow-up date' })) return;
   const { first, last, phone, email, source, vehicle_year, vehicle_make, vehicle_model, vin, service_needed, status, notes, follow_up_date, estimated_value } = req.body;
   const shopId = resolveShopId(req);
   const result = db.prepare(`
@@ -25,6 +30,11 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!positiveId(res, req.params.id, 'id')) return;
+  if (!requiredText(res, req.body, 'first', 'First name')) return;
+  if (!finiteNumber(res, req.body, 'vehicle_year', { label: 'Vehicle year' })) return;
+  if (!finiteNumber(res, req.body, 'estimated_value', { label: 'Estimated value' })) return;
+  if (!isoDate(res, req.body, 'follow_up_date', { label: 'Follow-up date' })) return;
   const { first, last, phone, email, source, vehicle_year, vehicle_make, vehicle_model, vin, service_needed, status, notes, follow_up_date, estimated_value } = req.body;
   const tenant = leadTenantWhere(req);
   const result = db.prepare(`
@@ -43,6 +53,7 @@ router.delete('/:id', (req, res) => {
 });
 
 router.post('/:id/convert', (req, res) => {
+  if (!positiveId(res, req.params.id, 'id')) return;
   const tenant = leadTenantWhere(req);
   const lead = db.prepare(`SELECT * FROM leads WHERE id = ? AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
   if (!lead) return res.status(404).json({ error: 'Not found' });

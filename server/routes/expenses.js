@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, shopTenantWhere } = require('../tenant');
+const { requiredText, finiteNumber, positiveId, isoDate } = require('../validation');
+
+function validateExpense(res, body) {
+  return isoDate(res, body, 'date', { required: true, label: 'Date' })
+    && requiredText(res, body, 'description', 'Description')
+    && requiredText(res, body, 'category', 'Category')
+    && finiteNumber(res, body, 'amount', { required: true, label: 'Amount' });
+}
 
 router.get('/', (req, res) => {
   const { category, month } = req.query;
@@ -15,6 +23,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validateExpense(res, req.body)) return;
   const { date, description, category, amount, note } = req.body;
   const shopId = resolveShopId(req);
   const result = db.prepare(
@@ -24,6 +33,8 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!positiveId(res, req.params.id, 'id')) return;
+  if (!validateExpense(res, req.body)) return;
   const { date, description, category, amount, note } = req.body;
   const tenant = shopTenantWhere(req);
   const result = db.prepare(`UPDATE expenses SET date=?, description=?, category=?, amount=?, note=? WHERE id=? AND ${tenant.clause}`)

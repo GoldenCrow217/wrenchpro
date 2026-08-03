@@ -2,6 +2,22 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, shopTenantWhere, resolveShopId, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
+const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
+
+function validateJob(res, body, create) {
+  if (create && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
+  if (create && !positiveId(res, body.vehicle_id, 'vehicle_id', { required: true })) return false;
+  if (!positiveId(res, body.employee_id, 'employee_id')) return false;
+  if (!positiveId(res, body.estimate_id, 'estimate_id')) return false;
+  if (!isoDate(res, body, 'date', { required: true, label: 'Job date' })) return false;
+  for (const field of ['miles','labor','labor_hours','labor_rate','parts','travel_fee']) if (!finiteNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
+  if (body.items !== undefined && !Array.isArray(body.items)) return fail(res, 'items', 'Items must be an array');
+  for (const item of body.items || []) {
+    for (const field of ['qty','rate','amount']) if (!finiteNumber(res, item, field, { label: `Item ${field}` })) return false;
+    if (!positiveId(res, item.inventory_id, 'inventory_id')) return false;
+  }
+  return true;
+}
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -88,33 +104,31 @@ const createJob = db.transaction((values, items) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validateJob(res, req.body, true)) return;
   const {
     customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
     parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
     service_address, travel_fee, items
   } = req.body;
-  if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
-  if (!vehicle_id)  return res.status(400).json({ error: 'Vehicle is required' });
-  if (!date)        return res.status(400).json({ error: 'Date is required' });
 
   const tenant = customerTenantWhere(req, 'c');
   const cust = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
-  if (!cust) return res.status(400).json({ error: 'Customer not found' });
+  if (!cust) return fail(res, 'customer_id', 'Customer not found', 404);
 
   const veh = db.prepare('SELECT id FROM vehicles WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(vehicle_id, customer_id);
-  if (!veh) return res.status(400).json({ error: 'Vehicle not found or does not belong to this customer' });
+  if (!veh) return fail(res, 'vehicle_id', 'Vehicle not found or does not belong to this customer', 404);
 
   if (!employeeInTenant(req, employee_id)) {
-    return res.status(400).json({ error: 'Employee is outside the active shop context' });
+    return fail(res, 'employee_id', 'Employee not found', 404);
   }
 
   if (!inventoryItemsInTenant(req, items)) {
-    return res.status(400).json({ error: 'Inventory item is outside the active shop context' });
+    return fail(res, 'inventory_id', 'Inventory item not found', 404);
   }
 
   if (estimate_id) {
     const est = db.prepare('SELECT id FROM estimates WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(estimate_id, customer_id);
-    if (!est) return res.status(400).json({ error: 'Estimate not found or does not belong to this customer' });
+    if (!est) return fail(res, 'estimate_id', 'Estimate not found or does not belong to this customer', 404);
   }
 
   const isTerminal = (status === 'Complete' || status === 'Canceled');
@@ -136,6 +150,7 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!validateJob(res, req.body, false)) return;
   const {
     service, date, miles, labor, labor_hours, labor_rate, parts, status, notes,
     employee_id, complaint, diagnosis, invoice_status, estimate_id,
@@ -152,16 +167,16 @@ router.put('/:id', (req, res) => {
   if (!current) return res.status(404).json({ error: 'Job not found' });
 
   if (!employeeInTenant(req, employee_id)) {
-    return res.status(400).json({ error: 'Employee is outside the active shop context' });
+    return fail(res, 'employee_id', 'Employee not found', 404);
   }
 
   if (!inventoryItemsInTenant(req, items)) {
-    return res.status(400).json({ error: 'Inventory item is outside the active shop context' });
+    return fail(res, 'inventory_id', 'Inventory item not found', 404);
   }
 
   if (estimate_id) {
     const est = db.prepare('SELECT id FROM estimates WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(estimate_id, current.customer_id);
-    if (!est) return res.status(400).json({ error: 'Estimate not found or does not belong to this job customer' });
+    if (!est) return fail(res, 'estimate_id', 'Estimate not found or does not belong to this job customer', 404);
   }
 
   const isTerminal = status === 'Complete' || status === 'Canceled';

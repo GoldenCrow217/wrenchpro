@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, shopTenantWhere, customerTenantWhere, getTenantCustomer } = require('../tenant');
+const { fail, positiveId, isoDate, clockTime } = require('../validation');
 
-function validateTenantRefs(req, customerId, vehicleId, estimateId) {
+function validateTenantRefs(req, res, customerId, vehicleId, estimateId) {
   const tenant = customerTenantWhere(req, 'c');
   if (customerId) {
     const { customer } = getTenantCustomer(req, customerId, 'c');
-    if (!customer) return false;
+    if (!customer) return fail(res, 'customer_id', 'Customer not found', 404);
   }
   if (vehicleId) {
     const vehicle = db.prepare(`
@@ -16,7 +17,7 @@ function validateTenantRefs(req, customerId, vehicleId, estimateId) {
       WHERE v.id = ? AND v.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
       ${customerId ? 'AND v.customer_id = ?' : ''}
     `).get(vehicleId, ...tenant.values, ...(customerId ? [customerId] : []));
-    if (!vehicle) return false;
+    if (!vehicle) return fail(res, 'vehicle_id', 'Vehicle not found', 404);
   }
   if (estimateId) {
     const estimate = db.prepare(`
@@ -25,9 +26,19 @@ function validateTenantRefs(req, customerId, vehicleId, estimateId) {
       WHERE e.id = ? AND e.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
       ${customerId ? 'AND e.customer_id = ?' : ''}
     `).get(estimateId, ...tenant.values, ...(customerId ? [customerId] : []));
-    if (!estimate) return false;
+    if (!estimate) return fail(res, 'estimate_id', 'Estimate not found', 404);
   }
   return true;
+}
+
+function validateAppointment(req, res) {
+  const body = req.body;
+  if (!isoDate(res, body, 'date', { required: true, label: 'Appointment date' })) return false;
+  if (!clockTime(res, body, 'time')) return false;
+  for (const field of ['customer_id', 'vehicle_id', 'estimate_id']) {
+    if (!positiveId(res, body[field], field)) return false;
+  }
+  return validateTenantRefs(req, res, body.customer_id, body.vehicle_id, body.estimate_id);
 }
 
 router.get('/', (req, res) => {
@@ -52,8 +63,8 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validateAppointment(req, res)) return;
   const { cust, phone, service, date, time, customer_id, vehicle_id, address, notes, estimate_id } = req.body;
-  if (!validateTenantRefs(req, customer_id, vehicle_id, estimate_id)) return res.status(400).json({ error: 'Customer, vehicle, or estimate is outside the active shop context' });
   const shopId = resolveShopId(req);
   const result = db.prepare(`
     INSERT INTO appointments (shop_id, cust, phone, service, date, time, customer_id, vehicle_id, address, notes, estimate_id)
@@ -63,8 +74,9 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!positiveId(res, req.params.id, 'id')) return;
+  if (!validateAppointment(req, res)) return;
   const { cust, phone, service, date, time, customer_id, vehicle_id, address, notes, estimate_id } = req.body;
-  if (!validateTenantRefs(req, customer_id, vehicle_id, estimate_id)) return res.status(400).json({ error: 'Customer, vehicle, or estimate is outside the active shop context' });
   const tenant = shopTenantWhere(req);
   const result = db.prepare(`
     UPDATE appointments

@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere } = require('../tenant');
+const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
+
+function validatePayment(res, body, includeRelationships) {
+  if (includeRelationships && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
+  if (includeRelationships && !positiveId(res, body.job_id, 'job_id')) return false;
+  if (includeRelationships && !positiveId(res, body.plan_id, 'plan_id')) return false;
+  return finiteNumber(res, body, 'amount', { required: true, label: 'Amount' })
+    && isoDate(res, body, 'date', { required: true, label: 'Payment date' });
+}
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -16,23 +25,22 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validatePayment(res, req.body, true)) return;
   const { customer_id, plan_id, job_id, description, amount, method, date, note } = req.body;
-  if (!customer_id) return res.status(400).json({ error: 'Customer is required' });
-  if (amount === undefined || amount === null || Number.isNaN(Number(amount))) return res.status(400).json({ error: 'Amount is required' });
 
   const tenant = customerTenantWhere(req, 'c');
   const customer = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`)
     .get(customer_id, ...tenant.values);
-  if (!customer) return res.status(400).json({ error: 'Customer not found' });
+  if (!customer) return fail(res, 'customer_id', 'Customer not found', 404);
 
   if (job_id) {
     const job = db.prepare('SELECT id FROM jobs WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(job_id, customer_id);
-    if (!job) return res.status(400).json({ error: 'Job not found or does not belong to this customer' });
+    if (!job) return fail(res, 'job_id', 'Job not found or does not belong to this customer', 404);
   }
 
   if (plan_id) {
     const plan = db.prepare('SELECT id FROM payment_plans WHERE id = ? AND customer_id = ?').get(plan_id, customer_id);
-    if (!plan) return res.status(400).json({ error: 'Payment plan not found or does not belong to this customer' });
+    if (!plan) return fail(res, 'plan_id', 'Payment plan not found or does not belong to this customer', 404);
   }
 
   const result = db.prepare(`
@@ -43,6 +51,7 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!validatePayment(res, req.body, false)) return;
   const { description, amount, method, date, note } = req.body;
   const tenant = customerTenantWhere(req, 'c');
   const result = db.prepare(`

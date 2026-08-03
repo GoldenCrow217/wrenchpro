@@ -89,6 +89,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     customer_id INTEGER NOT NULL,
     plan_id INTEGER,
+    installment_id INTEGER,
     job_id INTEGER,
     description TEXT,
     amount REAL NOT NULL,
@@ -96,7 +97,8 @@ db.exec(`
     date TEXT,
     note TEXT,
     created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (customer_id) REFERENCES customers(id)
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (installment_id) REFERENCES installments(id)
   );
 
   CREATE TABLE IF NOT EXISTS expenses (
@@ -466,6 +468,11 @@ if (!vehCols.includes('deleted_at'))    db.prepare(`ALTER TABLE vehicles ADD COL
 const expCols = db.prepare(`PRAGMA table_info(expenses)`).all().map(c => c.name);
 if (!expCols.includes('shop_id')) db.prepare(`ALTER TABLE expenses ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_expenses_shop ON expenses(shop_id)`).run();
+
+// Migrate: stable installment-payment relationship for atomic/idempotent plan payments
+const paymentCols = db.prepare(`PRAGMA table_info(payments)`).all().map(c => c.name);
+if (!paymentCols.includes('installment_id')) db.prepare(`ALTER TABLE payments ADD COLUMN installment_id INTEGER REFERENCES installments(id)`).run();
+db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_installment_unique ON payments(installment_id) WHERE installment_id IS NOT NULL`).run();
 
 // Migrate: settings (new columns)
 const settCols = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);

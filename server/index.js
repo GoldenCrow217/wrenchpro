@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('./database');
 const pkg = require('../package.json');
 const { customerTenantWhere, shopTenantWhere } = require('./tenant');
+const { positiveId } = require('./validation');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +65,16 @@ app.use('/api', (req, res, next) => {
 app.get('/api/health', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({ ok: true, version: pkg.version });
+});
+
+// Validate every stable record ID before a route can pass it to SQLite. This
+// covers ordinary resource routes plus nested conversion/status endpoints.
+app.use('/api', (req, res, next) => {
+  const match = req.path.match(/^\/(?:customers|vehicles|jobs|payments|expenses|appointments|employees|estimates|inventory|catalog|inspections|warranties|time|leads)\/([^/]+)/)
+    || req.path.match(/^\/plans\/(?:installment\/)?([^/]+)/)
+    || req.path.match(/^\/crm\/(?:interactions|followups|service-reminders)\/([^/]+)/);
+  if (match && !positiveId(res, match[1], 'id')) return;
+  next();
 });
 
 

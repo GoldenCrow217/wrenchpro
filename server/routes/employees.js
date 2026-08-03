@@ -2,6 +2,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, shopTenantWhere } = require('../tenant');
+const { requiredText, finiteNumber, positiveId } = require('../validation');
+
+function validateEmployee(res, body) {
+  return requiredText(res, body, 'first', 'First name')
+    && requiredText(res, body, 'last', 'Last name')
+    && finiteNumber(res, body, 'hourly_rate', { label: 'Hourly rate' });
+}
 
 router.get('/', (req, res) => {
   const tenant = shopTenantWhere(req);
@@ -10,6 +17,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!validateEmployee(res, req.body)) return;
   const { first, last, phone, email, role, hourly_rate, status, notes } = req.body;
   const shopId = resolveShopId(req);
   const result = db.prepare(
@@ -27,6 +35,8 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (!positiveId(res, req.params.id, 'id')) return;
+  if (!validateEmployee(res, req.body)) return;
   const { first, last, phone, email, role, hourly_rate, status, notes } = req.body;
   const tenant = shopTenantWhere(req);
   const result = db.prepare(
