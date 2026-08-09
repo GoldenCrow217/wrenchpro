@@ -5,6 +5,8 @@ const path = require('path');
 const source = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const helperMatch = source.match(/function esc\(value\)\{[\s\S]*?function safeImageSrc\(value\)\{[\s\S]*?\n\}/);
 if (!helperMatch) throw new Error('Rendering security helpers were not found');
+const sidebarMatch = source.match(/function updateSidebarFoot\(\)\{[\s\S]*?\n\}/);
+if (!sidebarMatch) throw new Error('Sidebar identity renderer was not found');
 
 const payloads = [
   '<b>Example</b>',
@@ -23,9 +25,24 @@ function assert(condition, message) {
 app.whenReady().then(async () => {
   const window = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
   try {
-    await window.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><div id="host"></div>'));
+    await window.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><div id="host"></div><div id="sidebar-name"></div><div id="sidebar-avatar"></div><div id="sidebar-role"></div>'));
     const results = await window.webContents.executeJavaScript(`
       ${helperMatch[0]}
+      ${sidebarMatch[0]}
+      const state={settings:{owner_name:'Jane Doe',business_name:'Example Auto'}};
+      updateSidebarFoot();
+      const ownerIdentity={
+        name:document.getElementById('sidebar-name').textContent,
+        avatar:document.getElementById('sidebar-avatar').textContent,
+        role:document.getElementById('sidebar-role').textContent,
+      };
+      state.settings.owner_name='';
+      updateSidebarFoot();
+      const businessIdentity={
+        name:document.getElementById('sidebar-name').textContent,
+        avatar:document.getElementById('sidebar-avatar').textContent,
+        role:document.getElementById('sidebar-role').textContent,
+      };
       const payloads=${JSON.stringify(payloads)};
       const host=document.getElementById('host');
       window.__securityExecuted=false;
@@ -40,7 +57,7 @@ app.whenReady().then(async () => {
       });
       let invalidIdRejected=false;
       try{safeId('1);alert(1)//')}catch{invalidIdRejected=true}
-      ({cases,invalidIdRejected,executed:window.__securityExecuted,unsafeUrl:safeImageSrc('javascript:alert(1)'),unsafeSvg:safeImageSrc('data:image/svg+xml,<svg onload=alert(1)>')});
+      ({cases,ownerIdentity,businessIdentity,invalidIdRejected,executed:window.__securityExecuted,unsafeUrl:safeImageSrc('javascript:alert(1)'),unsafeSvg:safeImageSrc('data:image/svg+xml,<svg onload=alert(1)>')});
     `, true);
 
     results.cases.forEach((result, index) => {
@@ -54,6 +71,10 @@ app.whenReady().then(async () => {
     assert(!results.executed, 'A payload event handler executed');
     assert(results.unsafeUrl === '', 'javascript: URL was not rejected');
     assert(results.unsafeSvg === '', 'SVG data URL was not rejected');
+    assert(JSON.stringify(results.ownerIdentity) === JSON.stringify({ name: 'Jane Doe', avatar: 'JD', role: 'Owner / Tech' }), 'Configured owner identity did not render');
+    assert(JSON.stringify(results.businessIdentity) === JSON.stringify({ name: 'Example Auto', avatar: 'EA', role: 'Business profile' }), 'Business identity fallback did not render');
+    assert(!source.includes('${greeting}, Brandon'), 'Dashboard still contains the hardcoded sample greeting');
+    assert(source.includes("String((state.settings&&state.settings.owner_name)||'')"), 'Dashboard owner-name fallback is missing');
 
     const requiredMarkers = [
       '${esc(j.service', '${esc(a.cust)', '${esc(c.address', '${esc(p.description',

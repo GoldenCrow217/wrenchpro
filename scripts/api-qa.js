@@ -65,6 +65,16 @@ async function waitForServer() {
     assert((await requestRaw('GET', '/api/auth/config')).status === 404, 'Removed auth API should stay unavailable');
     assert((await requestRaw('GET', '/api/shops')).status === 404, 'Removed multi-shop API should stay unavailable');
 
+    const markupTiers = [
+      { up_to: 1, markup: 125 }, { up_to: 5, markup: 75 },
+      { up_to: 10, markup: 60 }, { up_to: null, markup: 15 },
+    ];
+    await request('PUT', '/api/settings', { parts_markup_tiers: JSON.stringify(markupTiers) });
+    const savedSettings = await request('GET', '/api/settings');
+    assert(JSON.stringify(JSON.parse(savedSettings.parts_markup_tiers)) === JSON.stringify(markupTiers), 'Parts markup settings did not persist');
+    const invalidTiers = await requestRaw('PUT', '/api/settings', { parts_markup_tiers: '[{"up_to":1,"markup":-1}]' });
+    assert(invalidTiers.status === 400 && invalidTiers.body.field === 'parts_markup_tiers', 'Invalid parts markup settings should return field-specific HTTP 400');
+
     const emptyCustomer = await requestRaw('POST', '/api/customers');
     assert(emptyCustomer.status === 400, `Empty JSON body should return 400, got ${emptyCustomer.status}`);
 
@@ -114,6 +124,18 @@ async function waitForServer() {
         inventory_id: inventory.id,
       }],
     });
+    const taxedEstimate = await request('POST', '/api/estimates', {
+      customer_id: customer.id,
+      vehicle_id: vehicle.id,
+      date: '2026-07-29',
+      tax_rate: 10,
+      total: 999,
+      items: [
+        { type: 'labor', description: 'Labor', qty: 1, rate: 100, amount: 100 },
+        { type: 'parts', description: 'Part', qty: 1, rate: 50, amount: 50 },
+      ],
+    });
+    assert(taxedEstimate.total === 155, `Estimate should tax only parts and ignore a supplied total, got ${taxedEstimate.total}`);
 
     const insufficient = await requestRaw('POST', `/api/estimates/${estimate.id}/convert`);
     assert(insufficient.status === 409, `Insufficient inventory should return 409, got ${insufficient.status}`);

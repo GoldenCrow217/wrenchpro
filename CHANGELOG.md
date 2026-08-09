@@ -21,6 +21,42 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.27 - 2026-08-09
+
+### Added
+
+- Editable O'Reilly-style parts markup tiers with automatically calculated gross margin.
+- Server-side pricing helpers and focused QA for tier selection, cent rounding, settings persistence, and parts-only sales tax.
+
+### Changed
+
+- Part cost changes now select the configured markup tier and calculate retail price to the nearest cent.
+- Payment method and invoice terms settings accept custom values while retaining common suggestions.
+- Estimate totals are recalculated on the server, and discounts are allocated proportionally before calculating tax.
+
+### Fixed
+
+- Settings cards now use the existing card padding so headings and fields are no longer clipped by rounded borders.
+- Sales tax is applied to parts and shop-supply lines, not labor, diagnostic, fee, or sublet lines.
+
+## v1.0.26 - 2026-08-09
+
+### Fixed
+
+- Dashboard and sidebar identity rendering no longer fails when resolving the configured owner or business-name fallback.
+
+### Changed
+
+- Rendering QA now executes configured-owner and business-name fallback behavior and guards against restoring the hardcoded sample greeting.
+
+## v1.0.25 - 2026-08-09
+
+### Changed
+
+- The Dashboard now keeps its local New Job action and hides the duplicate contextual topbar action.
+- The sidebar identity and Dashboard greeting now use the configured owner name instead of hardcoded sample data, with business-name and neutral fallbacks when no owner is configured.
+- The sidebar Quick Entry shortcut now uses a recognizable lightning icon with an explicit accessible label.
+
 ## v1.0.24 - 2026-08-09
 
 ### Added

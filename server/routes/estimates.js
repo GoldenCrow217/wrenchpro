@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, shopTenantWhere, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
 const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
+const { calculateEstimateTotals } = require('../pricing');
 
 function validateEstimate(res, body, create) {
   if (create && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
@@ -51,7 +52,7 @@ router.post('/', (req, res) => {
   if (!validateEstimate(res, req.body, true)) return;
   const {
     customer_id, vehicle_id, employee_id, date, status, notes,
-    customer_complaint, discount, tax_rate, expires_date, total, items,
+    customer_complaint, discount, tax_rate, expires_date, items,
     approved_by, approval_notes
   } = req.body;
   const tenant = customerTenantWhere(req, 'c');
@@ -69,6 +70,7 @@ router.post('/', (req, res) => {
   }
 
   const num = 'EST-' + String(Date.now()).slice(-6);
+  const total = calculateEstimateTotals(items || [], discount, tax_rate).total;
   const result = db.prepare(`
     INSERT INTO estimates
       (customer_id, vehicle_id, employee_id, estimate_number, date, status, notes,
@@ -88,13 +90,13 @@ router.post('/', (req, res) => {
     `);
     items.forEach(i => ins.run(estId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.inventory_id || null));
   }
-  res.json({ id: estId, estimate_number: num, ...req.body });
+  res.json({ id: estId, estimate_number: num, ...req.body, total });
 });
 
 router.put('/:id', (req, res) => {
   if (!validateEstimate(res, req.body, false)) return;
   const {
-    status, notes, customer_complaint, discount, tax_rate, expires_date, total, items,
+    status, notes, customer_complaint, discount, tax_rate, expires_date, items,
     approved_by, approval_notes
   } = req.body;
 
@@ -109,6 +111,10 @@ router.put('/:id', (req, res) => {
   if (!inventoryItemsInTenant(req, items)) {
     return res.status(400).json({ error: 'Estimate item inventory is outside the active shop context' });
   }
+  const totalItems = items === undefined
+    ? db.prepare('SELECT type, amount FROM estimate_items WHERE estimate_id = ?').all(req.params.id)
+    : items;
+  const total = calculateEstimateTotals(totalItems, discount, tax_rate).total;
 
   const approvedAt = (status === 'Approved' && !current.approved_at)
     ? new Date().toISOString().replace('T', ' ').split('.')[0]
@@ -206,11 +212,11 @@ router.post('/:id/convert', (req, res) => {
     db.prepare(`UPDATE estimates SET status='Approved', approved_at=? WHERE id=? AND approved_at IS NULL`)
       .run(now, est.id);
 
-    // Copy estimate items to job_items. Labor/diagnostic → not taxable; everything else → taxable.
+    // Copy estimate items to job_items. Only part and shop-supply lines are taxable.
     if (items.length) {
       const insItem = db.prepare(`INSERT INTO job_items (job_id, type, description, qty, rate, amount, taxable, inventory_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
       items.forEach(i => {
-        const taxable = (i.type === 'labor' || i.type === 'diagnostic') ? 0 : 1;
+        const taxable = ['part', 'parts', 'shop_supply'].includes(String(i.type || '').toLowerCase()) ? 1 : 0;
         insItem.run(jobId, i.type, i.description, i.qty, i.rate, i.amount, taxable, i.inventory_id || null);
       });
     }

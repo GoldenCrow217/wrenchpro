@@ -127,7 +127,8 @@ db.exec(`
     tax_id TEXT DEFAULT '',
     invoice_terms TEXT DEFAULT 'Due on receipt',
     invoice_footer TEXT DEFAULT 'Thank you for your business!',
-    invoice_logo TEXT DEFAULT ''
+    invoice_logo TEXT DEFAULT '',
+    parts_markup_tiers TEXT DEFAULT ''
   );
 
   CREATE TABLE IF NOT EXISTS employees (
@@ -408,6 +409,7 @@ db.exec(`
     invoice_logo TEXT DEFAULT '',
     warranty_terms TEXT DEFAULT '12 months / 12,000 miles',
     estimate_terms TEXT DEFAULT '',
+    parts_markup_tiers TEXT DEFAULT '',
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (shop_id) REFERENCES shops(id)
   );
@@ -490,6 +492,7 @@ const newSettCols = [
   ['service_area',    "TEXT DEFAULT ''"],
   ['warranty_terms',  "TEXT DEFAULT '12 months / 12,000 miles'"],
   ['estimate_terms',  "TEXT DEFAULT ''"],
+  ['parts_markup_tiers', "TEXT DEFAULT ''"],
 ];
 for (const [col, def] of newSettCols) {
   if (!settCols.includes(col)) db.prepare(`ALTER TABLE settings ADD COLUMN ${col} ${def}`).run();
