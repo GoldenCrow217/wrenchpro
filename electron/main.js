@@ -8,6 +8,22 @@ let appPort    = 3000;
 let _autoUpdater = null;
 let _manualCheck = false;
 
+const MENU_COMMANDS = new Set([
+  'navigate:dashboard',
+  'navigate:customers',
+  'navigate:vehicles',
+  'navigate:jobs',
+  'navigate:schedule',
+  'navigate:inventory',
+  'action:new-customer',
+  'action:new-job',
+  'action:new-appointment',
+  'action:quick-entry',
+  'action:new-lead',
+  'action:new-payment',
+  'action:open-settings',
+]);
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function waitForServer(port, attempts = 30) {
   return new Promise((resolve, reject) => {
@@ -24,24 +40,31 @@ function waitForServer(port, attempts = 30) {
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 function buildMenu() {
+  const sendMenuCommand = (command) => {
+    if (!MENU_COMMANDS.has(command)) {
+      console.warn('Ignored unknown menu command:', command);
+      return;
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('menu-command', command);
+  };
+  const commandItem = (label, command, accelerator) => ({
+    label,
+    accelerator,
+    click: () => sendMenuCommand(command),
+  });
   const template = [
     {
-      label: 'WrenchPro',
+      label: 'File',
       submenu: [
-        {
-          label: 'About WrenchPro',
-          click: () => {
-            dialog.showMessageBox(mainWindow, {
-              type: 'info',
-              title: 'About WrenchPro',
-              message: 'WrenchPro',
-              detail: `Version ${app.getVersion()}\nMobile Mechanic Manager`,
-              buttons: ['OK'],
-            });
-          },
-        },
+        commandItem('New Customer', 'action:new-customer', 'CmdOrCtrl+Shift+C'),
+        commandItem('New Job', 'action:new-job', 'CmdOrCtrl+N'),
+        commandItem('New Appointment', 'action:new-appointment', 'CmdOrCtrl+Shift+A'),
         { type: 'separator' },
-        { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
+        { label: 'Backup Database', enabled: false },
+        { label: 'Export Data', enabled: false },
+        { type: 'separator' },
+        { label: 'Exit', role: 'quit' },
       ],
     },
     {
@@ -57,11 +80,75 @@ function buildMenu() {
       ],
     },
     {
+      label: 'View',
+      submenu: [
+        commandItem('Dashboard', 'navigate:dashboard'),
+        commandItem('Customers', 'navigate:customers'),
+        commandItem('Vehicles', 'navigate:vehicles'),
+        commandItem('Jobs', 'navigate:jobs'),
+        commandItem('Schedule', 'navigate:schedule'),
+        commandItem('Parts & Inventory', 'navigate:inventory'),
+        { type: 'separator' },
+        { label: 'Reload', role: 'reload' },
+        { label: 'Force Reload', role: 'forceReload' },
+        { label: 'Toggle Developer Tools', role: 'toggleDevTools', enabled: !app.isPackaged },
+        { type: 'separator' },
+        { label: 'Zoom In', role: 'zoomIn' },
+        { label: 'Zoom Out', role: 'zoomOut' },
+        { label: 'Reset Zoom', role: 'resetZoom' },
+        { label: 'Toggle Full Screen', role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Actions',
+      submenu: [
+        commandItem('Quick Entry', 'action:quick-entry'),
+        commandItem('New Lead', 'action:new-lead'),
+        commandItem('New Payment', 'action:new-payment'),
+        commandItem('Open Settings', 'action:open-settings', 'CmdOrCtrl+,'),
+      ],
+    },
+    {
+      label: 'Tools',
+      submenu: [
+        { label: 'Run Data Integrity Check', enabled: false },
+        { label: 'Open Logs', enabled: false },
+        {
+          label: 'Open Data Folder',
+          click: async () => {
+            const error = await shell.openPath(app.getPath('userData'));
+            if (error) console.error('Unable to open data folder:', error);
+          },
+        },
+      ],
+    },
+    {
       label: 'Help',
       submenu: [
         {
+          label: 'User Guide',
+          accelerator: 'F1',
+          click: () => {
+            shell.openExternal(
+              `https://github.com/GoldenCrow217/wrenchpro/blob/v${app.getVersion()}/INSTALL_AND_BACKUP_GUIDE.md`,
+            ).catch((err) => console.error('Unable to open user guide:', err.message));
+          },
+        },
+        {
           label: 'Check for Updates...',
           click: () => checkForUpdatesManual(),
+        },
+        {
+          label: 'About WrenchPro',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'About WrenchPro',
+              message: 'WrenchPro',
+              detail: `Version ${app.getVersion()}\nElectron ${process.versions.electron}\nPlatform ${process.platform} (${process.arch})`,
+              buttons: ['OK'],
+            });
+          },
         },
       ],
     },
