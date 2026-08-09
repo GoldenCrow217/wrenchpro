@@ -393,7 +393,7 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="brand-text">
       <span class="brand-name">WrenchPro</span>
-      <span class="brand-sub" id="brand-version">v1.0.24</span>
+      <span class="brand-sub" id="brand-version">v1.0.25</span>
     </div>
   </div>
 
@@ -492,13 +492,13 @@ tr:hover td{background:var(--bg-subtle);}
   </div>
 
   <div class="sidebar-foot">
-    <span class="avatar avatar-amber" style="width:28px;height:28px;font-size:11px;">BV</span>
+    <span class="avatar avatar-amber" id="sidebar-avatar" style="width:28px;height:28px;font-size:11px;">W</span>
     <div style="flex:1;min-width:0;">
-      <div style="font-size:12px;font-weight:600;color:var(--fg);">Brandon Vega</div>
-      <div style="font-size:11px;color:var(--fg-muted);">Owner / Tech</div>
+      <div id="sidebar-name" style="font-size:12px;font-weight:600;color:var(--fg);">WrenchPro</div>
+      <div id="sidebar-role" style="font-size:11px;color:var(--fg-muted);"></div>
     </div>
-    <button class="icon-btn" title="Quick entry" onclick="openQuickEntry()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
+    <button class="icon-btn" title="Quick entry — historical job" aria-label="Quick entry — historical job" onclick="openQuickEntry()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
     </button>
   </div>
 </aside>
@@ -1821,7 +1821,7 @@ async function initVersionLabels() {
     const health = await api('GET', '/api/health');
     setVersionLabels(health.version);
   } catch (_) {
-    setVersionLabels('1.0.24');
+    setVersionLabels('1.0.25');
   }
 }
 
@@ -1869,11 +1869,15 @@ async function loadAll({silentErrors=false}={}){
 
 function updateSidebarFoot(){
   const s=state.settings||{};
-  const name=s.owner_name||s.business_name||'WrenchPro';
+  const ownerName=text(s.owner_name).trim();
+  const businessName=text(s.business_name).trim();
+  const name=ownerName||businessName||'WrenchPro';
   const el=document.getElementById('sidebar-name');
   const av=document.getElementById('sidebar-avatar');
+  const role=document.getElementById('sidebar-role');
   if(el) el.textContent=name;
-  if(av) av.textContent=(name[0]||'W').toUpperCase();
+  if(av) av.textContent=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'W';
+  if(role) role.textContent=ownerName?'Owner / Tech':(businessName?'Business profile':'');
 }
 
 // ── Navigation ──
@@ -1895,7 +1899,7 @@ function sp(id, _el){
   sec.style.display = 'none';
   pri.style.display = '';
   pri.onclick = priAction;
-  if(id==='dashboard'){pri.textContent='+ New Job';}
+  if(id==='dashboard'){pri.style.display='none';}
   else if(id==='jobs'){pri.textContent='+ New Job';}
   else if(id==='customers'){ pri.textContent='+ New Customer'; showCustList(); }
   else if(id==='vehicles'){pri.textContent='+ Add Vehicle';}
@@ -2016,6 +2020,7 @@ async function renderDashboard(){
     // Greeting
     const hr = new Date().getHours();
     const greeting = hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+    const ownerFirstName = text(state.settings&&state.settings.owner_name).trim().split(/\s+/)[0];
     const dateStr = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
     const subParts = [`${todayJobs.length} job${todayJobs.length!==1?'s':''} on the route today`];
     if(lowStockItems.length) subParts.push(`${lowStockItems.length} part${lowStockItems.length!==1?'s':''} on backorder`);
@@ -2031,7 +2036,7 @@ async function renderDashboard(){
     el.innerHTML = `
 <div class="page-head">
   <div>
-    <div class="page-title">${greeting}, Brandon</div>
+    <div class="page-title">${greeting}${ownerFirstName?`, ${esc(ownerFirstName)}`:''}</div>
     <div class="page-sub">${dateStr} · ${subParts.join(' · ')}</div>
   </div>
   <div class="page-actions">

@@ -21,6 +21,14 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.25 - 2026-08-09
+
+### Changed
+
+- The Dashboard now keeps its local New Job action and hides the duplicate contextual topbar action.
+- The sidebar identity and Dashboard greeting now use the configured owner name instead of hardcoded sample data, with business-name and neutral fallbacks when no owner is configured.
+- The sidebar Quick Entry shortcut now uses a recognizable lightning icon with an explicit accessible label.
+
 ## v1.0.24 - 2026-08-09
 
 ### Added
