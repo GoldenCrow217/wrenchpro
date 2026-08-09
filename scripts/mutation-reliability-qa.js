@@ -14,6 +14,7 @@ assert.match(html, /function upsertStateRecord\(/);
 assert.match(html, /function removeStateRecord\(/);
 assert.match(html, /async function runMutation\(/);
 assert.match(html, /const activeMutations = new Set\(\)/);
+assert.ok(!html.includes("if(e.target===o) o.classList.remove('open')"), 'clicking a modal backdrop must not close data-entry windows');
 
 const handlers = [
   'saveVehicle', 'saveJob', 'saveAppt', 'saveLead', 'savePart', 'saveEstimate',

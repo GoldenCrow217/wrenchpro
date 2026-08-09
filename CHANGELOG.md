@@ -21,6 +21,18 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.28 - 2026-08-09
+
+### Added
+
+- Jobs can store, search, display, edit, and print an external repair-order number.
+- Parts markup settings can add and remove price tiers while preserving the required Above fallback.
+
+### Fixed
+
+- Clicking outside an open data-entry modal no longer closes it and discards in-progress input.
+- Saving a database-loaded job line without an inventory link no longer incorrectly reports "Inventory item not found."
+
 ## v1.0.27 - 2026-08-09
 
 ### Added

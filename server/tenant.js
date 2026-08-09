@@ -26,7 +26,7 @@ function employeeInTenant(req, employeeId) {
 }
 
 function inventoryItemsInTenant(req, items) {
-  const ids = [...new Set((items || []).map(item => Number(item.inventory_id)).filter(Number.isInteger))];
+  const ids = [...new Set((items || []).map(item => Number(item.inventory_id)).filter(id => Number.isInteger(id) && id > 0))];
   if (!ids.length) return true;
   const placeholders = ids.map(() => '?').join(',');
   const found = db.prepare(`SELECT COUNT(*) AS count FROM parts_inventory WHERE id IN (${placeholders})`).get(...ids).count;

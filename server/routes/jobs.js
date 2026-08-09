@@ -16,6 +16,11 @@ function validateJob(res, body, create) {
     for (const field of ['qty','rate','amount']) if (!finiteNumber(res, item, field, { label: `Item ${field}` })) return false;
     if (!positiveId(res, item.inventory_id, 'inventory_id')) return false;
   }
+  if (body.repair_order_number !== undefined) {
+    if (typeof body.repair_order_number !== 'string') return fail(res, 'repair_order_number', 'Repair order number must be text');
+    body.repair_order_number = body.repair_order_number.trim();
+    if (body.repair_order_number.length > 80) return fail(res, 'repair_order_number', 'Repair order number must be 80 characters or fewer');
+  }
   return true;
 }
 
@@ -93,10 +98,10 @@ const saveJobItems = db.transaction((jobId, items) => {
 const createJob = db.transaction((values, items) => {
   const result = db.prepare(`
     INSERT INTO jobs
-      (customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
+      (customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
        parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
        service_address, travel_fee, closed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(...values);
   const jobId = result.lastInsertRowid;
   if (items && items.length) saveJobItems(jobId, items);
@@ -106,7 +111,7 @@ const createJob = db.transaction((values, items) => {
 router.post('/', (req, res) => {
   if (!validateJob(res, req.body, true)) return;
   const {
-    customer_id, vehicle_id, service, date, miles, labor, labor_hours, labor_rate,
+    customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
     parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
     service_address, travel_fee, items
   } = req.body;
@@ -140,7 +145,7 @@ router.post('/', (req, res) => {
   const partsVal = totals ? totals.parts : (parts || 0);
 
   const jobId = createJob([
-    customer_id, vehicle_id, service, date, miles || 0,
+    customer_id, vehicle_id, service, repair_order_number || '', date, miles || 0,
     laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
     partsVal, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
@@ -152,7 +157,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   if (!validateJob(res, req.body, false)) return;
   const {
-    service, date, miles, labor, labor_hours, labor_rate, parts, status, notes,
+    service, repair_order_number, date, miles, labor, labor_hours, labor_rate, parts, status, notes,
     employee_id, complaint, diagnosis, invoice_status, estimate_id,
     service_address, travel_fee, items
   } = req.body;
@@ -191,12 +196,12 @@ router.put('/:id', (req, res) => {
   db.transaction(() => {
     db.prepare(`
       UPDATE jobs
-      SET service=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?,
+      SET service=?, repair_order_number=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?,
           status=?, notes=?, employee_id=?, complaint=?, diagnosis=?, invoice_status=?,
           estimate_id=?, service_address=?, travel_fee=?, closed_at=?
       WHERE id=?
     `).run(
-      service, date, miles || 0,
+      service, repair_order_number || '', date, miles || 0,
       laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
       partsVal, status || 'Pending', notes || '', employee_id || null,
       complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,

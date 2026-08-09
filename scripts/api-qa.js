@@ -103,6 +103,28 @@ async function waitForServer() {
       make: 'Chevrolet',
       model: 'Express',
     });
+    const manualJob = await request('POST', '/api/jobs', {
+      customer_id: customer.id,
+      vehicle_id: vehicle.id,
+      repair_order_number: '  RO-00042  ',
+      service: 'Diagnostic check',
+      date: '2026-07-29',
+      items: [{ type: 'labor', description: 'Diagnostic labor', qty: 1, rate: 75, amount: 75, taxable: 0 }],
+    });
+    let manualJobRecord = (await request('GET', '/api/jobs')).find(job => job.id === manualJob.id);
+    assert(manualJobRecord.repair_order_number === 'RO-00042', 'Repair order number was not trimmed and persisted');
+    assert(manualJobRecord.items[0].inventory_id === null, 'Manual job QA requires a null inventory link');
+    await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: 'RO-00043',
+      service: manualJobRecord.service,
+      date: manualJobRecord.date,
+      status: manualJobRecord.status,
+      items: manualJobRecord.items,
+    });
+    manualJobRecord = (await request('GET', '/api/jobs')).find(job => job.id === manualJob.id);
+    assert(manualJobRecord.repair_order_number === 'RO-00043', 'Repair order number did not persist after editing');
+    const invalidRepairOrder = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { date: manualJobRecord.date, repair_order_number: { invalid: true } });
+    assert(invalidRepairOrder.status === 400 && invalidRepairOrder.body.field === 'repair_order_number', 'Invalid repair order input should return field-specific HTTP 400');
     const inventory = await request('POST', '/api/inventory', {
       name: 'Brake Pad Set',
       quantity: 1,

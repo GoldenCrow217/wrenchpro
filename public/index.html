@@ -535,7 +535,7 @@ tr:hover td{background:var(--bg-subtle);}
     <!-- JOBS -->
     <div class="page" id="page-jobs">
       <div class="search-bar">
-        <input type="text" id="job-search" placeholder="Search jobs, customers, vehicles..." oninput="renderJobs()">
+        <input type="text" id="job-search" placeholder="Search repair orders, jobs, customers, vehicles..." oninput="renderJobs()">
         <select id="job-status-filter" onchange="renderJobs()">
           <option value="">All statuses</option>
           <option>Pending</option><option>In Progress</option><option>Complete</option>
@@ -543,7 +543,7 @@ tr:hover td{background:var(--bg-subtle);}
       </div>
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="table-wrap">
-          <table><thead><tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Assigned to</th><th>Labor</th><th>Parts</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <table><thead><tr><th>RO #</th><th>Date</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Assigned to</th><th>Labor</th><th>Parts</th><th>Total</th><th>Status</th><th></th></tr></thead>
           <tbody id="jobs-tbody"></tbody></table>
         </div>
       </div>
@@ -729,10 +729,11 @@ tr:hover td{background:var(--bg-subtle);}
           <div class="settings-hint" style="margin-top:0;">When a part cost changes, its retail price uses the first matching tier. Gross margin is calculated automatically.</div>
           <div class="table-wrap">
             <table class="settings-markup-table">
-              <thead><tr><th>Items up to</th><th>Markup over cost</th><th>Gross margin</th></tr></thead>
+              <thead><tr><th>Items up to</th><th>Markup over cost</th><th>Gross margin</th><th></th></tr></thead>
               <tbody id="s-markup-tiers"></tbody>
             </table>
           </div>
+          <button type="button" class="btn btn-sm" onclick="addPartsMarkupTier()" style="margin-top:.75rem;">+ Add price tier</button>
         </div>
       </div>
       <div style="margin-top:1rem;display:flex;gap:8px;align-items:center;">
@@ -903,11 +904,14 @@ tr:hover td{background:var(--bg-subtle);}
         </select>
       </div>
     </div>
-    <div class="fr"><label>Invoice status</label>
-      <select id="jf-inv-status">
-        <option value="Unpaid">Unpaid</option><option value="Paid">Paid</option>
-        <option value="Partial">Partially paid</option><option value="Voided">Voided</option>
-      </select>
+    <div class="f2">
+      <div class="fr"><label>Repair order number</label><input id="jf-ro" placeholder="RO-1001" maxlength="80"></div>
+      <div class="fr"><label>Invoice status</label>
+        <select id="jf-inv-status">
+          <option value="Unpaid">Unpaid</option><option value="Paid">Paid</option>
+          <option value="Partial">Partially paid</option><option value="Voided">Voided</option>
+        </select>
+      </div>
     </div>
     <div style="margin-bottom:12px;">
       <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Line items</div>
@@ -2177,11 +2181,13 @@ function renderJobs(){
     const name = `${j.first||''} ${j.last||''}`.toLowerCase();
     const veh = `${j.year||''} ${j.make||''} ${j.model||''}`.toLowerCase();
     const svc = (j.service||'').toLowerCase();
-    return (!q||name.includes(q)||veh.includes(q)||svc.includes(q)) && (!sf||j.status===sf);
+    const repairOrder=(j.repair_order_number||'').toLowerCase();
+    return (!q||name.includes(q)||veh.includes(q)||svc.includes(q)||repairOrder.includes(q)) && (!sf||j.status===sf);
   });
   const tbody = document.getElementById('jobs-tbody');
-  if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty">No jobs found</td></tr>`; return; }
+  if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="11" class="empty">No jobs found</td></tr>`; return; }
   tbody.innerHTML = jobs.map(j=>`<tr>
+    <td style="font-family:var(--font-mono);font-size:12px;">${esc(j.repair_order_number||'—')}</td>
     <td style="color:#888;font-size:12px;">${esc(j.date||'—')}</td>
     <td class="td-name">${esc(j.first||'')} ${esc(j.last||'')}</td>
     <td style="font-size:12px;">${esc(j.year||'')} ${esc(j.make||'')} ${esc(j.model||'')}<br><span style="color:#aaa;">${esc(j.plate||'')}</span></td>
@@ -2876,6 +2882,7 @@ async function openJobModal(id){
       document.getElementById('jf-cust').value=j.customer_id;
       await loadVehiclesForJob(j.vehicle_id);
       document.getElementById('jf-service').value=j.service||'';
+      document.getElementById('jf-ro').value=j.repair_order_number||'';
       document.getElementById('jf-date').value=j.date||today();
       document.getElementById('jf-miles').value=j.miles||'';
       document.getElementById('jf-status').value=j.status||'Pending';
@@ -2894,7 +2901,7 @@ async function openJobModal(id){
       document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${safeId(id)})">Delete job</button>`;
     } else {
       document.getElementById('m-job-title').textContent='New Job';
-      ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
+      ['jf-complaint','jf-diagnosis','jf-service','jf-ro','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
       document.getElementById('jf-status').value='Pending';
       document.getElementById('jf-inv-status').value='Unpaid';
       jobItems = [];
@@ -2928,7 +2935,7 @@ async function saveJob(){
   const vehId=parseInt(document.getElementById('jf-veh').value);
   if(!custId||!vehId){toast('Please select a customer and vehicle.');return;}
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
-  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0,items:jobItems};
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,repair_order_number:document.getElementById('jf-ro').value.trim(),date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0,items:jobItems};
   const id=editJobId, existing=id?state.jobs.find(j=>j.id===id):null;
   await runMutation(`job-save-${id||'new'}`,{buttonId:'save-job-btn',action:'Saving job',request:()=>id?api('PUT',`/api/jobs/${id}`,body):api('POST','/api/jobs',body),apply:r=>upsertStateRecord('jobs',id?{...existing,...body,id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,items:jobItems}:{...body,...r,items:jobItems}),render:()=>renderSafely(renderJobs,renderDashboard),close:'m-job',success:id?'Job updated':'Job saved'});
 }
@@ -3135,7 +3142,7 @@ async function loadJobsForPayment(){
     return;
   }
   const jobs=state.jobs.filter(j=>j.customer_id===custId&&j.deleted_at==null&&j.invoice_status!=='Paid');
-  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${safeId(j.id)}">WO#${safeId(j.id)} — ${esc(j.service||'Service')} (${esc(j.date||'')})</option>`).join('');
+  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${safeId(j.id)}">${j.repair_order_number?'RO#'+esc(j.repair_order_number):'WO#'+safeId(j.id)} — ${esc(j.service||'Service')} (${esc(j.date||'')})</option>`).join('');
   const plans=state.plans.filter(p=>p.customer_id===custId&&planBalance(p)>0);
   planSel.innerHTML='<option value="">— No plan —</option>'+plans.map(p=>`<option value="${safeId(p.id)}">${esc(p.description)} (${fmt$(planBalance(p))} remaining)</option>`).join('');
 }
@@ -3276,6 +3283,7 @@ const DEFAULT_PARTS_MARKUP_TIERS=[
   {up_to:150,markup:32.5},{up_to:300,markup:30},{up_to:500,markup:25},
   {up_to:1000,markup:18},{up_to:5000,markup:17.5},{up_to:null,markup:15},
 ];
+let settingsMarkupDraft=[];
 
 function partsMarkupTiers(){
   try{
@@ -3292,19 +3300,40 @@ function grossMarginFromMarkup(markup){
   return Number.isFinite(value)&&value>=0?value/(100+value)*100:0;
 }
 
-function renderPartsMarkupSettings(){
+function renderPartsMarkupSettings(tiers){
   const tbody=document.getElementById('s-markup-tiers');
   if(!tbody)return;
-  tbody.innerHTML=partsMarkupTiers().map((tier,index)=>`<tr>
-    <td>${tier.up_to===null?'Above':`<input type="number" id="s-tier-up-${index}" min="0.01" step="0.01" value="${tier.up_to}">`}</td>
-    <td><input type="number" id="s-tier-markup-${index}" min="0" step="0.01" value="${tier.markup}" oninput="updateSettingsGrossMargin(${index})"> %</td>
-    <td class="gross-margin" id="s-tier-margin-${index}">${grossMarginFromMarkup(tier.markup).toFixed(2)}%</td>
+  if(tiers)settingsMarkupDraft=tiers.map(t=>({...t}));
+  tbody.innerHTML=settingsMarkupDraft.map((tier,index)=>`<tr>
+    <td>${tier.up_to===null?'Above':`<input type="number" id="s-tier-up-${index}" min="0.01" step="0.01" value="${attrEsc(tier.up_to)}" oninput="updateSettingsMarkupTier(${index},'up_to',this.value)">`}</td>
+    <td><input type="number" id="s-tier-markup-${index}" min="0" step="0.01" value="${attrEsc(tier.markup)}" oninput="updateSettingsMarkupTier(${index},'markup',this.value);updateSettingsGrossMargin(${index})"> %</td>
+    <td class="gross-margin" id="s-tier-margin-${index}">${tier.markup===''?'—':grossMarginFromMarkup(tier.markup).toFixed(2)+'%'}</td>
+    <td>${tier.up_to===null?'':`<button type="button" class="btn btn-sm btn-danger" onclick="removePartsMarkupTier(${index})" aria-label="Remove price tier">Remove</button>`}</td>
   </tr>`).join('');
 }
 
+function updateSettingsMarkupTier(index,field,value){
+  if(settingsMarkupDraft[index])settingsMarkupDraft[index][field]=value;
+}
+
+function addPartsMarkupTier(){
+  const aboveIndex=Math.max(0,settingsMarkupDraft.length-1);
+  settingsMarkupDraft.splice(aboveIndex,0,{up_to:'',markup:''});
+  renderPartsMarkupSettings();
+  document.getElementById(`s-tier-up-${aboveIndex}`)?.focus();
+}
+
+function removePartsMarkupTier(index){
+  if(index<0||index>=settingsMarkupDraft.length-1)return;
+  if(settingsMarkupDraft.length<=2){toast('Keep at least one price tier plus the Above tier.',8000);return;}
+  settingsMarkupDraft.splice(index,1);
+  renderPartsMarkupSettings();
+}
+
 function updateSettingsGrossMargin(index){
-  const markup=Number(document.getElementById(`s-tier-markup-${index}`).value);
-  document.getElementById(`s-tier-margin-${index}`).textContent=Number.isFinite(markup)&&markup>=0?`${grossMarginFromMarkup(markup).toFixed(2)}%`:'—';
+  const raw=document.getElementById(`s-tier-markup-${index}`).value;
+  const markup=Number(raw);
+  document.getElementById(`s-tier-margin-${index}`).textContent=raw!==''&&Number.isFinite(markup)&&markup>=0?`${grossMarginFromMarkup(markup).toFixed(2)}%`:'—';
 }
 
 function readPartsMarkupSettings(){
@@ -3313,11 +3342,13 @@ function readPartsMarkupSettings(){
   const tiers=[];
   for(let index=0;index<rows.length;index++){
     const last=index===rows.length-1;
-    const markup=Number(document.getElementById(`s-tier-markup-${index}`).value);
-    if(!Number.isFinite(markup)||markup<0){toast(`Markup tier ${index+1} must be zero or greater.`,8000);return null;}
+    const markupRaw=document.getElementById(`s-tier-markup-${index}`).value;
+    const markup=Number(markupRaw);
+    if(markupRaw===''||!Number.isFinite(markup)||markup<0){toast(`Markup tier ${index+1} must be zero or greater.`,8000);return null;}
     if(last){tiers.push({up_to:null,markup});continue;}
-    const upTo=Number(document.getElementById(`s-tier-up-${index}`).value);
-    if(!Number.isFinite(upTo)||upTo<=previous){toast('Parts markup limits must be positive and increase from one row to the next.',8000);return null;}
+    const upToRaw=document.getElementById(`s-tier-up-${index}`).value;
+    const upTo=Number(upToRaw);
+    if(upToRaw===''||!Number.isFinite(upTo)||upTo<=previous){toast('Parts markup limits must be positive and increase from one row to the next.',8000);return null;}
     tiers.push({up_to:upTo,markup});previous=upTo;
   }
   return tiers;
@@ -3347,7 +3378,7 @@ function renderSettings(){
   document.getElementById('s-area').value     = s.service_area||'';
   document.getElementById('s-warranty-terms').value = s.warranty_terms||'12 months / 12,000 miles';
   document.getElementById('s-est-terms').value= s.estimate_terms||'';
-  renderPartsMarkupSettings();
+  renderPartsMarkupSettings(partsMarkupTiers());
   // Logo preview
   const preview = document.getElementById('s-logo-preview');
   const clearBtn = document.getElementById('s-logo-clear');
@@ -3467,6 +3498,7 @@ function openInvoice(jobId){
       <div style="text-align:right;">
         <div style="font-size:22px;font-weight:700;color:#378ADD;">INVOICE</div>
         <div style="font-size:13px;color:#555;">${invoiceNum}</div>
+        ${j.repair_order_number?`<div style="font-size:12px;color:#555;">RO #: ${esc(j.repair_order_number)}</div>`:''}
         <div style="font-size:12px;color:#888;margin-top:4px;">Date: ${esc(j.date||'—')}</div>
         <div style="font-size:12px;color:#888;">Terms: ${esc(s.invoice_terms||'Due on receipt')}</div>
       </div>
@@ -4702,11 +4734,6 @@ function cpKey(e){
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); openCommandPalette(); }
   if(e.key==='Escape'&&document.getElementById('cp-overlay').classList.contains('open')) closeCommandPalette();
-});
-
-// Close modals on overlay click
-document.querySelectorAll('.modal-overlay').forEach(o=>{
-  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
 });
 
 // Native Electron menu commands are allowlisted in both the main process and preload.
