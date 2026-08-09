@@ -21,6 +21,22 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.24 - 2026-08-09
+
+### Added
+
+- A native Electron application menu for customer, job, appointment, navigation, quick-entry, payment, settings, update, and application actions.
+- An allowlisted preload IPC bridge and renderer command dispatcher that reuse existing application workflows without exposing Node integration.
+
+### Changed
+
+- Standard edit, reload, zoom, full-screen, developer-tool, and exit actions now use Electron menu roles.
+
+### Known limitations
+
+- Backup Database, Export Data, Run Data Integrity Check, and Open Logs remain disabled until safe application-level implementations exist.
+- Toggle Developer Tools is available only in development builds.
+
 ## v1.0.23 - 2026-08-03
 
 ### Added

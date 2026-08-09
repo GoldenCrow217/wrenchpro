@@ -393,7 +393,7 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="brand-text">
       <span class="brand-name">WrenchPro</span>
-      <span class="brand-sub" id="brand-version">v1.0.23</span>
+      <span class="brand-sub" id="brand-version">v1.0.24</span>
     </div>
   </div>
 
@@ -1821,7 +1821,7 @@ async function initVersionLabels() {
     const health = await api('GET', '/api/health');
     setVersionLabels(health.version);
   } catch (_) {
-    setVersionLabels('1.0.23');
+    setVersionLabels('1.0.24');
   }
 }
 
@@ -4611,6 +4611,32 @@ document.addEventListener('keydown',e=>{
 document.querySelectorAll('.modal-overlay').forEach(o=>{
   o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
 });
+
+// Native Electron menu commands are allowlisted in both the main process and preload.
+function handleMenuCommand(command){
+  const handlers={
+    'navigate:dashboard':()=>sp('dashboard'),
+    'navigate:customers':()=>sp('customers'),
+    'navigate:vehicles':()=>sp('vehicles'),
+    'navigate:jobs':()=>sp('jobs'),
+    'navigate:schedule':()=>sp('schedule'),
+    'navigate:inventory':()=>sp('inventory'),
+    'action:new-customer':()=>openCustModal(),
+    'action:new-job':()=>openJobModal(),
+    'action:new-appointment':()=>openApptModal(today()),
+    'action:quick-entry':()=>openQuickEntry(),
+    'action:new-lead':()=>openLeadModal(),
+    'action:new-payment':()=>openPmtModal(),
+    'action:open-settings':()=>sp('settings'),
+  };
+  const handler=handlers[command];
+  if(!handler){console.warn('Ignored unknown menu command:',command);return;}
+  handler();
+}
+
+if(window.electronAPI&&typeof window.electronAPI.onMenuCommand==='function'){
+  window.electronAPI.onMenuCommand(handleMenuCommand);
+}
 
 // Boot
 initVersionLabels();
