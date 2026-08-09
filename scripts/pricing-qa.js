@@ -37,6 +37,9 @@ function testTierEditingControls() {
   assert.match(html, /onclick="addPartsMarkupTier\(\)"/, 'markup settings must expose an add-tier control');
   assert.match(html, /function removePartsMarkupTier\(index\)/, 'markup settings must support removing regular tiers');
   assert.match(html, /Keep at least one price tier plus the Above tier/, 'the required catch-all schedule must be protected');
+  assert.match(html, /stat-label">Total cost</, 'inventory KPI must show total cost');
+  assert.match(html, /stat-label">Total retail</, 'inventory KPI must show total retail');
+  assert.ok(!html.includes('stat-label">Inventory value'), 'ambiguous inventory-value KPI must be removed');
 }
 
 function testPartsOnlyTax() {

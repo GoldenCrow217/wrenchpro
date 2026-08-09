@@ -180,6 +180,8 @@ async function waitForServer() {
     const secondEstimateConversion = await request('POST', `/api/estimates/${estimate.id}/convert`);
     assert(firstEstimateConversion.job_id === secondEstimateConversion.job_id, 'Repeat estimate conversion created a second job');
     assert(secondEstimateConversion.already_converted === true, 'Repeat estimate conversion was not identified as idempotent');
+    assert(/^RO-\d{4,}$/.test(firstEstimateConversion.repair_order_number), `Converted estimate did not receive an RO-#### number: ${firstEstimateConversion.repair_order_number}`);
+    assert(secondEstimateConversion.repair_order_number === firstEstimateConversion.repair_order_number, 'Repeat estimate conversion changed the repair-order number');
     inventoryRows = await request('GET', '/api/inventory');
     assert(inventoryRows.find(row => row.id === inventory.id).quantity === 0, 'Successful conversion did not deduct inventory exactly once');
 

@@ -169,19 +169,24 @@ router.post('/:id/convert', (req, res) => {
   `).get(req.params.id, ...tenant.values);
   if (!est) return res.status(404).json({ error: 'Not found' });
   if (!est.vehicle_id) return res.status(400).json({ error: 'A vehicle must be selected on the estimate before converting to a job' });
-  const existingJob = db.prepare('SELECT id FROM jobs WHERE estimate_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1').get(est.id);
-  if (existingJob) return res.json({ job_id: existingJob.id, already_converted: true });
+  const now = new Date().toISOString().replace('T', ' ').split('.')[0];
+  const existingJob = db.prepare('SELECT id, repair_order_number FROM jobs WHERE estimate_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1').get(est.id);
+  if (existingJob) {
+    db.prepare(`UPDATE estimates SET status='Approved', approved_at=COALESCE(approved_at, ?) WHERE id=?`).run(now, est.id);
+    return res.json({ job_id: existingJob.id, repair_order_number: existingJob.repair_order_number, already_converted: true });
+  }
   const items = db.prepare('SELECT * FROM estimate_items WHERE estimate_id = ?').all(est.id);
   const labor = items.filter(i => i.type === 'labor').reduce((a, i) => a + i.amount, 0);
   const parts = items.filter(i => i.type !== 'labor').reduce((a, i) => a + i.amount, 0);
   const service = items.map(i => i.description).filter(Boolean).join(', ').slice(0, 255) || est.customer_complaint || 'Service';
-  const now = new Date().toISOString().replace('T', ' ').split('.')[0];
-
   const inventoryTenant = shopTenantWhere(req, 'pi');
 
   const doConvert = db.transaction(() => {
-    const duplicate = db.prepare('SELECT id FROM jobs WHERE estimate_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1').get(est.id);
-    if (duplicate) return { jobId: duplicate.id, alreadyConverted: true };
+    const duplicate = db.prepare('SELECT id, repair_order_number FROM jobs WHERE estimate_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1').get(est.id);
+    if (duplicate) {
+      db.prepare(`UPDATE estimates SET status='Approved', approved_at=COALESCE(approved_at, ?) WHERE id=?`).run(now, est.id);
+      return { jobId: duplicate.id, repairOrderNumber: duplicate.repair_order_number, alreadyConverted: true };
+    }
 
     const requestedInventory = new Map();
     items.filter(i => i.inventory_id && i.type !== 'labor').forEach(i => {
@@ -203,10 +208,24 @@ router.post('/:id/convert', (req, res) => {
       }
     }
 
+    const repairOrders = db.prepare(`
+      SELECT j.repair_order_number
+      FROM jobs j
+      JOIN customers c ON j.customer_id = c.id
+      WHERE ${tenant.clause}
+    `).all(...tenant.values);
+    const highestRepairOrder = repairOrders.reduce((max, job) => {
+      const match = String(job.repair_order_number || '').trim().match(/^RO-(\d+)$/i);
+      if (!match) return max;
+      const number = Number(match[1]);
+      return Number.isSafeInteger(number) ? Math.max(max, number) : max;
+    }, 1000);
+    const repairOrderNumber = `RO-${String(highestRepairOrder + 1).padStart(4, '0')}`;
+
     const result = db.prepare(`
-      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, date, labor, parts, status, notes, estimate_id, complaint)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
-    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, est.date, labor, parts, est.notes, est.id, est.customer_complaint);
+      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, repair_order_number, date, labor, parts, status, notes, estimate_id, complaint)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
+    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, repairOrderNumber, est.date, labor, parts, est.notes, est.id, est.customer_complaint);
     const jobId = result.lastInsertRowid;
 
     db.prepare(`UPDATE estimates SET status='Approved', approved_at=? WHERE id=? AND approved_at IS NULL`)
@@ -226,11 +245,11 @@ router.post('/:id/convert', (req, res) => {
       deduct.run(requiredQty, inventoryId, ...inventoryTenant.values);
     }
 
-    return { jobId, alreadyConverted: false };
+    return { jobId, repairOrderNumber, alreadyConverted: false };
   });
 
   const converted = doConvert();
-  res.json({ job_id: converted.jobId, already_converted: converted.alreadyConverted });
+  res.json({ job_id: converted.jobId, repair_order_number: converted.repairOrderNumber, already_converted: converted.alreadyConverted });
 });
 
 module.exports = router;
