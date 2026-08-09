@@ -2,14 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId } = require('../tenant');
-const { finiteNumber } = require('../validation');
+const { fail, finiteNumber } = require('../validation');
+const { normalizeMarkupTiers } = require('../pricing');
 
 const SETTINGS_FIELDS = [
   'business_name', 'owner_name', 'phone', 'email', 'address', 'service_area', 'website', 'business_hours',
   'default_labor_rate', 'diagnostic_rate', 'fleet_rate', 'emergency_rate', 'service_fee',
   'default_pay_method', 'tax_rate', 'oil_warn_miles', 'currency_symbol',
   'tax_id', 'invoice_terms', 'invoice_footer', 'invoice_logo',
-  'warranty_terms', 'estimate_terms',
+  'warranty_terms', 'estimate_terms', 'parts_markup_tiers',
 ];
 
 function globalSettings() {
@@ -30,6 +31,12 @@ router.get('/', (req, res) => {
 router.put('/', (req, res) => {
   for (const [field, label] of [['default_labor_rate','Default labor rate'],['diagnostic_rate','Diagnostic rate'],['fleet_rate','Fleet rate'],['emergency_rate','Emergency rate'],['service_fee','Service fee'],['tax_rate','Tax rate'],['oil_warn_miles','Oil warning mileage']]) {
     if (!finiteNumber(res, req.body, field, { label })) return;
+  }
+  let partsMarkupTiers;
+  try {
+    partsMarkupTiers = JSON.stringify(normalizeMarkupTiers(req.body.parts_markup_tiers));
+  } catch (error) {
+    return fail(res, 'parts_markup_tiers', error.message);
   }
   const shopId = resolveShopId(req);
   const values = {
@@ -56,6 +63,7 @@ router.put('/', (req, res) => {
     invoice_logo: req.body.invoice_logo !== undefined ? req.body.invoice_logo : '',
     warranty_terms: req.body.warranty_terms || '12 months / 12,000 miles',
     estimate_terms: req.body.estimate_terms || '',
+    parts_markup_tiers: partsMarkupTiers,
   };
 
   if (!shopId) {
@@ -65,7 +73,7 @@ router.put('/', (req, res) => {
         default_labor_rate=?, diagnostic_rate=?, fleet_rate=?, emergency_rate=?, service_fee=?,
         default_pay_method=?, tax_rate=?, oil_warn_miles=?, currency_symbol=?,
         tax_id=?, invoice_terms=?, invoice_footer=?, invoice_logo=?,
-        warranty_terms=?, estimate_terms=?
+        warranty_terms=?, estimate_terms=?, parts_markup_tiers=?
       WHERE id = 1
     `).run(...SETTINGS_FIELDS.map(field => values[field]));
     return res.json({ ok: true });
