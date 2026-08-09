@@ -535,7 +535,7 @@ tr:hover td{background:var(--bg-subtle);}
     <!-- JOBS -->
     <div class="page" id="page-jobs">
       <div class="search-bar">
-        <input type="text" id="job-search" placeholder="Search jobs, customers, vehicles..." oninput="renderJobs()">
+        <input type="text" id="job-search" placeholder="Search repair orders, jobs, customers, vehicles..." oninput="renderJobs()">
         <select id="job-status-filter" onchange="renderJobs()">
           <option value="">All statuses</option>
           <option>Pending</option><option>In Progress</option><option>Complete</option>
@@ -543,7 +543,7 @@ tr:hover td{background:var(--bg-subtle);}
       </div>
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="table-wrap">
-          <table><thead><tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Assigned to</th><th>Labor</th><th>Parts</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <table><thead><tr><th>RO #</th><th>Date</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Assigned to</th><th>Labor</th><th>Parts</th><th>Total</th><th>Status</th><th></th></tr></thead>
           <tbody id="jobs-tbody"></tbody></table>
         </div>
       </div>
@@ -729,10 +729,11 @@ tr:hover td{background:var(--bg-subtle);}
           <div class="settings-hint" style="margin-top:0;">When a part cost changes, its retail price uses the first matching tier. Gross margin is calculated automatically.</div>
           <div class="table-wrap">
             <table class="settings-markup-table">
-              <thead><tr><th>Items up to</th><th>Markup over cost</th><th>Gross margin</th></tr></thead>
+              <thead><tr><th>Items up to</th><th>Markup over cost</th><th>Gross margin</th><th></th></tr></thead>
               <tbody id="s-markup-tiers"></tbody>
             </table>
           </div>
+          <button type="button" class="btn btn-sm" onclick="addPartsMarkupTier()" style="margin-top:.75rem;">+ Add price tier</button>
         </div>
       </div>
       <div style="margin-top:1rem;display:flex;gap:8px;align-items:center;">
@@ -815,7 +816,7 @@ tr:hover td{background:var(--bg-subtle);}
           <option value="low">Low stock only</option>
         </select>
       </div>
-      <div class="stats-grid-3" id="inv-stats"></div>
+      <div class="stats-grid" id="inv-stats"></div>
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="table-wrap">
           <table><thead><tr><th>Part name</th><th>Part #</th><th>Vendor</th><th>Cost</th><th>Retail</th><th>On hand</th><th>Reorder at</th><th>Location</th><th></th></tr></thead>
@@ -903,11 +904,14 @@ tr:hover td{background:var(--bg-subtle);}
         </select>
       </div>
     </div>
-    <div class="fr"><label>Invoice status</label>
-      <select id="jf-inv-status">
-        <option value="Unpaid">Unpaid</option><option value="Paid">Paid</option>
-        <option value="Partial">Partially paid</option><option value="Voided">Voided</option>
-      </select>
+    <div class="f2">
+      <div class="fr"><label>Repair order number</label><input id="jf-ro" placeholder="RO-1001" maxlength="80"></div>
+      <div class="fr"><label>Invoice status</label>
+        <select id="jf-inv-status">
+          <option value="Unpaid">Unpaid</option><option value="Paid">Paid</option>
+          <option value="Partial">Partially paid</option><option value="Voided">Voided</option>
+        </select>
+      </div>
     </div>
     <div style="margin-bottom:12px;">
       <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Line items</div>
@@ -916,15 +920,15 @@ tr:hover td{background:var(--bg-subtle);}
       </div>
       <div id="job-items-container"><div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div></div>
       <div style="display:flex;gap:8px;margin-top:6px;">
-        <button class="btn btn-sm" onclick="addJobItem()">+ Add item</button>
-        <button class="btn btn-sm" onclick="addJobItemFromCatalog()">+ From catalog</button>
+        <button type="button" class="btn btn-sm" onclick="addJobItem()">+ Add item</button>
+        <button type="button" class="btn btn-sm" onclick="addJobItemFromCatalog()">+ From catalog</button>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:10px;">
         <div style="min-width:260px;font-size:13px;">
           <div class="report-line"><span>Subtotal — Labor</span><span id="job-labor-val">$0.00</span></div>
           <div class="report-line"><span>Subtotal — Parts</span><span id="job-parts-val">$0.00</span></div>
           <div class="report-line" id="job-tax-line"><span id="job-tax-label">Sales Tax (0%)</span><span id="job-tax-val">$0.00</span></div>
-          <div class="report-line"><span>Travel / trip fee ($) <input type="number" id="jf-travel-fee" placeholder="0.00" step="0.01" min="0" style="width:70px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" oninput="_calcJob()"></span><span id="job-travel-val">$0.00</span></div>
+          <div class="report-line"><span>Travel / trip fee ($) <input type="number" id="jf-travel-fee" placeholder="0.00" step="10" min="0" style="width:70px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" oninput="_calcJob()"></span><span id="job-travel-val">$0.00</span></div>
           <div class="report-total"><span>Total</span><span id="job-total-val">$0.00</span></div>
         </div>
       </div>
@@ -941,6 +945,21 @@ tr:hover td{background:var(--bg-subtle);}
         <button id="save-job-btn" type="button" class="btn btn-primary" onclick="saveJob()">Save job</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Add job item from catalog -->
+<div class="modal-overlay" id="m-job-catalog">
+  <div class="modal" style="width:480px;">
+    <h2>Add from service catalog</h2>
+    <div class="fr"><label>Catalog item</label>
+      <select id="job-catalog-select" onkeydown="if(event.key==='Enter'){event.preventDefault();addSelectedJobCatalogItem();}"></select>
+    </div>
+    <div class="settings-hint" style="margin-top:0;">The catalog price, hours, and taxable setting will be added to this repair order.</div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button type="button" class="btn" onclick="closeM('m-job-catalog')">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="addSelectedJobCatalogItem()">Add selected item</button>
+    </div></div>
   </div>
 </div>
 
@@ -983,7 +1002,8 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="fr"><label>Tags <span style="font-weight:400;color:#aaa;">(comma-separated)</span></label><input id="cf-tags" placeholder="fleet, referral, vip..."></div>
     </div>
     <div id="cf-veh-toggle" style="margin:4px 0 8px;">
-      <button class="btn btn-sm" onclick="toggleCustVehicle()" id="cf-veh-btn" type="button">+ Add vehicle</button>
+      <button class="btn btn-sm" onclick="handleCustVehicleAction()" id="cf-veh-btn" type="button">+ Add vehicle</button>
+      <span id="cf-veh-hint" class="settings-hint" style="display:inline;margin-left:8px;">Optional — you can add a vehicle later.</span>
     </div>
     <div id="cf-veh-section" style="display:none;background:var(--bg-subtle);border-radius:8px;padding:12px;margin-bottom:8px;">
       <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">New Vehicle (optional)</div>
@@ -1377,7 +1397,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div id="estf-del"></div>
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-estimate')">Cancel</button>
-        <button class="btn" id="estf-convert-btn" style="display:none;" onclick="convertEstToJob()">Convert to job ▸</button>
+        <button type="button" class="btn" id="estf-convert-btn" style="display:none;" onclick="convertEstToJob()">Convert to RO ▸</button>
         <button class="btn" onclick="printEstimate()">Print PDF</button>
         <button id="save-estimate-btn" type="button" class="btn btn-primary" onclick="saveEstimate()">Save estimate</button>
       </div>
@@ -2177,11 +2197,13 @@ function renderJobs(){
     const name = `${j.first||''} ${j.last||''}`.toLowerCase();
     const veh = `${j.year||''} ${j.make||''} ${j.model||''}`.toLowerCase();
     const svc = (j.service||'').toLowerCase();
-    return (!q||name.includes(q)||veh.includes(q)||svc.includes(q)) && (!sf||j.status===sf);
+    const repairOrder=(j.repair_order_number||'').toLowerCase();
+    return (!q||name.includes(q)||veh.includes(q)||svc.includes(q)||repairOrder.includes(q)) && (!sf||j.status===sf);
   });
   const tbody = document.getElementById('jobs-tbody');
-  if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty">No jobs found</td></tr>`; return; }
+  if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="11" class="empty">No jobs found</td></tr>`; return; }
   tbody.innerHTML = jobs.map(j=>`<tr>
+    <td style="font-family:var(--font-mono);font-size:12px;">${esc(j.repair_order_number||'—')}</td>
     <td style="color:#888;font-size:12px;">${esc(j.date||'—')}</td>
     <td class="td-name">${esc(j.first||'')} ${esc(j.last||'')}</td>
     <td style="font-size:12px;">${esc(j.year||'')} ${esc(j.make||'')} ${esc(j.model||'')}<br><span style="color:#aaa;">${esc(j.plate||'')}</span></td>
@@ -2794,6 +2816,23 @@ function closeM(id){ document.getElementById(id).classList.remove('open'); }
 
 let jobItems = [];
 
+function nextRepairOrderNumber(jobs=state.jobs){
+  const records=Array.isArray(jobs)?[...jobs]:[];
+  const highest=records.reduce((max,job)=>{
+    const match=String(job.repair_order_number||'').trim().match(/^RO-(\d+)$/i);
+    if(!match)return max;
+    const number=Number(match[1]);
+    return Number.isSafeInteger(number)?Math.max(max,number):max;
+  },1000);
+  return `RO-${String(highest+1).padStart(4,'0')}`;
+}
+
+function normalizeRepairOrderNumber(value){
+  const raw=String(value||'').trim().toUpperCase();
+  const digits=raw.startsWith('RO-')?raw.slice(3):raw;
+  return /^\d+$/.test(digits)?`RO-${digits.padStart(4,'0')}`:null;
+}
+
 function _calcJob(){
   jobItems.forEach((item,i)=>{
     item.amount = +((item.qty||0)*(item.rate||0)).toFixed(2);
@@ -2836,23 +2875,30 @@ function renderJobItems(){
   _calcJob();
 }
 
-function addJobItem(type){
+function addJobItem(type='labor'){
   const rate = type==='labor' ? (state.settings.default_labor_rate||0) : (type==='diagnostic'?(state.settings.diagnostic_rate||0):0);
   const taxable = (type==='part'||type==='shop_supply') ? 1 : 0;
-  jobItems.push({type:type||'labor', description:'', qty:1, rate, amount:0, taxable});
+  jobItems.push({type, description:'', qty:1, rate, amount:0, taxable});
   renderJobItems();
 }
 
 function addJobItemFromCatalog(){
-  const cat = state.catalog;
-  if(!cat||!cat.length){toast('No catalog items found. Add services in the Catalog tab.');return;}
-  const sel = prompt('Catalog items:\n'+cat.map((s,i)=>`${i+1}. ${s.name} — ${fmt$(s.default_price)}`).join('\n')+'\n\nEnter item number:');
-  const idx = parseInt(sel)-1;
-  if(isNaN(idx)||!cat[idx])return;
-  const s = cat[idx];
+  const cat=Array.isArray(state.catalog)?state.catalog:[];
+  if(!cat.length){toast('No catalog items are available. Add a service in the Service Catalog first.',8000);return;}
+  const select=document.getElementById('job-catalog-select');
+  select.innerHTML=cat.map(s=>`<option value="${safeId(s.id)}">${esc(s.category||'General')} — ${esc(s.name||'Service')} (${fmt$(s.default_price)})</option>`).join('');
+  document.getElementById('m-job-catalog').classList.add('open');
+  select.focus();
+}
+
+function addSelectedJobCatalogItem(){
+  const selectedId=parseInt(document.getElementById('job-catalog-select').value);
+  const s=(Array.isArray(state.catalog)?state.catalog:[]).find(item=>item.id===selectedId);
+  if(!s){toast('That catalog item is no longer available. Close the picker and try again.',8000);return;}
   const taxable = s.taxable ? 1 : 0;
   jobItems.push({type:taxable?'part':'labor', description:s.name, qty:s.default_hours||1, rate:s.default_hours>0?s.default_price/s.default_hours:s.default_price, amount:s.default_price, taxable});
   renderJobItems();
+  closeM('m-job-catalog');
 }
 
 async function openJobModal(id){
@@ -2876,6 +2922,7 @@ async function openJobModal(id){
       document.getElementById('jf-cust').value=j.customer_id;
       await loadVehiclesForJob(j.vehicle_id);
       document.getElementById('jf-service').value=j.service||'';
+      document.getElementById('jf-ro').value=j.repair_order_number||'';
       document.getElementById('jf-date').value=j.date||today();
       document.getElementById('jf-miles').value=j.miles||'';
       document.getElementById('jf-status').value=j.status||'Pending';
@@ -2895,6 +2942,7 @@ async function openJobModal(id){
     } else {
       document.getElementById('m-job-title').textContent='New Job';
       ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
+      document.getElementById('jf-ro').value=nextRepairOrderNumber();
       document.getElementById('jf-status').value='Pending';
       document.getElementById('jf-inv-status').value='Unpaid';
       jobItems = [];
@@ -2927,8 +2975,13 @@ async function saveJob(){
   const custId=parseInt(document.getElementById('jf-cust').value);
   const vehId=parseInt(document.getElementById('jf-veh').value);
   if(!custId||!vehId){toast('Please select a customer and vehicle.');return;}
+  const repairOrderInput=document.getElementById('jf-ro');
+  const repairOrderRaw=repairOrderInput.value.trim();
+  const repairOrderNumber=repairOrderRaw?normalizeRepairOrderNumber(repairOrderRaw):(!editJobId?nextRepairOrderNumber():null);
+  if(!repairOrderNumber){toast('Repair order number must use the format RO-#### (for example, RO-1001).',8000);return;}
+  repairOrderInput.value=repairOrderNumber;
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
-  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0,items:jobItems};
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,repair_order_number:repairOrderNumber,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0,items:jobItems};
   const id=editJobId, existing=id?state.jobs.find(j=>j.id===id):null;
   await runMutation(`job-save-${id||'new'}`,{buttonId:'save-job-btn',action:'Saving job',request:()=>id?api('PUT',`/api/jobs/${id}`,body):api('POST','/api/jobs',body),apply:r=>upsertStateRecord('jobs',id?{...existing,...body,id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,items:jobItems}:{...body,...r,items:jobItems}),render:()=>renderSafely(renderJobs,renderDashboard),close:'m-job',success:id?'Job updated':'Job saved'});
 }
@@ -2954,6 +3007,16 @@ function toggleCustVehicle(){
   btn.textContent=showing?'+ Add vehicle':'− Hide vehicle';
 }
 
+function handleCustVehicleAction(){
+  if(editCustId){
+    const customerId=editCustId;
+    closeM('m-cust');
+    openVehModal(customerId,null);
+    return;
+  }
+  toggleCustVehicle();
+}
+
 async function openCustModal(id){
   editCustId=id||null;
   pendingCustVehicleCustomerId=null;
@@ -2977,7 +3040,9 @@ async function openCustModal(id){
     document.getElementById('cf-billing').value=c.billing_address||'';
     document.getElementById('cf-type').value=c.customer_type||'Personal';
     document.getElementById('cf-contact').value=c.preferred_contact||'Phone';
-    document.getElementById('cf-veh-toggle').style.display='none'; // hide vehicle adder on edit
+    document.getElementById('cf-veh-toggle').style.display='';
+    document.getElementById('cf-veh-btn').textContent='+ Add vehicle';
+    document.getElementById('cf-veh-hint').textContent='Add another vehicle for this customer.';
     document.getElementById('cf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteCustomer(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-cust-title').textContent='New Customer';
@@ -2986,6 +3051,7 @@ async function openCustModal(id){
     document.getElementById('cf-type').value='Personal';
     document.getElementById('cf-contact').value='Phone';
     document.getElementById('cf-veh-toggle').style.display='';
+    document.getElementById('cf-veh-hint').textContent='Optional — you can add a vehicle later.';
   }
   document.getElementById('m-cust').classList.add('open');
 }
@@ -3030,7 +3096,7 @@ async function saveCustomer(){
     }
     pendingCustVehicleCustomerId=null;
     closeM('m-cust');
-    toast(editCustId?'Customer updated':'Customer added');
+    toast(editCustId?'Customer updated':((vehMake||vehModel)?'Customer and vehicle added':'Customer added. A vehicle can be added later.'));
     if(detailCustId) renderCustDetail();
   } catch(e){
     const message=e?.message||'Unknown error';
@@ -3135,7 +3201,7 @@ async function loadJobsForPayment(){
     return;
   }
   const jobs=state.jobs.filter(j=>j.customer_id===custId&&j.deleted_at==null&&j.invoice_status!=='Paid');
-  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${safeId(j.id)}">WO#${safeId(j.id)} — ${esc(j.service||'Service')} (${esc(j.date||'')})</option>`).join('');
+  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${safeId(j.id)}">${j.repair_order_number?'RO#'+esc(j.repair_order_number):'WO#'+safeId(j.id)} — ${esc(j.service||'Service')} (${esc(j.date||'')})</option>`).join('');
   const plans=state.plans.filter(p=>p.customer_id===custId&&planBalance(p)>0);
   planSel.innerHTML='<option value="">— No plan —</option>'+plans.map(p=>`<option value="${safeId(p.id)}">${esc(p.description)} (${fmt$(planBalance(p))} remaining)</option>`).join('');
 }
@@ -3276,6 +3342,7 @@ const DEFAULT_PARTS_MARKUP_TIERS=[
   {up_to:150,markup:32.5},{up_to:300,markup:30},{up_to:500,markup:25},
   {up_to:1000,markup:18},{up_to:5000,markup:17.5},{up_to:null,markup:15},
 ];
+let settingsMarkupDraft=[];
 
 function partsMarkupTiers(){
   try{
@@ -3292,19 +3359,40 @@ function grossMarginFromMarkup(markup){
   return Number.isFinite(value)&&value>=0?value/(100+value)*100:0;
 }
 
-function renderPartsMarkupSettings(){
+function renderPartsMarkupSettings(tiers){
   const tbody=document.getElementById('s-markup-tiers');
   if(!tbody)return;
-  tbody.innerHTML=partsMarkupTiers().map((tier,index)=>`<tr>
-    <td>${tier.up_to===null?'Above':`<input type="number" id="s-tier-up-${index}" min="0.01" step="0.01" value="${tier.up_to}">`}</td>
-    <td><input type="number" id="s-tier-markup-${index}" min="0" step="0.01" value="${tier.markup}" oninput="updateSettingsGrossMargin(${index})"> %</td>
-    <td class="gross-margin" id="s-tier-margin-${index}">${grossMarginFromMarkup(tier.markup).toFixed(2)}%</td>
+  if(tiers)settingsMarkupDraft=tiers.map(t=>({...t}));
+  tbody.innerHTML=settingsMarkupDraft.map((tier,index)=>`<tr>
+    <td>${tier.up_to===null?'Above':`<input type="number" id="s-tier-up-${index}" min="0.01" step="0.01" value="${attrEsc(tier.up_to)}" oninput="updateSettingsMarkupTier(${index},'up_to',this.value)">`}</td>
+    <td><input type="number" id="s-tier-markup-${index}" min="0" step="0.01" value="${attrEsc(tier.markup)}" oninput="updateSettingsMarkupTier(${index},'markup',this.value);updateSettingsGrossMargin(${index})"> %</td>
+    <td class="gross-margin" id="s-tier-margin-${index}">${tier.markup===''?'—':grossMarginFromMarkup(tier.markup).toFixed(2)+'%'}</td>
+    <td>${tier.up_to===null?'':`<button type="button" class="btn btn-sm btn-danger" onclick="removePartsMarkupTier(${index})" aria-label="Remove price tier">Remove</button>`}</td>
   </tr>`).join('');
 }
 
+function updateSettingsMarkupTier(index,field,value){
+  if(settingsMarkupDraft[index])settingsMarkupDraft[index][field]=value;
+}
+
+function addPartsMarkupTier(){
+  const aboveIndex=Math.max(0,settingsMarkupDraft.length-1);
+  settingsMarkupDraft.splice(aboveIndex,0,{up_to:'',markup:''});
+  renderPartsMarkupSettings();
+  document.getElementById(`s-tier-up-${aboveIndex}`)?.focus();
+}
+
+function removePartsMarkupTier(index){
+  if(index<0||index>=settingsMarkupDraft.length-1)return;
+  if(settingsMarkupDraft.length<=2){toast('Keep at least one price tier plus the Above tier.',8000);return;}
+  settingsMarkupDraft.splice(index,1);
+  renderPartsMarkupSettings();
+}
+
 function updateSettingsGrossMargin(index){
-  const markup=Number(document.getElementById(`s-tier-markup-${index}`).value);
-  document.getElementById(`s-tier-margin-${index}`).textContent=Number.isFinite(markup)&&markup>=0?`${grossMarginFromMarkup(markup).toFixed(2)}%`:'—';
+  const raw=document.getElementById(`s-tier-markup-${index}`).value;
+  const markup=Number(raw);
+  document.getElementById(`s-tier-margin-${index}`).textContent=raw!==''&&Number.isFinite(markup)&&markup>=0?`${grossMarginFromMarkup(markup).toFixed(2)}%`:'—';
 }
 
 function readPartsMarkupSettings(){
@@ -3313,11 +3401,13 @@ function readPartsMarkupSettings(){
   const tiers=[];
   for(let index=0;index<rows.length;index++){
     const last=index===rows.length-1;
-    const markup=Number(document.getElementById(`s-tier-markup-${index}`).value);
-    if(!Number.isFinite(markup)||markup<0){toast(`Markup tier ${index+1} must be zero or greater.`,8000);return null;}
+    const markupRaw=document.getElementById(`s-tier-markup-${index}`).value;
+    const markup=Number(markupRaw);
+    if(markupRaw===''||!Number.isFinite(markup)||markup<0){toast(`Markup tier ${index+1} must be zero or greater.`,8000);return null;}
     if(last){tiers.push({up_to:null,markup});continue;}
-    const upTo=Number(document.getElementById(`s-tier-up-${index}`).value);
-    if(!Number.isFinite(upTo)||upTo<=previous){toast('Parts markup limits must be positive and increase from one row to the next.',8000);return null;}
+    const upToRaw=document.getElementById(`s-tier-up-${index}`).value;
+    const upTo=Number(upToRaw);
+    if(upToRaw===''||!Number.isFinite(upTo)||upTo<=previous){toast('Parts markup limits must be positive and increase from one row to the next.',8000);return null;}
     tiers.push({up_to:upTo,markup});previous=upTo;
   }
   return tiers;
@@ -3347,7 +3437,7 @@ function renderSettings(){
   document.getElementById('s-area').value     = s.service_area||'';
   document.getElementById('s-warranty-terms').value = s.warranty_terms||'12 months / 12,000 miles';
   document.getElementById('s-est-terms').value= s.estimate_terms||'';
-  renderPartsMarkupSettings();
+  renderPartsMarkupSettings(partsMarkupTiers());
   // Logo preview
   const preview = document.getElementById('s-logo-preview');
   const clearBtn = document.getElementById('s-logo-clear');
@@ -3467,6 +3557,7 @@ function openInvoice(jobId){
       <div style="text-align:right;">
         <div style="font-size:22px;font-weight:700;color:#378ADD;">INVOICE</div>
         <div style="font-size:13px;color:#555;">${invoiceNum}</div>
+        ${j.repair_order_number?`<div style="font-size:12px;color:#555;">RO #: ${esc(j.repair_order_number)}</div>`:''}
         <div style="font-size:12px;color:#888;margin-top:4px;">Date: ${esc(j.date||'—')}</div>
         <div style="font-size:12px;color:#888;">Terms: ${esc(s.invoice_terms||'Due on receipt')}</div>
       </div>
@@ -3964,7 +4055,7 @@ async function openEstimateModal(id){
     document.getElementById('est-discount').value=e.discount||'';
     document.getElementById('est-taxrate').value=e.tax_rate||state.settings.tax_rate||'';
     estItems=(e.items||[]).map(i=>({type:i.type||'labor',description:i.description||'',qty:i.qty||1,rate:i.rate||0,amount:i.amount||0}));
-    document.getElementById('estf-convert-btn').style.display=(e.status==='Approved'||e.status==='Draft'||e.status==='Sent')?'':'none';
+    document.getElementById('estf-convert-btn').style.display=e.status==='Approved'?'':'none';
     document.getElementById('estf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEstimate(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-est-title').textContent='New Estimate';
@@ -4052,8 +4143,34 @@ async function saveEstimate(){
   const taxRate=parseFloat(document.getElementById('est-taxrate').value)||0;
   const total=calculateEstimateTotals(estItems,disc,taxRate).total;
   const body={customer_id:custId,vehicle_id:parseInt(document.getElementById('estf-veh').value)||null,date:document.getElementById('estf-date').value,status:document.getElementById('estf-status').value,customer_complaint:document.getElementById('estf-complaint').value,notes:document.getElementById('estf-notes').value,discount:disc,tax_rate:taxRate,expires_date:document.getElementById('estf-expires').value||null,total,items:estItems};
+  const wantsConversion=body.status==='Approved';
+  if(wantsConversion&&!body.vehicle_id){toast('Select a vehicle before approving and converting this estimate to a repair order.',8000);return;}
   const id=editEstId, existing=id?state.estimates.find(e=>e.id===id):null;
-  await runMutation(`estimate-save-${id||'new'}`,{buttonId:'save-estimate-btn',action:'Saving estimate',request:()=>id?api('PUT',`/api/estimates/${id}`,body):api('POST','/api/estimates',body),apply:r=>upsertStateRecord('estimates',id?{...existing,...body,id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,date:existing.date,items:estItems}:{...body,...r,items:estItems}),render:renderEstimates,close:'m-estimate',success:id?'Estimate updated':'Estimate saved'});
+  const result=await runMutation(`estimate-save-${id||'new'}`,{
+    buttonId:'save-estimate-btn',
+    action:wantsConversion?'Approving estimate':'Saving estimate',
+    request:async()=>{
+      const saveBody=wantsConversion?{...body,status:'Draft'}:body;
+      const saved=id?await api('PUT',`/api/estimates/${id}`,saveBody,{silentError:true}):await api('POST','/api/estimates',saveBody,{silentError:true});
+      const savedId=id||saved.id;
+      const record=id?{...existing,...saveBody,id,items:estItems}:{...saveBody,...saved,id:savedId,items:estItems};
+      if(!wantsConversion)return{record};
+      editEstId=savedId;
+      upsertStateRecord('estimates',record);
+      renderEstimates();
+      try{
+        const conversion=await api('POST',`/api/estimates/${savedId}/convert`,undefined,{silentError:true});
+        return{record:{...record,status:'Approved'},conversion};
+      }catch(error){
+        throw new Error(`The estimate was saved as Draft, but no repair order was created. Correct the issue and approve it again. (${error.message})`);
+      }
+    },
+    apply:r=>upsertStateRecord('estimates',r.record),
+    render:renderEstimates,
+    close:'m-estimate',
+    success:r=>wantsConversion?`Estimate approved and converted to ${r.conversion?.repair_order_number||'a repair order'}.`:(id?'Estimate updated':'Estimate saved')
+  });
+  if(result?.conversion)await openConvertedRepairOrder(result.conversion);
 }
 
 async function deleteEstimate(id){
@@ -4063,13 +4180,16 @@ async function deleteEstimate(id){
 
 async function convertEstToJob(){
   if(!editEstId){toast('Save the estimate first.');return;}
-  if(!confirm('Convert this estimate to a work order?'))return;
+  if(!confirm('Convert this approved estimate to a repair order?'))return;
   const id=editEstId;
-  const r=await runMutation(`estimate-convert-${id}`,{action:'Converting estimate',request:()=>api('POST',`/api/estimates/${id}/convert`),apply:()=>{const e=state.estimates.find(x=>x.id===id);if(e)upsertStateRecord('estimates',{...e,status:'Approved'});},render:renderEstimates,close:'m-estimate',success:'Estimate converted to job!'});
-  if(r?.job_id){
-    try{await refreshResource('/api/jobs','jobs');await refreshResource('/api/inventory','inventory');}catch(error){console.error('Estimate converted, but related state refresh failed:',error);toast('Estimate converted. Refresh to see the latest job or inventory values.',8000);}
-    sp('jobs',document.querySelector('.nav-item[onclick*="\'jobs\'"]'));setTimeout(()=>openJobModal(r.job_id),300);
-  }
+  const r=await runMutation(`estimate-convert-${id}`,{action:'Converting estimate',request:()=>api('POST',`/api/estimates/${id}/convert`,undefined,{silentError:true}),apply:()=>{const e=state.estimates.find(x=>x.id===id);if(e)upsertStateRecord('estimates',{...e,status:'Approved'});},render:renderEstimates,close:'m-estimate',success:result=>`Estimate converted to ${result.repair_order_number||'a repair order'}.`});
+  if(r?.job_id)await openConvertedRepairOrder(r);
+}
+
+async function openConvertedRepairOrder(conversion){
+  try{await refreshResource('/api/jobs','jobs');await refreshResource('/api/inventory','inventory');}catch(error){console.error('Estimate converted, but related state refresh failed:',error);toast('Estimate converted. Refresh to see the latest repair order or inventory values.',8000);}
+  sp('jobs',document.querySelector('.nav-item[onclick*="\'jobs\'"]'));
+  setTimeout(()=>openJobModal(conversion.job_id),300);
 }
 
 function openEstimateInvoice(id){
@@ -4262,11 +4382,13 @@ function renderInventory(){
     return match&&(fl?lowMatch:true);
   });
   const lowStock=state.inventory.filter(p=>p.quantity<=p.reorder_qty&&p.reorder_qty>0).length;
-  const totalValue=state.inventory.reduce((a,p)=>a+p.quantity*(p.retail_price||p.cost||0),0);
+  const totalCost=state.inventory.reduce((sum,p)=>sum+(Number(p.quantity)||0)*(Number(p.cost)||0),0);
+  const totalRetail=state.inventory.reduce((sum,p)=>sum+(Number(p.quantity)||0)*(Number(p.retail_price)||0),0);
   document.getElementById('inv-stats').innerHTML=`
     <div class="stat"><div class="stat-label">Total parts</div><div class="stat-value">${state.inventory.length}</div></div>
     <div class="stat"><div class="stat-label">Low stock</div><div class="stat-value red">${lowStock}</div></div>
-    <div class="stat"><div class="stat-label">Inventory value</div><div class="stat-value green">${fmt$(totalValue)}</div></div>
+    <div class="stat"><div class="stat-label">Total cost</div><div class="stat-value">${fmt$(totalCost)}</div></div>
+    <div class="stat"><div class="stat-label">Total retail</div><div class="stat-value green">${fmt$(totalRetail)}</div></div>
   `;
   const tbody=document.getElementById('inv-tbody');
   if(!parts.length){tbody.innerHTML=`<tr><td colspan="9" class="empty">No parts found</td></tr>`;return;}
@@ -4702,11 +4824,6 @@ function cpKey(e){
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); openCommandPalette(); }
   if(e.key==='Escape'&&document.getElementById('cp-overlay').classList.contains('open')) closeCommandPalette();
-});
-
-// Close modals on overlay click
-document.querySelectorAll('.modal-overlay').forEach(o=>{
-  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
 });
 
 // Native Electron menu commands are allowlisted in both the main process and preload.

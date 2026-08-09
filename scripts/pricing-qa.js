@@ -1,4 +1,6 @@
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const {
   DEFAULT_PARTS_MARKUP_TIERS,
   normalizeMarkupTiers,
@@ -26,6 +28,18 @@ function testTierValidation() {
   assert.throws(() => normalizeMarkupTiers([{ up_to: 5, markup: 10 }, { up_to: 2, markup: 10 }, { up_to: null, markup: 5 }]), /increasing/);
   assert.throws(() => normalizeMarkupTiers([{ up_to: 1, markup: -1 }, { up_to: null, markup: 5 }]), /non-negative/);
   assert.throws(() => normalizeMarkupTiers([{ up_to: 1, markup: 10 }, { up_to: 5, markup: 5 }]), /Above/);
+  const custom = normalizeMarkupTiers([{ up_to: 20, markup: 50 }, { up_to: 100, markup: 25 }, { up_to: null, markup: 10 }]);
+  assert.strictEqual(markupForCost(50, custom), 25, 'custom tiers must participate in price selection');
+}
+
+function testTierEditingControls() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  assert.match(html, /onclick="addPartsMarkupTier\(\)"/, 'markup settings must expose an add-tier control');
+  assert.match(html, /function removePartsMarkupTier\(index\)/, 'markup settings must support removing regular tiers');
+  assert.match(html, /Keep at least one price tier plus the Above tier/, 'the required catch-all schedule must be protected');
+  assert.match(html, /stat-label">Total cost</, 'inventory KPI must show total cost');
+  assert.match(html, /stat-label">Total retail</, 'inventory KPI must show total retail');
+  assert.ok(!html.includes('stat-label">Inventory value'), 'ambiguous inventory-value KPI must be removed');
 }
 
 function testPartsOnlyTax() {
@@ -47,5 +61,6 @@ function testPartsOnlyTax() {
 
 testMarkupSchedule();
 testTierValidation();
+testTierEditingControls();
 testPartsOnlyTax();
 console.log('Pricing QA passed: markup tiers, cent rounding, validation, and parts-only tax.');

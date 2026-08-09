@@ -21,6 +21,38 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.29 - 2026-08-09
+
+### Added
+
+- New repair orders automatically receive the next editable `RO-####` number.
+- Existing customers can add a vehicle later directly from the customer editor.
+- Approved estimates automatically convert to an idempotent, numbered repair order.
+- Repair-order catalog selection now uses an in-app picker that works in Electron.
+
+### Changed
+
+- Parts & Inventory shows separate total-cost and total-retail KPIs.
+- New repair-order labor lines use the standard labor rate configured in Settings.
+- Travel and trip fee spinner controls change the amount in $10 increments.
+
+### Fixed
+
+- Failed estimate conversion leaves the estimate retryable as Draft without creating a duplicate estimate or repair order.
+- Customer creation clearly supports saving without vehicle information.
+
+## v1.0.28 - 2026-08-09
+
+### Added
+
+- Jobs can store, search, display, edit, and print an external repair-order number.
+- Parts markup settings can add and remove price tiers while preserving the required Above fallback.
+
+### Fixed
+
+- Clicking outside an open data-entry modal no longer closes it and discards in-progress input.
+- Saving a database-loaded job line without an inventory link no longer incorrectly reports "Inventory item not found."
+
 ## v1.0.27 - 2026-08-09
 
 ### Added

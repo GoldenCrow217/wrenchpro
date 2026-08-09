@@ -48,6 +48,7 @@ db.exec(`
     customer_id INTEGER NOT NULL,
     vehicle_id INTEGER NOT NULL,
     service TEXT,
+    repair_order_number TEXT DEFAULT '',
     date TEXT,
     miles INTEGER,
     labor REAL DEFAULT 0,
@@ -458,6 +459,7 @@ if (!jobCols.includes('travel_fee'))       db.prepare(`ALTER TABLE jobs ADD COLU
 if (!jobCols.includes('closed_at'))        db.prepare(`ALTER TABLE jobs ADD COLUMN closed_at TEXT`).run();
 if (!jobCols.includes('deleted_at'))       db.prepare(`ALTER TABLE jobs ADD COLUMN deleted_at TEXT`).run();
 if (!jobCols.includes('notify_en_route'))  db.prepare(`ALTER TABLE jobs ADD COLUMN notify_en_route INTEGER DEFAULT 1`).run();
+if (!jobCols.includes('repair_order_number')) db.prepare(`ALTER TABLE jobs ADD COLUMN repair_order_number TEXT DEFAULT ''`).run();
 
 // Migrate: vehicles
 const vehCols = db.prepare(`PRAGMA table_info(vehicles)`).all().map(c => c.name);
