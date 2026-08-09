@@ -21,6 +21,16 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.26 - 2026-08-09
+
+### Fixed
+
+- Dashboard and sidebar identity rendering no longer fails when resolving the configured owner or business-name fallback.
+
+### Changed
+
+- Rendering QA now executes configured-owner and business-name fallback behavior and guards against restoring the hardcoded sample greeting.
+
 ## v1.0.25 - 2026-08-09
 
 ### Changed
