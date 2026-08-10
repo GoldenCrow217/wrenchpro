@@ -74,6 +74,11 @@ async function main() {
   }
   await expect400('POST', '/api/expenses', { date: '2026-08-03', description: ' ', category: 'Supplies', amount: 1 }, 'description');
   for (const value of ['NaN', 'Infinity', '-Infinity']) await expect400('POST', '/api/expenses', { date: '2026-08-03', description: 'Fuel', category: 'Fuel', amount: value }, 'amount');
+  const partsExpense = { date: '2026-08-03', description: 'Brake pads', category: 'Parts & supplies', amount: 80 };
+  await expect400('POST', '/api/expenses', { ...partsExpense, inventory: [] }, 'inventory');
+  await expect400('POST', '/api/expenses', { ...partsExpense, category: 'Fuel', inventory: { name: 'Fuel', quantity: 1, cost: 80, retail_price: 100 } }, 'category');
+  await expect400('POST', '/api/expenses', { ...partsExpense, inventory: { name: 'Brake pads', quantity: 0, cost: 80, retail_price: 100 } }, 'inventory.quantity');
+  await expect400('POST', '/api/expenses', { ...partsExpense, inventory: { name: 'Brake pads', quantity: 1, cost: -1, retail_price: 100 } }, 'cost');
 
   for (const route of resources) assert.strictEqual((await request('GET', route)).body.length, before[route], `${route} must not contain partial records`);
 
@@ -85,6 +90,17 @@ async function main() {
   assert.strictEqual(appt.status, 200);
   const expense = await request('POST', '/api/expenses', { date: '2026-08-03', description: 'Fuel', category: 'Fuel', amount: 12.5 });
   assert.strictEqual(expense.status, 200);
+  const inventoryExpense = await request('POST', '/api/expenses', { ...partsExpense, inventory: { name: 'Brake pads', part_number: 'PAD-1', vendor: 'Parts Store', quantity: 2, cost: 40, retail_price: 70 } });
+  assert.strictEqual(inventoryExpense.status, 200);
+  assert.strictEqual(inventoryExpense.body.inventory_item.quantity, 2);
+  assert.strictEqual(inventoryExpense.body.inventory_item.name, 'Brake pads');
+  const restockExpense = await request('POST', '/api/expenses', { ...partsExpense, amount: 20, inventory: { id: inventoryExpense.body.inventory_item.id, quantity: 0.5, cost: 40, retail_price: 70 } });
+  assert.strictEqual(restockExpense.status, 200);
+  assert.strictEqual(restockExpense.body.inventory_item.quantity, 2.5, 'Existing inventory quantity was not incremented');
+  const expenseCountBeforeMissingInventory = (await request('GET', '/api/expenses')).body.length;
+  const missingInventory = await request('POST', '/api/expenses', { ...partsExpense, inventory: { id: 999999, quantity: 1, cost: 40, retail_price: 70 } });
+  assert.strictEqual(missingInventory.status, 404);
+  assert.strictEqual((await request('GET', '/api/expenses')).body.length, expenseCountBeforeMissingInventory, 'Missing inventory item created a partial expense');
 
   await expect400('PUT', `/api/leads/${lead.body.id}`, { first: ' ' }, 'first');
   await expect400('PUT', `/api/inventory/${part.body.id}`, { name: 'Part', cost: 'Infinity' }, 'cost');
@@ -94,7 +110,13 @@ async function main() {
   assert.strictEqual((await request('PUT', '/api/expenses/999999', { date: '2026-08-03', description: 'Fuel', category: 'Fuel', amount: 1 })).status, 404);
 
   const db = new Database(path.join(dataDir, 'wrenchpro.db'));
-  db.exec("CREATE TRIGGER validation_failure BEFORE INSERT ON expenses BEGIN SELECT RAISE(FAIL, 'secret sqlite injected failure'); END");
+  const expenseCountBeforeInventoryFailure = (await request('GET', '/api/expenses')).body.length;
+  db.exec("CREATE TRIGGER inventory_expense_failure BEFORE INSERT ON parts_inventory BEGIN SELECT RAISE(FAIL, 'secret inventory failure'); END");
+  const failedInventoryExpense = await request('POST', '/api/expenses', { ...partsExpense, inventory: { name: 'Rollback part', quantity: 1, cost: 20, retail_price: 40 } });
+  assert.strictEqual(failedInventoryExpense.status, 500);
+  assert.deepStrictEqual(failedInventoryExpense.body, { error: 'Internal server error' });
+  assert.strictEqual((await request('GET', '/api/expenses')).body.length, expenseCountBeforeInventoryFailure, 'Inventory write failure left a partial expense');
+  db.exec("DROP TRIGGER inventory_expense_failure; CREATE TRIGGER validation_failure BEFORE INSERT ON expenses BEGIN SELECT RAISE(FAIL, 'secret sqlite injected failure'); END");
   db.close();
   const injected = await request('POST', '/api/expenses', { date: '2026-08-03', description: 'Valid', category: 'Test', amount: 1 });
   assert.strictEqual(injected.status, 500);

@@ -15,9 +15,10 @@ function validatePayment(res, body, includeRelationships) {
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const payments = db.prepare(`
-    SELECT p.*, c.first, c.last
+    SELECT p.*, c.first, c.last, j.repair_order_number
     FROM payments p
     JOIN customers c ON p.customer_id = c.id
+    LEFT JOIN jobs j ON p.job_id = j.id
     WHERE c.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY p.date DESC
   `).all(...tenant.values);
@@ -33,21 +34,25 @@ router.post('/', (req, res) => {
     .get(customer_id, ...tenant.values);
   if (!customer) return fail(res, 'customer_id', 'Customer not found', 404);
 
-  if (job_id) {
-    const job = db.prepare('SELECT id FROM jobs WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(job_id, customer_id);
-    if (!job) return fail(res, 'job_id', 'Job not found or does not belong to this customer', 404);
+  let resolvedJobId = job_id ? Number(job_id) : null;
+  if (plan_id) {
+    const plan = db.prepare('SELECT id, job_id FROM payment_plans WHERE id = ? AND customer_id = ?').get(plan_id, customer_id);
+    if (!plan) return fail(res, 'plan_id', 'Payment plan not found or does not belong to this customer', 404);
+    if (resolvedJobId && plan.job_id && resolvedJobId !== plan.job_id) return fail(res, 'job_id', 'Payment repair order does not match the selected payment plan');
+    resolvedJobId = plan.job_id || resolvedJobId;
   }
 
-  if (plan_id) {
-    const plan = db.prepare('SELECT id FROM payment_plans WHERE id = ? AND customer_id = ?').get(plan_id, customer_id);
-    if (!plan) return fail(res, 'plan_id', 'Payment plan not found or does not belong to this customer', 404);
+  let job = null;
+  if (resolvedJobId) {
+    job = db.prepare('SELECT id, repair_order_number FROM jobs WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(resolvedJobId, customer_id);
+    if (!job) return fail(res, 'job_id', 'Job not found or does not belong to this customer', 404);
   }
 
   const result = db.prepare(`
     INSERT INTO payments (customer_id, plan_id, job_id, description, amount, method, date, note)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(customer_id, plan_id || null, job_id || null, description || '', amount, method || 'Cash', date, note || '');
-  res.json({ id: result.lastInsertRowid, ...req.body });
+  `).run(customer_id, plan_id || null, resolvedJobId, description || '', amount, method || 'Cash', date, note || '');
+  res.json({ id: result.lastInsertRowid, ...req.body, job_id: resolvedJobId, repair_order_number: job?.repair_order_number || null });
 });
 
 router.put('/:id', (req, res) => {

@@ -6,7 +6,7 @@ const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
 
 function validatePlan(res, body) {
   if (!positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
-  if (!positiveId(res, body.job_id, 'job_id')) return false;
+  if (!positiveId(res, body.job_id, 'job_id', { required: true })) return false;
   if (!finiteNumber(res, body, 'total', { required: true, label: 'Total' })) return false;
   if (!finiteNumber(res, body, 'down_payment', { label: 'Down payment' })) return false;
   if (!finiteNumber(res, body, 'installment_count', { label: 'Installment count' })) return false;
@@ -16,15 +16,24 @@ function validatePlan(res, body) {
     if (!isoDate(res, installment, 'due_date', { required: true, label: 'Installment due date' })) return false;
     if (!finiteNumber(res, installment, 'amount', { required: true, label: 'Installment amount' })) return false;
   }
+  if (body.plan_type === 'custom') {
+    const installments = body.installments || [];
+    if (!installments.length || installments.length !== body.installment_count) return fail(res, 'installments', 'Enter each custom payment amount');
+    if (installments.some(installment => installment.amount <= 0)) return fail(res, 'installments', 'Custom payment amounts must be greater than zero');
+    const financedCents = Math.round((body.total - (body.down_payment || 0)) * 100);
+    const scheduledCents = Math.round(installments.reduce((sum, installment) => sum + installment.amount, 0) * 100);
+    if (scheduledCents !== financedCents) return fail(res, 'installments', 'Custom payment amounts must equal the balance after the down payment');
+  }
   return true;
 }
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const plans = db.prepare(`
-    SELECT pp.*, c.first, c.last
+    SELECT pp.*, c.first, c.last, j.repair_order_number
     FROM payment_plans pp
     JOIN customers c ON pp.customer_id = c.id
+    LEFT JOIN jobs j ON pp.job_id = j.id AND j.deleted_at IS NULL
     WHERE c.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY pp.created_at DESC
   `).all(...tenant.values);
@@ -43,10 +52,8 @@ router.post('/', (req, res) => {
     .get(customer_id, ...tenant.values);
   if (!customer) return fail(res, 'customer_id', 'Customer not found', 404);
 
-  if (job_id) {
-    const job = db.prepare('SELECT id FROM jobs WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(job_id, customer_id);
-    if (!job) return fail(res, 'job_id', 'Job not found or does not belong to this customer', 404);
-  }
+  const job = db.prepare('SELECT id, repair_order_number FROM jobs WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(job_id, customer_id);
+  if (!job) return fail(res, 'job_id', 'Repair order not found or does not belong to this customer', 404);
 
   const insertPlan = db.prepare(`
     INSERT INTO payment_plans (customer_id, job_id, description, total, down_payment, plan_type, installment_count, frequency, start_date, notes)
@@ -63,6 +70,7 @@ router.post('/', (req, res) => {
   })();
 
   const plan = db.prepare('SELECT * FROM payment_plans WHERE id = ?').get(planId);
+  plan.repair_order_number = job.repair_order_number;
   plan.installments = db.prepare('SELECT * FROM installments WHERE plan_id = ? ORDER BY due_date').all(planId);
   res.json(plan);
 });
@@ -76,9 +84,10 @@ router.put('/installment/:id/pay', (req, res) => {
   if (!installment) return res.status(404).json({ error: 'Installment not found' });
 
   const plan = db.prepare(`
-    SELECT pp.*, c.id AS valid_customer_id
+    SELECT pp.*, c.id AS valid_customer_id, j.repair_order_number
     FROM payment_plans pp
     JOIN customers c ON pp.customer_id = c.id
+    LEFT JOIN jobs j ON pp.job_id = j.id AND j.deleted_at IS NULL
     WHERE pp.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}
   `).get(installment.plan_id, ...tenant.values);
   if (!plan) return res.status(404).json({ error: 'Payment plan not found for this installment' });
@@ -133,6 +142,7 @@ router.put('/installment/:id/pay', (req, res) => {
   });
 
   const result = payInstallment();
+  result.payment.repair_order_number = plan.repair_order_number || null;
   res.json({ success: true, already_paid: result.alreadyPaid, installment: result.installment, payment: result.payment });
 });
 

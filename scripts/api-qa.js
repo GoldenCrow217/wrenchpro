@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const Database = require('better-sqlite3');
 
 const port = process.env.QA_PORT || String(4300 + Math.floor(Math.random() * 1000));
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-api-qa-'));
@@ -123,6 +124,51 @@ async function waitForServer() {
     });
     manualJobRecord = (await request('GET', '/api/jobs')).find(job => job.id === manualJob.id);
     assert(manualJobRecord.repair_order_number === 'RO-00043', 'Repair order number did not persist after editing');
+    await request('PUT', '/api/settings', { tax_rate: 10, default_pay_method: 'Card' });
+    await request('POST', '/api/payments', { customer_id: customer.id, job_id: manualJob.id, description: 'Deposit', amount: 20, method: 'Cash', date: '2026-07-29' });
+    const paidJobItems = [...manualJobRecord.items, { type: 'part', description: 'Shop part', qty: 1, rate: 50, amount: 50, taxable: 1 }];
+    const markedPaid = await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: manualJobRecord.repair_order_number,
+      service: manualJobRecord.service,
+      date: manualJobRecord.date,
+      status: manualJobRecord.status,
+      invoice_status: 'Paid',
+      travel_fee: 25,
+      items: paidJobItems,
+    });
+    assert(markedPaid.payment && markedPaid.payment.amount === 135, `Marking job paid should record the $135 remaining balance including parts tax, got ${JSON.stringify(markedPaid.payment)}`);
+    assert(markedPaid.payment.method === 'Card', 'Automatic job payment did not use the configured default payment method');
+    const paidAgain = await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: manualJobRecord.repair_order_number,
+      service: manualJobRecord.service,
+      date: manualJobRecord.date,
+      status: manualJobRecord.status,
+      invoice_status: 'Paid',
+      travel_fee: 25,
+      items: paidJobItems,
+    });
+    assert(paidAgain.payment === null, 'Repeated Paid job save created another automatic payment');
+    const manualJobPayments = (await request('GET', '/api/payments')).filter(payment => payment.job_id === manualJob.id);
+    assert(manualJobPayments.length === 2 && manualJobPayments.reduce((sum, payment) => sum + payment.amount, 0) === 155, 'Job payments do not equal the paid job total with parts-only tax');
+    assert(manualJobPayments.every(payment => payment.repair_order_number === 'RO-00043'), 'Job-linked payments did not return their repair-order number');
+
+    const rollbackJob = await request('POST', '/api/jobs', {
+      customer_id: customer.id,
+      vehicle_id: vehicle.id,
+      repair_order_number: 'RO-00044',
+      service: 'Payment rollback check',
+      date: '2026-07-29',
+      items: [{ type: 'labor', description: 'Labor', qty: 1, rate: 50, amount: 50, taxable: 0 }],
+    });
+    const qaDb = new Database(path.join(dataDir, 'wrenchpro.db'));
+    qaDb.exec(`CREATE TRIGGER qa_fail_job_payment BEFORE INSERT ON payments WHEN NEW.job_id=${rollbackJob.id} BEGIN SELECT RAISE(ABORT, 'injected job payment failure'); END`);
+    const failedPaidUpdate = await requestRaw('PUT', `/api/jobs/${rollbackJob.id}`, { repair_order_number: 'RO-00044', service: 'Payment rollback check', date: '2026-07-29', invoice_status: 'Paid', items: [{ type: 'labor', description: 'Labor', qty: 1, rate: 50, amount: 50, taxable: 0 }] });
+    qaDb.exec('DROP TRIGGER qa_fail_job_payment');
+    qaDb.close();
+    assert(failedPaidUpdate.status === 500, 'Injected automatic-payment failure did not fail the job update');
+    const rollbackJobRecord = (await request('GET', '/api/jobs')).find(job => job.id === rollbackJob.id);
+    assert(rollbackJobRecord.invoice_status === 'Unpaid', 'Payment failure left the job marked Paid');
+    assert(!(await request('GET', '/api/payments')).some(payment => payment.job_id === rollbackJob.id), 'Payment failure left a partial payment');
     const invalidRepairOrder = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { date: manualJobRecord.date, repair_order_number: { invalid: true } });
     assert(invalidRepairOrder.status === 400 && invalidRepairOrder.body.field === 'repair_order_number', 'Invalid repair order input should return field-specific HTTP 400');
     const inventory = await request('POST', '/api/inventory', {

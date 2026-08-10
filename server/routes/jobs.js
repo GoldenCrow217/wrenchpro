@@ -88,6 +88,28 @@ function itemTotals(items) {
   return { labor, parts };
 }
 
+function billingSettings(req) {
+  const shopId = resolveShopId(req);
+  return (shopId ? db.prepare('SELECT tax_rate, default_pay_method FROM shop_settings WHERE shop_id = ?').get(shopId) : null)
+    || db.prepare('SELECT tax_rate, default_pay_method FROM settings WHERE id = 1').get()
+    || {};
+}
+
+function jobGrandTotal(req, labor, parts, travelFee) {
+  const taxRate = Number(billingSettings(req).tax_rate) || 0;
+  return Math.round(((Number(labor) || 0) + (Number(parts) || 0) * (1 + taxRate / 100) + (Number(travelFee) || 0) + Number.EPSILON) * 100) / 100;
+}
+
+function insertAutomaticJobPayment(jobId, customer, amount, method, date, repairOrderNumber, service) {
+  if (!(amount > 0)) return null;
+  const description = `Payment for ${repairOrderNumber || `job #${jobId}`}${service ? ` — ${service}` : ''}`;
+  const result = db.prepare(`
+    INSERT INTO payments (customer_id, job_id, description, amount, method, date, note)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(customer.id, jobId, description, amount, method || 'Cash', date, 'Automatically recorded when job was marked Paid');
+  return { id: result.lastInsertRowid, customer_id: customer.id, job_id: jobId, repair_order_number: repairOrderNumber || null, description, amount, method: method || 'Cash', date, note: 'Automatically recorded when job was marked Paid', first: customer.first, last: customer.last };
+}
+
 const saveJobItems = db.transaction((jobId, items) => {
   db.prepare('DELETE FROM job_items WHERE job_id = ?').run(jobId);
   if (!items || !items.length) return;
@@ -95,7 +117,7 @@ const saveJobItems = db.transaction((jobId, items) => {
   items.forEach(i => ins.run(jobId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.taxable ? 1 : 0, i.inventory_id || null));
 });
 
-const createJob = db.transaction((values, items) => {
+const createJob = db.transaction((values, items, automaticPayment) => {
   const result = db.prepare(`
     INSERT INTO jobs
       (customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
@@ -105,7 +127,8 @@ const createJob = db.transaction((values, items) => {
   `).run(...values);
   const jobId = result.lastInsertRowid;
   if (items && items.length) saveJobItems(jobId, items);
-  return jobId;
+  const payment = automaticPayment ? insertAutomaticJobPayment(jobId, automaticPayment.customer, automaticPayment.amount, automaticPayment.method, automaticPayment.date, automaticPayment.repairOrderNumber, automaticPayment.service) : null;
+  return { jobId, payment };
 });
 
 router.post('/', (req, res) => {
@@ -117,7 +140,7 @@ router.post('/', (req, res) => {
   } = req.body;
 
   const tenant = customerTenantWhere(req, 'c');
-  const cust = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
+  const cust = db.prepare(`SELECT c.id, c.first, c.last FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
   if (!cust) return fail(res, 'customer_id', 'Customer not found', 404);
 
   const veh = db.prepare('SELECT id FROM vehicles WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(vehicle_id, customer_id);
@@ -144,14 +167,23 @@ router.post('/', (req, res) => {
   const laborVal = totals ? totals.labor : (labor || 0);
   const partsVal = totals ? totals.parts : (parts || 0);
 
-  const jobId = createJob([
+  const settings = billingSettings(req);
+  const paidOnCreate = invoice_status === 'Paid' ? {
+    customer: cust,
+    amount: jobGrandTotal(req, laborVal, partsVal, travel_fee),
+    method: settings.default_pay_method || 'Cash',
+    date: new Date().toISOString().slice(0, 10),
+    repairOrderNumber: repair_order_number || '',
+    service: service || '',
+  } : null;
+  const created = createJob([
     customer_id, vehicle_id, service, repair_order_number || '', date, miles || 0,
     laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
     partsVal, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
     service_address || '', travel_fee || 0, closedAt
-  ], items);
-  res.json({ id: jobId, closed_at: closedAt, ...req.body });
+  ], items, paidOnCreate);
+  res.json({ id: created.jobId, closed_at: closedAt, ...req.body, payment: created.payment });
 });
 
 router.put('/:id', (req, res) => {
@@ -164,7 +196,7 @@ router.put('/:id', (req, res) => {
 
   const tenant = customerTenantWhere(req, 'c');
   const current = db.prepare(`
-    SELECT j.closed_at, j.customer_id
+    SELECT j.closed_at, j.customer_id, j.invoice_status, c.first, c.last
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
     WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
@@ -192,6 +224,15 @@ router.put('/:id', (req, res) => {
   const updatedTotals = items !== undefined ? itemTotals(items || []) : null;
   const laborVal = updatedTotals ? updatedTotals.labor : (labor || 0);
   const partsVal = updatedTotals ? updatedTotals.parts : (parts || 0);
+  const shouldRecordPayment = invoice_status === 'Paid' && current.invoice_status !== 'Paid';
+  const paidToDate = shouldRecordPayment
+    ? Number(db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE job_id = ?').get(req.params.id).total) || 0
+    : 0;
+  const remainingBalance = shouldRecordPayment
+    ? Math.max(0, Math.round((jobGrandTotal(req, laborVal, partsVal, travel_fee) - paidToDate + Number.EPSILON) * 100) / 100)
+    : 0;
+  const settings = billingSettings(req);
+  let automaticPayment = null;
 
   db.transaction(() => {
     db.prepare(`
@@ -209,8 +250,19 @@ router.put('/:id', (req, res) => {
       req.params.id
     );
     if (items !== undefined) saveJobItems(req.params.id, items || []);
+    if (shouldRecordPayment && remainingBalance > 0) {
+      automaticPayment = insertAutomaticJobPayment(
+        Number(req.params.id),
+        { id: current.customer_id, first: current.first, last: current.last },
+        remainingBalance,
+        settings.default_pay_method || 'Cash',
+        new Date().toISOString().slice(0, 10),
+        repair_order_number || '',
+        service || ''
+      );
+    }
   })();
-  res.json({ success: true });
+  res.json({ success: true, payment: automaticPayment });
 });
 
 router.delete('/:id', (req, res) => {

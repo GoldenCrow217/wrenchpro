@@ -49,6 +49,14 @@ assert.match(html, /onclick="handleCustVehicleAction\(\)"[^>]*id="cf-veh-btn"/, 
 assert.match(html, /function handleCustVehicleAction\(\)[\s\S]*?openVehModal\(customerId,null\)/, 'editing a customer must provide a direct add-vehicle path');
 assert.ok(!html.includes("document.getElementById('cf-veh-toggle').style.display='none'; // hide vehicle adder on edit"), 'customer editing must not hide the add-vehicle action');
 assert.match(html, /Optional — you can add a vehicle later\./, 'new-customer form must explain that vehicle information is optional');
+assert.match(html, /id="ef-add-inventory"/, 'parts expenses must offer an inventory-update option');
+assert.match(html, /function toggleExpenseInventoryFields\(\)/, 'expense inventory fields must use the existing inventory state');
+assert.match(html, /inventory_item:inventoryItem/, 'successful expense saves must update local inventory state');
+assert.match(html, /if\(payment\)upsertStateRecord\('payments',payment\)/, 'marking a job paid must add the returned payment to renderer state');
+assert.match(html, /renderSafely\(renderJobs,renderDashboard,renderFinance,renderReport\)/, 'job payment creation must refresh Payments and P&L views');
+assert.match(html, /<th>RO #<\/th><th>Customer<\/th>/, 'Payments ledger must identify the linked repair order');
+assert.match(html, /openJobModal\(\$\{safeId\(p\.job_id\)\}\)/, 'Payments ledger repair-order links must open the associated job');
+assert.ok(!html.includes("'RO#'+esc(j.repair_order_number)"), 'payment job selector must not duplicate the RO prefix');
 const estimatesRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'estimates.js'), 'utf8');
 assert.match(estimatesRoute, /const num = 'EST-'/, 'estimate identifiers must retain the EST- prefix');
 assert.match(html, /const wantsConversion=body\.status==='Approved'/, 'saving an approved estimate must trigger repair-order conversion');
@@ -56,6 +64,13 @@ assert.match(html, /The estimate was saved as Draft, but no repair order was cre
 assert.match(html, /function openConvertedRepairOrder\(/, 'automatic and manual estimate conversion must share the repair-order opening path');
 assert.match(estimatesRoute, /repairOrderNumber = `RO-\$\{String\(highestRepairOrder \+ 1\)\.padStart\(4, '0'\)\}`/, 'estimate conversion must assign the next RO-#### number');
 assert.match(estimatesRoute, /INSERT INTO jobs \(customer_id, vehicle_id, employee_id, service, repair_order_number,/, 'converted estimates must persist their repair-order number');
+const jobsRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'jobs.js'), 'utf8');
+assert.match(jobsRoute, /function insertAutomaticJobPayment\(/, 'job Paid transitions must create a payment through the server');
+assert.match(jobsRoute, /invoice_status === 'Paid' && current\.invoice_status !== 'Paid'/, 'automatic job payments must be limited to a Paid status transition');
+assert.match(jobsRoute, /db\.transaction\(\(\) => \{[\s\S]*insertAutomaticJobPayment/, 'job status and automatic payment must share one transaction');
+const paymentsRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'payments.js'), 'utf8');
+assert.match(paymentsRoute, /LEFT JOIN jobs j ON p\.job_id = j\.id/, 'payment API must join the stable job relationship');
+assert.match(paymentsRoute, /j\.repair_order_number/, 'payment API must return the linked repair-order number');
 
 const handlers = [
   'saveVehicle', 'saveJob', 'saveAppt', 'saveLead', 'savePart', 'saveEstimate',
