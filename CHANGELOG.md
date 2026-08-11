@@ -21,6 +21,24 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.30 - 2026-08-10
+
+### Added
+
+- Parts and supplies expenses can create a new inventory item or restock an existing item in the same atomic save.
+- Payments and payment plans reference their repair order and display the R/O number throughout Payments and plan details.
+- Payment plans support exact custom payment amounts and due dates, additional payments, and printable plan details on the related invoice.
+
+### Changed
+
+- Marking a job Paid records its remaining balance as a payment so Payments and Profit & Loss stay synchronized.
+- Down payments, installment payments, and additional plan payments retain the linked repair order without double-counting the plan balance.
+
+### Fixed
+
+- Expense inventory updates and paid-job payment creation roll back together when either side of the operation fails.
+- Repeated Paid saves do not create duplicate payments, and invalid custom plan totals are rejected without partial writes.
+
 ## v1.0.29 - 2026-08-09
 
 ### Added

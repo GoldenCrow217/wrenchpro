@@ -37,9 +37,10 @@ async function successful(method, route, body) {
   return result.body;
 }
 
-async function createPlan(customerId, amount = 50) {
+async function createPlan(customerId, jobId, amount = 50) {
   const plan = await successful('POST', '/api/plans', {
     customer_id: customerId,
+    job_id: jobId,
     description: 'QA installment plan',
     total: amount,
     installment_count: 1,
@@ -59,19 +60,33 @@ async function createPlan(customerId, amount = 50) {
     db = new Database(path.join(dataDir, 'wrenchpro.db'));
 
     const customer = await successful('POST', '/api/customers', { first: 'Atomic', last: 'Payment' });
-    const plan = await createPlan(customer.id);
+    const vehicle = await successful('POST', '/api/vehicles', { customer_id: customer.id, year: 2020, make: 'QA', model: 'Vehicle' });
+    const job = await successful('POST', '/api/jobs', { customer_id: customer.id, vehicle_id: vehicle.id, repair_order_number: 'RO-9001', service: 'QA repair', date: '2026-08-03', labor: 50 });
+    const missingJob = await request('POST', '/api/plans', { customer_id: customer.id, description: 'Missing RO', total: 50, installment_count: 1, installments: [{ due_date: '2026-08-15', amount: 50 }] });
+    assert(missingJob.status === 400 && missingJob.body.field === 'job_id', 'payment plan without a repair order was not rejected');
+    const plan = await createPlan(customer.id, job.id);
+    assert(plan.job_id === job.id && plan.repair_order_number === 'RO-9001', 'payment plan did not return its repair order reference');
+    const planPayment = await successful('POST', '/api/payments', { customer_id: customer.id, plan_id: plan.id, description: 'Plan payment', amount: 1, method: 'Cash', date: '2026-08-03' });
+    assert(planPayment.job_id === job.id && planPayment.repair_order_number === 'RO-9001', 'manual plan payment did not inherit the plan repair order');
+    const customPlan = await successful('POST', '/api/plans', { customer_id: customer.id, job_id: job.id, description: 'Custom amounts', total: 50, plan_type: 'custom', installment_count: 2, installments: [{ due_date: '2026-09-01', amount: 20 }, { due_date: '2026-10-01', amount: 30 }] });
+    assert(customPlan.installments.length === 2 && customPlan.installments[0].amount === 20 && customPlan.installments[1].amount === 30, 'custom payment amounts were not preserved');
+    const planCountBeforeInvalidCustom = db.prepare('SELECT count(*) AS n FROM payment_plans').get().n;
+    const invalidCustom = await request('POST', '/api/plans', { customer_id: customer.id, job_id: job.id, description: 'Invalid custom amounts', total: 50, plan_type: 'custom', installment_count: 2, installments: [{ due_date: '2026-09-01', amount: 10 }, { due_date: '2026-10-01', amount: 30 }] });
+    assert(invalidCustom.status === 400 && invalidCustom.body.field === 'installments', 'unbalanced custom payment amounts were not rejected');
+    assert(db.prepare('SELECT count(*) AS n FROM payment_plans').get().n === planCountBeforeInvalidCustom, 'rejected custom plan was partially written');
     const installment = plan.installments[0];
 
     const paid = await successful('PUT', `/api/plans/installment/${installment.id}/pay`, { method: 'Card', date: '2026-08-03' });
     assert(paid.installment.paid === 1, 'successful request did not mark installment paid');
     assert(paid.payment.installment_id === installment.id, 'payment was not linked to installment');
     assert(paid.payment.plan_id === plan.id && paid.payment.customer_id === customer.id, 'payment references are incorrect');
+    assert(paid.payment.job_id === job.id && paid.payment.repair_order_number === 'RO-9001', 'installment payment did not retain its repair order reference');
     assert(db.prepare('SELECT count(*) AS n FROM payments WHERE installment_id=?').get(installment.id).n === 1, 'successful request did not create exactly one payment');
 
     const repeated = await successful('PUT', `/api/plans/installment/${installment.id}/pay`, { method: 'Cash' });
     assert(repeated.already_paid === true && repeated.payment.id === paid.payment.id, 'repeat request was not idempotent');
 
-    const doublePlan = await createPlan(customer.id, 60);
+    const doublePlan = await createPlan(customer.id, job.id, 60);
     const doubleId = doublePlan.installments[0].id;
     const doubleResults = await Promise.all([
       successful('PUT', `/api/plans/installment/${doubleId}/pay`, { method: 'Cash' }),
@@ -80,20 +95,20 @@ async function createPlan(customerId, amount = 50) {
     assert(doubleResults.some(result => result.already_paid === true), 'concurrent repeat was not identified');
     assert(db.prepare('SELECT count(*) AS n FROM payments WHERE installment_id=?').get(doubleId).n === 1, 'double request created duplicate payments');
 
-    const invalidPlan = await createPlan(customer.id, 0);
+    const invalidPlan = await createPlan(customer.id, job.id, 0);
     const invalid = await request('PUT', `/api/plans/installment/${invalidPlan.installments[0].id}/pay`, {});
     assert(invalid.status === 400 && /amount/i.test(invalid.body.error), 'invalid installment amount was not rejected');
 
     const missing = await request('PUT', '/api/plans/installment/999999/pay', {});
     assert(missing.status === 404 && /not found/i.test(missing.body.error), 'missing installment did not return 404');
 
-    const inconsistentPlan = await createPlan(customer.id, 70);
+    const inconsistentPlan = await createPlan(customer.id, job.id, 70);
     const inconsistentId = inconsistentPlan.installments[0].id;
     db.prepare("UPDATE installments SET paid=1, paid_date='2026-08-03' WHERE id=?").run(inconsistentId);
     const inconsistent = await request('PUT', `/api/plans/installment/${inconsistentId}/pay`, {});
     assert(inconsistent.status === 409 && /repair/i.test(inconsistent.body.error), 'paid installment without payment did not return conflict');
 
-    const missingPlan = await createPlan(customer.id, 75);
+    const missingPlan = await createPlan(customer.id, job.id, 75);
     const missingPlanId = missingPlan.installments[0].id;
     db.pragma('foreign_keys = OFF');
     db.prepare('DELETE FROM payment_plans WHERE id=?').run(missingPlan.id);
@@ -102,7 +117,7 @@ async function createPlan(customerId, amount = 50) {
     db.prepare('DELETE FROM installments WHERE id=?').run(missingPlanId);
     db.pragma('foreign_keys = ON');
 
-    const paymentFailurePlan = await createPlan(customer.id, 80);
+    const paymentFailurePlan = await createPlan(customer.id, job.id, 80);
     const paymentFailureId = paymentFailurePlan.installments[0].id;
     db.exec(`CREATE TRIGGER qa_fail_payment BEFORE INSERT ON payments WHEN NEW.installment_id=${paymentFailureId} BEGIN SELECT RAISE(ABORT, 'injected payment failure'); END`);
     const paymentFailure = await request('PUT', `/api/plans/installment/${paymentFailureId}/pay`, {});
@@ -111,7 +126,7 @@ async function createPlan(customerId, amount = 50) {
     assert(db.prepare('SELECT paid FROM installments WHERE id=?').get(paymentFailureId).paid === 0, 'payment failure left installment paid');
     assert(db.prepare('SELECT count(*) AS n FROM payments WHERE installment_id=?').get(paymentFailureId).n === 0, 'payment failure persisted a payment');
 
-    const updateFailurePlan = await createPlan(customer.id, 90);
+    const updateFailurePlan = await createPlan(customer.id, job.id, 90);
     const updateFailureId = updateFailurePlan.installments[0].id;
     db.exec(`CREATE TRIGGER qa_fail_installment BEFORE UPDATE ON installments WHEN OLD.id=${updateFailureId} BEGIN SELECT RAISE(ABORT, 'injected installment failure'); END`);
     const updateFailure = await request('PUT', `/api/plans/installment/${updateFailureId}/pay`, {});
@@ -127,6 +142,10 @@ async function createPlan(customerId, amount = 50) {
     assert(db.pragma('foreign_key_check').length === 0, 'foreign-key check failed');
     const frontend = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
     assert(frontend.includes('payingInstallmentIds.has(instId)'), 'frontend duplicate-click guard is missing');
+    assert(frontend.includes('id="pl-job"') && frontend.includes('job_id:jobId'), 'payment-plan repair-order selection is missing');
+    assert(frontend.includes('const linkedPlans=state.plans.filter(p=>p.job_id===jobId)'), 'invoice payment-plan rendering is missing');
+    assert(frontend.includes('function customPlanInstallments()') && frontend.includes('Custom payment amounts'), 'custom payment amount editor is missing');
+    assert(frontend.includes('function planAdditionalPayments(p)') && frontend.includes('Additional payments'), 'additional plan payment display is missing');
     assert(!frontend.includes("api('POST','/api/payments',{customer_id:p.customer_id"), 'old two-request payment sequence remains');
 
     console.log('Atomic installment payment QA passed');

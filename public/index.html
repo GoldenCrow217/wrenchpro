@@ -397,7 +397,7 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="brand-text">
       <span class="brand-name">WrenchPro</span>
-      <span class="brand-sub" id="brand-version">v1.0.26</span>
+      <span class="brand-sub" id="brand-version">v1.0.30</span>
     </div>
   </div>
 
@@ -611,7 +611,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="card" style="padding:0;overflow:hidden;">
         <div style="padding:1rem 1.25rem .5rem;"><span class="card-title">Payment ledger</span></div>
         <div class="table-wrap">
-          <table><thead><tr><th>Date</th><th>Customer</th><th>Description</th><th>Method</th><th>Amount</th></tr></thead>
+          <table><thead><tr><th>Date</th><th>RO #</th><th>Customer</th><th>Description</th><th>Method</th><th>Amount</th></tr></thead>
           <tbody id="ledger-tbody"></tbody></table>
         </div>
       </div>
@@ -1086,7 +1086,7 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="fr"><label>Customer</label>
         <select id="pf-cust" onchange="loadJobsForPayment()"><option value="">— Select —</option></select>
       </div>
-      <div class="fr"><label>Work order <span style="font-weight:400;color:#aaa;">(optional)</span></label>
+      <div class="fr"><label>Repair order <span style="font-weight:400;color:#aaa;">(optional)</span></label>
         <select id="pf-job" onchange="loadJobBalance()"><option value="">— General payment —</option></select>
       </div>
     </div>
@@ -1098,7 +1098,7 @@ tr:hover td{background:var(--bg-subtle);}
       <span style="color:var(--fg-muted);">Remaining: <strong id="pf-job-balance" style="color:var(--accent);">—</strong></span>
     </div>
     <div class="fr"><label>Apply to plan <span style="font-weight:400;color:#aaa;">(optional)</span></label>
-      <select id="pf-plan"><option value="">— No plan —</option></select>
+      <select id="pf-plan" onchange="selectPaymentPlan()"><option value="">— No plan —</option></select>
     </div>
     <div class="fr"><label>Description</label><input id="pf-desc" placeholder="Oil change, brake job..."></div>
     <div class="f3">
@@ -1124,8 +1124,12 @@ tr:hover td{background:var(--bg-subtle);}
   <div class="modal">
     <h2>New Payment Plan</h2>
     <div class="f2">
-      <div class="fr"><label>Customer</label><select id="pl-cust"><option value="">— Select —</option></select></div>
+      <div class="fr"><label>Customer</label><select id="pl-cust" onchange="loadPlanRepairOrders()"><option value="">— Select —</option></select></div>
+      <div class="fr"><label>Repair order</label><select id="pl-job" onchange="loadPlanRepairOrderBalance()"><option value="">— Select customer first —</option></select></div>
+    </div>
+    <div class="f2">
       <div class="fr"><label>Description</label><input id="pl-desc" placeholder="Engine rebuild, brake job..."></div>
+      <div class="fr"><label>R/O balance</label><input id="pl-job-balance" value="Select a repair order" readonly></div>
     </div>
     <div class="f2">
       <div class="fr"><label>Total amount ($)</label><input type="number" id="pl-total" placeholder="0.00" step="0.01" oninput="calcPlan()"></div>
@@ -1133,19 +1137,20 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="f3">
       <div class="fr"><label>Plan type</label>
-        <select id="pl-type" onchange="calcPlan()">
+        <select id="pl-type" onchange="changePlanType()">
           <option value="installments">Fixed installments</option>
           <option value="custom">Custom amounts</option>
           <option value="balance">Balance due</option>
         </select>
       </div>
-      <div class="fr"><label>Number of payments</label><input type="number" id="pl-count" value="4" min="1" max="24" oninput="calcPlan()"></div>
+      <div class="fr"><label>Number of payments</label><input type="number" id="pl-count" value="4" min="1" max="24" oninput="calcPlan(true)"></div>
       <div class="fr"><label>Frequency</label>
-        <select id="pl-freq"><option value="weekly">Weekly</option><option value="biweekly">Bi-weekly</option><option value="monthly" selected>Monthly</option></select>
+        <select id="pl-freq" onchange="calcPlan(true)"><option value="weekly">Weekly</option><option value="biweekly">Bi-weekly</option><option value="monthly" selected>Monthly</option></select>
       </div>
     </div>
-    <div class="fr"><label>First payment due</label><input type="date" id="pl-start"></div>
+    <div class="fr"><label>First payment due</label><input type="date" id="pl-start" onchange="calcPlan(true)"></div>
     <div id="plan-preview" style="background:#f5f5f0;border-radius:8px;padding:.75rem;margin:.5rem 0;font-size:12px;min-height:36px;"></div>
+    <div id="plan-custom-amounts" style="display:none;margin:.5rem 0 1rem;"></div>
     <div class="fr"><label>Notes</label><input id="pl-notes" placeholder="Any terms or notes..."></div>
     <div class="mfooter"><div></div><div class="mfooter-r">
       <button class="btn" onclick="closeM('m-plan')">Cancel</button>
@@ -1160,14 +1165,33 @@ tr:hover td{background:var(--bg-subtle);}
     <h2>Add expense</h2>
     <div class="f2">
       <div class="fr"><label>Date</label><input type="date" id="ef-date"></div>
-      <div class="fr"><label>Amount ($)</label><input type="number" id="ef-amt" placeholder="0.00" step="0.01"></div>
+      <div class="fr"><label>Amount ($)</label><input type="number" id="ef-amt" placeholder="0.00" step="0.01" min="0" oninput="syncExpenseInventoryPricing()"></div>
     </div>
-    <div class="fr"><label>Description</label><input id="ef-desc" placeholder="Brake pads from AutoZone..."></div>
+    <div class="fr"><label>Description</label><input id="ef-desc" placeholder="Brake pads from AutoZone..." oninput="syncExpenseInventoryName()"></div>
     <div class="fr"><label>Category</label>
-      <select id="ef-cat">
+      <select id="ef-cat" onchange="updateExpenseInventoryOption()">
         <option>Parts &amp; supplies</option><option>Fuel</option><option>Tools &amp; equipment</option>
         <option>Insurance</option><option>Marketing</option><option>Other</option>
       </select>
+    </div>
+    <div id="ef-inventory-option" class="fr">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="ef-add-inventory" onchange="toggleExpenseInventoryFields()"> Add this parts purchase to Parts &amp; Inventory</label>
+    </div>
+    <div id="ef-inventory-fields" style="display:none;background:var(--bg-subtle);border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div class="fr"><label>Inventory item</label><select id="ef-inv-existing" onchange="selectExpenseInventoryItem()"><option value="">— Create new inventory item —</option></select></div>
+      <div id="ef-inv-new-fields">
+        <div class="fr"><label>Part / supply name</label><input id="ef-inv-name" placeholder="Brake pads" oninput="this.dataset.edited='1'"></div>
+        <div class="f2">
+          <div class="fr"><label>Part number</label><input id="ef-inv-number" placeholder="Optional"></div>
+          <div class="fr"><label>Vendor</label><input id="ef-inv-vendor" placeholder="Optional"></div>
+        </div>
+      </div>
+      <div class="f3">
+        <div class="fr"><label>Quantity received</label><input type="number" id="ef-inv-qty" value="1" min="0.01" step="0.01" oninput="syncExpenseInventoryPricing()"></div>
+        <div class="fr"><label>Unit cost ($)</label><input type="number" id="ef-inv-cost" min="0" step="0.01" placeholder="0.00" oninput="syncExpenseInventoryRetail()"></div>
+        <div class="fr"><label>Retail price ($)</label><input type="number" id="ef-inv-retail" min="0" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div class="settings-hint" style="margin:0;">Existing items receive the entered quantity. New-item retail pricing uses the markup schedule from Settings and remains editable.</div>
     </div>
     <div class="fr"><label>Receipt note</label><input id="ef-note" placeholder="Optional"></div>
     <div class="mfooter"><div></div><div class="mfooter-r">
@@ -2506,15 +2530,19 @@ function renderFinance(){
   const pmts=[...state.payments].sort((a,b)=>b.date.localeCompare(a.date));
   tbody.innerHTML=pmts.length?pmts.map(p=>`<tr>
     <td style="color:#888;font-size:12px;">${esc(p.date||'—')}</td>
+    <td>${p.job_id?`<button type="button" class="btn btn-sm" onclick="openJobModal(${safeId(p.job_id)})">${esc(p.repair_order_number||'Job #'+safeId(p.job_id))}</button>`:'—'}</td>
     <td class="td-name">${esc(p.first||'')} ${esc(p.last||'')}</td>
     <td>${esc(p.description||'—')} ${p.note?'<span style="color:#aaa;font-size:11px;">· '+esc(p.note)+'</span>':''}</td>
     <td><span class="badge b-gray">${esc(p.method||'Cash')}</span></td>
     <td style="font-weight:600;color:#3B6D11;">${fmt$(p.amount)}</td>
-  </tr>`).join(''):`<tr><td colspan="5" class="empty">No payments yet</td></tr>`;
+  </tr>`).join(''):`<tr><td colspan="6" class="empty">No payments yet</td></tr>`;
 }
 
-function planBalance(p){ return p.total - planPaid(p); }
-function planPaid(p){ return (p.down_payment||0) + (p.installments||[]).filter(i=>i.paid).reduce((a,i)=>a+i.amount,0); }
+function planAdditionalPayments(p){
+  return state.payments.filter(payment=>payment.plan_id===p.id&&!payment.installment_id&&String(payment.note||'').trim().toLowerCase()!=='down payment'&&!String(payment.description||'').toLowerCase().endsWith('— down payment'));
+}
+function planBalance(p){ return Math.max(0,Number(p.total||0)-planPaid(p)); }
+function planPaid(p){ return Number(p.down_payment||0)+(p.installments||[]).filter(i=>i.paid).reduce((a,i)=>a+Number(i.amount||0),0)+planAdditionalPayments(p).reduce((a,payment)=>a+Number(payment.amount||0),0); }
 function planOverdue(p){ const t=today(); return (p.installments||[]).filter(i=>!i.paid&&i.due_date<t).length; }
 
 function renderPlans(){
@@ -2524,7 +2552,7 @@ function renderPlans(){
     const paid=planPaid(p), bal=planBalance(p), pct=Math.min(100,Math.round(paid/p.total*100)), od=planOverdue(p);
     return `<div class="plan-card ${od>0&&bal>0?'overdue':''}" onclick="openPlanDetail(${safeId(p.id)})">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div><span style="font-weight:600;">${esc(p.first)} ${esc(p.last)}</span> <span style="font-size:12px;color:#888;">· ${esc(p.description||'')}</span></div>
+        <div><span style="font-weight:600;">${esc(p.first)} ${esc(p.last)}</span> <span style="font-size:12px;color:#888;">· ${p.repair_order_number?esc(p.repair_order_number)+' · ':''}${esc(p.description||'')}</span></div>
         <div style="display:flex;gap:6px;">
           ${od>0&&bal>0?`<span class="badge b-red">${od} overdue</span>`:''}
           ${bal<=0?'<span class="badge b-green">Paid in full</span>':''}
@@ -2546,8 +2574,10 @@ function openPlanDetail(id){
   const p=state.plans.find(x=>x.id===id);
   if(!p)return;
   const paid=planPaid(p), bal=planBalance(p), pct=Math.min(100,Math.round(paid/p.total*100));
+  const additionalPayments=planAdditionalPayments(p);
   document.getElementById('plan-detail-inner').innerHTML=`
     <h2>${esc(p.first)} ${esc(p.last)} — ${esc(p.description||'')}</h2>
+    ${p.repair_order_number?`<div style="font-size:13px;margin:-.5rem 0 1rem;">Repair order: <button class="btn btn-sm" onclick="closeM('m-plan-detail');openJobModal(${safeId(p.job_id)})">${esc(p.repair_order_number)}</button></div>`:'<div style="font-size:12px;color:#A32D2D;margin:-.5rem 0 1rem;">Legacy plan: no repair order is linked.</div>'}
     <div style="display:flex;gap:12px;margin-bottom:1rem;">
       <div class="stat" style="flex:1;"><div class="stat-label">Total</div><div class="stat-value">${fmt$(p.total)}</div></div>
       <div class="stat" style="flex:1;"><div class="stat-label">Paid</div><div class="stat-value green">${fmt$(paid)}</div></div>
@@ -2566,9 +2596,11 @@ function openPlanDetail(id){
         ${!inst.paid?`<button class="btn btn-sm btn-success" id="installment-pay-${safeId(inst.id)}" onclick="markInstPaid(${safeId(inst.id)},${safeId(p.id)})">Mark paid</button>`:''}
       </div>`;
     }).join('')}
+    <div style="font-weight:600;font-size:13px;margin:1rem 0 .5rem;">Additional payments</div>
+    ${additionalPayments.length?additionalPayments.map(payment=>`<div class="inst-row"><span style="flex:1;">${esc(payment.date||'—')}</span><span style="flex:2;">${esc(payment.description||payment.note||'Additional payment')}</span><strong>${fmt$(payment.amount)}</strong></div>`).join(''):'<div style="font-size:12px;color:#888;">No additional payments have been recorded.</div>'}
     ${p.notes?`<div style="font-size:12px;color:#888;margin-top:.75rem;font-style:italic;">${esc(p.notes)}</div>`:''}
     <div class="mfooter"><div><button class="btn btn-sm btn-danger" onclick="deletePlan(${safeId(p.id)})">Delete plan</button></div>
-    <div><button class="btn" onclick="closeM('m-plan-detail')">Close</button></div></div>
+    <div style="display:flex;gap:8px;"><button class="btn" onclick="closeM('m-plan-detail')">Close</button><button class="btn btn-primary" onclick="closeM('m-plan-detail');openPmtModal(${safeId(p.customer_id)},${safeId(p.job_id)},${safeId(p.id)})">Add payment</button></div></div>
   `;
   document.getElementById('m-plan-detail').classList.add('open');
 }
@@ -2983,7 +3015,16 @@ async function saveJob(){
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
   const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,repair_order_number:repairOrderNumber,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0,items:jobItems};
   const id=editJobId, existing=id?state.jobs.find(j=>j.id===id):null;
-  await runMutation(`job-save-${id||'new'}`,{buttonId:'save-job-btn',action:'Saving job',request:()=>id?api('PUT',`/api/jobs/${id}`,body):api('POST','/api/jobs',body),apply:r=>upsertStateRecord('jobs',id?{...existing,...body,id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,items:jobItems}:{...body,...r,items:jobItems}),render:()=>renderSafely(renderJobs,renderDashboard),close:'m-job',success:id?'Job updated':'Job saved'});
+  await runMutation(`job-save-${id||'new'}`,{
+    buttonId:'save-job-btn',action:'Saving job',request:()=>id?api('PUT',`/api/jobs/${id}`,body):api('POST','/api/jobs',body),
+    apply:r=>{
+      const {payment,...jobResult}=r;
+      upsertStateRecord('jobs',id?{...existing,...body,id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,items:jobItems}:{...body,...jobResult,items:jobItems});
+      if(payment)upsertStateRecord('payments',payment);
+    },
+    render:()=>{renderSafely(renderJobs,renderDashboard,renderFinance,renderReport);if(detailCustId)renderCustDetail();},
+    close:'m-job',success:r=>r.payment?'Job saved and payment recorded':(id?'Job updated':'Job saved')
+  });
 }
 
 async function deleteJob(id){
@@ -3177,7 +3218,7 @@ async function deleteVehicle(id){
   await runMutation(`vehicle-delete-${id}`,{action:'Removing vehicle',request:()=>api('DELETE',`/api/vehicles/${id}`),apply:()=>removeStateRecord('vehicles',id),render:()=>{renderVehicles();if(detailCustId)renderCustDetail();},close:'m-veh',success:'Vehicle removed'});
 }
 
-async function openPmtModal(custId, jobId){
+async function openPmtModal(custId, jobId, planId){
   await populateCustomerDropdown('pf-cust');
   document.getElementById('pf-plan').innerHTML='<option value="">— No plan —</option>';
   document.getElementById('pf-job').innerHTML='<option value="">— General payment —</option>';
@@ -3187,6 +3228,7 @@ async function openPmtModal(custId, jobId){
   document.getElementById('pf-balance-row').style.display='none';
   if(custId){ document.getElementById('pf-cust').value=custId; await loadJobsForPayment(); }
   if(jobId){ document.getElementById('pf-job').value=jobId; await loadJobBalance(); }
+  if(planId){ document.getElementById('pf-plan').value=planId; await selectPaymentPlan(); }
   document.getElementById('m-pmt').classList.add('open');
 }
 
@@ -3201,7 +3243,7 @@ async function loadJobsForPayment(){
     return;
   }
   const jobs=state.jobs.filter(j=>j.customer_id===custId&&j.deleted_at==null&&j.invoice_status!=='Paid');
-  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${safeId(j.id)}">${j.repair_order_number?'RO#'+esc(j.repair_order_number):'WO#'+safeId(j.id)} — ${esc(j.service||'Service')} (${esc(j.date||'')})</option>`).join('');
+  jobSel.innerHTML='<option value="">— General payment —</option>'+jobs.map(j=>`<option value="${safeId(j.id)}">${j.repair_order_number?esc(j.repair_order_number):'Job #'+safeId(j.id)} — ${esc(j.service||'Service')} (${esc(j.date||'')})</option>`).join('');
   const plans=state.plans.filter(p=>p.customer_id===custId&&planBalance(p)>0);
   planSel.innerHTML='<option value="">— No plan —</option>'+plans.map(p=>`<option value="${safeId(p.id)}">${esc(p.description)} (${fmt$(planBalance(p))} remaining)</option>`).join('');
 }
@@ -3216,7 +3258,28 @@ async function loadJobBalance(){
   document.getElementById('pf-job-paid').textContent=fmt$(bal.paid);
   document.getElementById('pf-job-balance').textContent=fmt$(bal.balance);
   row.style.display='';
+  const job=state.jobs.find(item=>item.id===jobId);
+  const description=document.getElementById('pf-desc');
+  if(job&&description&&!description.value)description.value=`Payment for ${job.repair_order_number||'job #'+job.id}`;
   if(bal.balance>0) document.getElementById('pf-amt').value=bal.balance.toFixed(2);
+}
+
+async function selectPaymentPlan(){
+  const planId=parseInt(document.getElementById('pf-plan').value);
+  const plan=state.plans.find(item=>item.id===planId);
+  if(!plan)return;
+  if(plan.job_id){
+    const jobSelect=document.getElementById('pf-job');
+    if(![...jobSelect.options].some(option=>Number(option.value)===plan.job_id)){
+      const job=state.jobs.find(item=>item.id===plan.job_id);
+      jobSelect.insertAdjacentHTML('beforeend',`<option value="${safeId(plan.job_id)}">${esc(plan.repair_order_number||job?.repair_order_number||'Job #'+safeId(plan.job_id))} — ${esc(job?.service||'Payment plan')}</option>`);
+    }
+    jobSelect.value=plan.job_id;
+    await loadJobBalance();
+  }
+  document.getElementById('pf-amt').value=Math.max(0,planBalance(plan)).toFixed(2);
+  const description=document.getElementById('pf-desc');
+  if(!description.value)description.value=`Payment for ${plan.repair_order_number||plan.description||'payment plan'}`;
 }
 
 async function savePayment(){
@@ -3224,7 +3287,7 @@ async function savePayment(){
   const amt=parseFloat(document.getElementById('pf-amt').value)||0;
   if(!custId||!amt){toast('Please fill in customer and amount.');return;}
   const body={customer_id:custId,job_id:parseInt(document.getElementById('pf-job').value)||null,plan_id:parseInt(document.getElementById('pf-plan').value)||null,description:document.getElementById('pf-desc').value,amount:amt,method:document.getElementById('pf-method').value,date:document.getElementById('pf-date').value,note:document.getElementById('pf-note').value};
-  await runMutation('payment-save-new',{buttonId:'save-payment-btn',action:'Recording payment',request:()=>api('POST','/api/payments',body),apply:r=>upsertStateRecord('payments',{...body,...r}),render:()=>renderSafely(renderFinance,renderDashboard),close:'m-pmt',success:'Payment recorded'});
+  await runMutation('payment-save-new',{buttonId:'save-payment-btn',action:'Recording payment',request:()=>api('POST','/api/payments',body),apply:r=>upsertStateRecord('payments',{...body,...r}),render:()=>renderSafely(renderFinance,renderDashboard,renderPlans),close:'m-pmt',success:'Payment recorded'});
 }
 
 async function openPlanModal(){
@@ -3235,41 +3298,179 @@ async function openPlanModal(){
   document.getElementById('pl-freq').value='monthly';
   document.getElementById('pl-start').value=today();
   document.getElementById('plan-preview').innerHTML='';
+  document.getElementById('plan-custom-amounts').innerHTML='';
+  document.getElementById('plan-custom-amounts').style.display='none';
+  document.getElementById('pl-job').innerHTML='<option value="">— Select customer first —</option>';
+  document.getElementById('pl-job-balance').value='Select a repair order';
   document.getElementById('m-plan').classList.add('open');
 }
 
-function calcPlan(){
+function loadPlanRepairOrders(){
+  const custId=parseInt(document.getElementById('pl-cust').value);
+  const select=document.getElementById('pl-job');
+  const jobs=Number.isSafeInteger(custId)?state.jobs.filter(j=>j.customer_id===custId&&j.deleted_at==null&&j.invoice_status!=='Paid'):[];
+  select.innerHTML='<option value="">— Select repair order —</option>'+jobs.map(j=>`<option value="${safeId(j.id)}">${esc(j.repair_order_number||`RO-${String(safeId(j.id)).padStart(4,'0')}`)} — ${esc(j.service||'Service')}</option>`).join('');
+  document.getElementById('pl-job-balance').value=jobs.length?'Select a repair order':'No repair orders found for this customer';
+}
+
+async function loadPlanRepairOrderBalance(){
+  const jobId=parseInt(document.getElementById('pl-job').value);
+  const balanceField=document.getElementById('pl-job-balance');
+  if(!jobId){balanceField.value='Select a repair order';return;}
+  const job=state.jobs.find(j=>j.id===jobId);
+  try{
+    const result=await api('GET',`/api/jobs/${jobId}/balance`);
+    balanceField.value=fmt$(result.balance);
+    document.getElementById('pl-total').value=Math.max(0,Number(result.balance)||0).toFixed(2);
+    if(!document.getElementById('pl-desc').value.trim())document.getElementById('pl-desc').value=`Payment plan for ${job?.repair_order_number||`RO-${String(jobId).padStart(4,'0')}`}`;
+    calcPlan();
+  }catch(error){
+    console.error('Unable to load repair-order balance for payment plan:',error);
+    balanceField.value='Balance unavailable — enter total manually';
+    toast('The repair order is selected, but its balance could not be loaded. Enter the plan total manually.',8000);
+  }
+}
+
+function changePlanType(){ calcPlan(true); }
+
+function customPlanInstallments(){
+  return [...document.querySelectorAll('.custom-plan-payment')].map(row=>({
+    due_date:row.querySelector('.custom-plan-date').value,
+    amount:parseFloat(row.querySelector('.custom-plan-amount').value)
+  }));
+}
+
+function renderCustomPlanAmounts(){
   const total=parseFloat(document.getElementById('pl-total').value)||0;
   const down=parseFloat(document.getElementById('pl-down').value)||0;
-  const count=parseInt(document.getElementById('pl-count').value)||1;
+  const count=Math.max(1,Math.min(24,parseInt(document.getElementById('pl-count').value)||1));
+  const remainingCents=Math.max(0,Math.round((total-down)*100));
+  const baseCents=Math.floor(remainingCents/count);
+  const start=document.getElementById('pl-start').value||today();
+  const days=({weekly:7,biweekly:14,monthly:30})[document.getElementById('pl-freq').value]||30;
+  document.getElementById('plan-custom-amounts').innerHTML=`<div style="font-weight:600;font-size:13px;margin-bottom:6px;">Custom payment amounts</div>${Array.from({length:count},(_,index)=>{
+    const cents=index===count-1?remainingCents-baseCents*(count-1):baseCents;
+    return `<div class="custom-plan-payment f2" style="align-items:end;"><div class="fr"><label>Payment ${index+1} due</label><input type="date" class="custom-plan-date" value="${esc(addDays(start,index*days))}" onchange="calcPlan()"></div><div class="fr"><label>Amount ($)</label><input type="number" class="custom-plan-amount" min="0.01" step="0.01" value="${(cents/100).toFixed(2)}" oninput="calcPlan()"></div></div>`;
+  }).join('')}`;
+}
+
+function calcPlan(resetCustom=false){
+  const total=parseFloat(document.getElementById('pl-total').value)||0;
+  const down=parseFloat(document.getElementById('pl-down').value)||0;
+  const count=Math.max(1,Math.min(24,parseInt(document.getElementById('pl-count').value)||1));
   const rem=total-down;
-  const inst=rem/count;
+  const custom=document.getElementById('pl-type').value==='custom';
+  const customContainer=document.getElementById('plan-custom-amounts');
   const prev=document.getElementById('plan-preview');
+  customContainer.style.display=custom?'':'none';
+  if(custom&&(resetCustom||document.querySelectorAll('.custom-plan-payment').length!==count))renderCustomPlanAmounts();
   if(!total){prev.innerHTML='';return;}
-  prev.innerHTML=`<strong>${count} payments</strong> of ${fmt$(inst)} · Down payment: ${fmt$(down)} · Remaining after down: ${fmt$(rem)}`;
+  if(custom){
+    const scheduled=customPlanInstallments().reduce((sum,item)=>sum+(Number.isFinite(item.amount)?item.amount:0),0);
+    const difference=Math.round((rem-scheduled)*100)/100;
+    prev.innerHTML=`<strong>${count} custom payments</strong> totaling ${fmt$(scheduled)} · Plan balance after down payment: ${fmt$(rem)}${Math.abs(difference)>=.01?` · <span style="color:#A32D2D;">Adjust amounts by ${fmt$(Math.abs(difference))} ${difference>0?'more':'less'}</span>`:' · <span style="color:#3B6D11;">Amounts balance</span>'}`;
+  }else{
+    prev.innerHTML=`<strong>${count} payments</strong> averaging ${fmt$(rem/count)} · Down payment: ${fmt$(down)} · Remaining after down: ${fmt$(rem)}`;
+  }
 }
 
 async function savePlan(){
   const custId=parseInt(document.getElementById('pl-cust').value);
+  const jobId=parseInt(document.getElementById('pl-job').value);
   const total=parseFloat(document.getElementById('pl-total').value)||0;
-  if(!custId||!total){toast('Please select a customer and enter total amount.');return;}
+  if(!custId||!jobId||!total){toast('Please select a customer and repair order, then enter the plan total.',8000);return;}
   const down=parseFloat(document.getElementById('pl-down').value)||0;
   const count=parseInt(document.getElementById('pl-count').value)||4;
+  if(down<0||down>total){toast('Down payment must be between zero and the plan total.',8000);return;}
   const freq=document.getElementById('pl-freq').value;
   const start=document.getElementById('pl-start').value||today();
   const rem=total-down;
-  const instAmt=parseFloat((rem/count).toFixed(2));
   const freqDays={weekly:7,biweekly:14,monthly:30};
   const days=freqDays[freq]||30;
-  const installments=[];
-  for(let i=0;i<count;i++) installments.push({due_date:addDays(start,i*days),amount:instAmt});
-  const body={customer_id:custId,description:document.getElementById('pl-desc').value,total,down_payment:down,plan_type:document.getElementById('pl-type').value,installment_count:count,frequency:freq,start_date:start,notes:document.getElementById('pl-notes').value,installments};
-  await runMutation('plan-save-new',{buttonId:'save-plan-btn',action:'Creating payment plan',request:async()=>{const plan=await api('POST','/api/plans',body);let payment=null,warning='';if(down>0){try{payment=await api('POST','/api/payments',{customer_id:custId,plan_id:plan.id,description:(body.description||'Plan')+' — down payment',amount:down,method:'Cash',date:today(),note:'Down payment'});}catch(error){console.error('Plan saved but down payment failed:',error);warning=`Payment plan saved, but the down payment was not recorded: ${error.message}. Record it from Payments.`;}}return {plan,payment,warning};},apply:r=>{upsertStateRecord('plans',r.plan);if(r.payment)upsertStateRecord('payments',r.payment);},render:()=>renderSafely(renderPlans,renderFinance),close:'m-plan',success:r=>r.warning||'Payment plan created'});
+  let installments=[];
+  if(document.getElementById('pl-type').value==='custom'){
+    installments=customPlanInstallments();
+    if(installments.length!==count||installments.some(item=>!item.due_date||!Number.isFinite(item.amount)||item.amount<=0)){toast('Enter a valid due date and amount greater than zero for every custom payment.',8000);return;}
+    const customTotal=Math.round(installments.reduce((sum,item)=>sum+item.amount,0)*100);
+    if(customTotal!==Math.round(rem*100)){toast(`Custom payment amounts must total ${fmt$(rem)}.`,8000);return;}
+  }else{
+    const remainingCents=Math.round(rem*100),baseCents=Math.floor(remainingCents/count);
+    for(let i=0;i<count;i++)installments.push({due_date:addDays(start,i*days),amount:(i===count-1?remainingCents-baseCents*(count-1):baseCents)/100});
+  }
+  const body={customer_id:custId,job_id:jobId,description:document.getElementById('pl-desc').value,total,down_payment:down,plan_type:document.getElementById('pl-type').value,installment_count:count,frequency:freq,start_date:start,notes:document.getElementById('pl-notes').value,installments};
+  await runMutation('plan-save-new',{buttonId:'save-plan-btn',action:'Creating payment plan',request:async()=>{const plan=await api('POST','/api/plans',body);let payment=null,warning='';if(down>0){try{payment=await api('POST','/api/payments',{customer_id:custId,job_id:jobId,plan_id:plan.id,description:(body.description||'Plan')+' — down payment',amount:down,method:state.settings.default_pay_method||'Cash',date:today(),note:'Down payment'});}catch(error){console.error('Plan saved but down payment failed:',error);warning=`Payment plan saved, but the down payment was not recorded: ${error.message}. Record it from Payments.`;}}return {plan,payment,warning};},apply:r=>{upsertStateRecord('plans',r.plan);if(r.payment)upsertStateRecord('payments',r.payment);},render:()=>renderSafely(renderPlans,renderFinance),close:'m-plan',success:r=>r.warning||'Payment plan created'});
+}
+
+function updateExpenseInventoryOption(){
+  const isParts=document.getElementById('ef-cat').value==='Parts & supplies';
+  document.getElementById('ef-inventory-option').style.display=isParts?'':'none';
+  if(!isParts){document.getElementById('ef-add-inventory').checked=false;document.getElementById('ef-inventory-fields').style.display='none';}
+}
+
+function toggleExpenseInventoryFields(){
+  const checked=document.getElementById('ef-add-inventory').checked;
+  document.getElementById('ef-inventory-fields').style.display=checked?'':'none';
+  if(!checked)return;
+  const select=document.getElementById('ef-inv-existing');
+  const inventory=Array.isArray(state.inventory)?state.inventory:[];
+  select.innerHTML='<option value="">— Create new inventory item —</option>'+inventory.map(part=>`<option value="${safeId(part.id)}">${esc(part.name||'Part')}${part.part_number?' · '+esc(part.part_number):''}</option>`).join('');
+  if(!document.getElementById('ef-inv-qty').value)document.getElementById('ef-inv-qty').value='1';
+  syncExpenseInventoryName();
+  syncExpenseInventoryPricing();
+}
+
+function selectExpenseInventoryItem(){
+  const id=parseInt(document.getElementById('ef-inv-existing').value);
+  const part=(Array.isArray(state.inventory)?state.inventory:[]).find(item=>item.id===id);
+  document.getElementById('ef-inv-new-fields').style.display=part?'none':'';
+  if(part){
+    const quantity=parseFloat(document.getElementById('ef-inv-qty').value);
+    const expenseTotal=parseFloat(document.getElementById('ef-amt').value);
+    const purchaseCost=Number.isFinite(quantity)&&quantity>0&&Number.isFinite(expenseTotal)?expenseTotal/quantity:Number(part.cost||0);
+    document.getElementById('ef-inv-cost').value=partPriceToCents(purchaseCost).toFixed(2);
+    document.getElementById('ef-inv-retail').value=Number(part.retail_price||0).toFixed(2);
+  }else{
+    syncExpenseInventoryName();
+    syncExpenseInventoryPricing();
+  }
+}
+
+function syncExpenseInventoryName(){
+  if(document.getElementById('ef-inv-existing')?.value)return;
+  const name=document.getElementById('ef-inv-name');
+  if(name&&!name.dataset.edited)name.value=document.getElementById('ef-desc')?.value||'';
+}
+
+function syncExpenseInventoryPricing(){
+  if(!document.getElementById('ef-add-inventory')?.checked)return;
+  const qty=parseFloat(document.getElementById('ef-inv-qty').value);
+  const total=parseFloat(document.getElementById('ef-amt').value);
+  if(Number.isFinite(qty)&&qty>0&&Number.isFinite(total)&&total>=0){
+    document.getElementById('ef-inv-cost').value=partPriceToCents(total/qty).toFixed(2);
+    if(!document.getElementById('ef-inv-existing').value)syncExpenseInventoryRetail();
+  }
+}
+
+function syncExpenseInventoryRetail(){
+  if(document.getElementById('ef-inv-existing')?.value)return;
+  const cost=parseFloat(document.getElementById('ef-inv-cost').value);
+  const markup=markupForPartCost(cost);
+  if(!Number.isFinite(cost)||cost<0||markup===null)return;
+  document.getElementById('ef-inv-retail').value=partPriceToCents(cost*(1+markup/100)).toFixed(2);
 }
 
 function openExpModal(){
   document.getElementById('ef-date').value=today();
   ['ef-amt','ef-desc','ef-note'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('ef-cat').value='Parts & supplies';
+  document.getElementById('ef-add-inventory').checked=false;
+  document.getElementById('ef-inventory-fields').style.display='none';
+  document.getElementById('ef-inv-existing').value='';
+  document.getElementById('ef-inv-name').value='';
+  document.getElementById('ef-inv-name').dataset.edited='';
+  ['ef-inv-number','ef-inv-vendor','ef-inv-cost','ef-inv-retail'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('ef-inv-qty').value='1';
+  updateExpenseInventoryOption();
   document.getElementById('m-exp').classList.add('open');
 }
 
@@ -3277,7 +3478,20 @@ async function saveExpense(){
   const amt=parseFloat(document.getElementById('ef-amt').value)||0;
   if(!amt){toast('Please enter an amount.');return;}
   const body={date:document.getElementById('ef-date').value,description:document.getElementById('ef-desc').value||'Expense',category:document.getElementById('ef-cat').value,amount:amt,note:document.getElementById('ef-note').value};
-  await runMutation('expense-save-new',{buttonId:'save-expense-btn',action:'Saving expense',request:()=>api('POST','/api/expenses',body),apply:r=>upsertStateRecord('expenses',{...body,...r}),render:()=>renderSafely(renderExpenses,renderFinance,renderDashboard),close:'m-exp',success:'Expense saved'});
+  if(document.getElementById('ef-add-inventory').checked){
+    const quantity=parseFloat(document.getElementById('ef-inv-qty').value);
+    const cost=parseFloat(document.getElementById('ef-inv-cost').value);
+    const retailPrice=parseFloat(document.getElementById('ef-inv-retail').value);
+    const inventoryId=parseInt(document.getElementById('ef-inv-existing').value)||null;
+    const name=document.getElementById('ef-inv-name').value.trim();
+    if(body.category!=='Parts & supplies'){toast('Only Parts & supplies expenses can be added to inventory.',8000);return;}
+    if(!Number.isFinite(quantity)||quantity<=0){toast('Inventory quantity received must be greater than zero.',8000);return;}
+    if(!Number.isFinite(cost)||cost<0){toast('Inventory unit cost must be zero or greater.',8000);return;}
+    if(!Number.isFinite(retailPrice)||retailPrice<0){toast('Inventory retail price must be zero or greater.',8000);return;}
+    if(!inventoryId&&!name){toast('Enter a part or supply name for the new inventory item.',8000);return;}
+    body.inventory={id:inventoryId||undefined,name,part_number:document.getElementById('ef-inv-number').value,vendor:document.getElementById('ef-inv-vendor').value,quantity,cost:partPriceToCents(cost),retail_price:partPriceToCents(retailPrice)};
+  }
+  await runMutation('expense-save-new',{buttonId:'save-expense-btn',action:'Saving expense',request:()=>api('POST','/api/expenses',body),apply:r=>{const {inventory,...expenseBody}=body;const {inventory_item:inventoryItem,...expense}=r;upsertStateRecord('expenses',{...expenseBody,...expense});if(inventoryItem)upsertStateRecord('inventory',inventoryItem);},render:()=>renderSafely(renderExpenses,renderFinance,renderDashboard,renderInventory),close:'m-exp',success:r=>r.inventory_item?'Expense saved and inventory updated':'Expense saved'});
 }
 
 let editApptId=null, editApptEstimateId=null;
@@ -3542,6 +3756,14 @@ function openInvoice(jobId){
 
   const tax = partsTotal * taxRate / 100;
   const total = laborTotal + partsTotal + tax + travelFee;
+  const linkedPlans=state.plans.filter(p=>p.job_id===jobId);
+  const paymentPlanHtml=linkedPlans.map(p=>{const additionalPayments=planAdditionalPayments(p);return `<div style="margin-top:1rem;padding:12px;border:1px solid #deded8;border-radius:6px;break-inside:avoid;">
+    <div style="display:flex;justify-content:space-between;gap:1rem;font-weight:600;"><span>Payment plan — ${esc(p.description||p.repair_order_number||'')}</span><span>Balance: ${fmt$(planBalance(p))}</span></div>
+    <div style="display:flex;gap:18px;margin-top:5px;font-size:12px;color:#666;"><span>Plan total: ${fmt$(p.total)}</span><span>Paid: ${fmt$(planPaid(p))}</span><span>Frequency: ${esc(p.frequency||'monthly')}</span></div>
+    <div style="margin-top:8px;font-size:11px;color:#555;">${(p.installments||[]).map((inst,index)=>`${index+1}. ${esc(inst.due_date||'No due date')} — ${fmt$(inst.amount)} (${inst.paid?'Paid':'Due'})`).join('<br>')||'No installment schedule available'}</div>
+    ${additionalPayments.length?`<div style="margin-top:8px;font-size:11px;color:#555;"><strong>Additional payments</strong><br>${additionalPayments.map(payment=>`${esc(payment.date||'—')} — ${esc(payment.description||'Payment')}: ${fmt$(payment.amount)}`).join('<br>')}</div>`:''}
+    ${p.notes?`<div style="margin-top:7px;font-size:11px;color:#777;">Terms: ${esc(p.notes)}</div>`:''}
+  </div>`;}).join('');
 
   document.getElementById('invoice-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a1a1a;">
@@ -3596,6 +3818,7 @@ function openInvoice(jobId){
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;margin-top:4px;"><span>Total</span><span>${fmt$(total)}</span></div>
       </div>
     </div>
+    ${paymentPlanHtml}
     ${j.notes?`<div style="margin-top:1rem;padding:10px;background:#f5f5f0;border-radius:6px;font-size:12px;color:#666;"><strong>Notes:</strong> ${esc(j.notes)}</div>`:''}
     ${s.invoice_footer?`<div style="margin-top:1.5rem;text-align:center;font-size:12px;color:#aaa;border-top:1px solid #e8e8e4;padding-top:1rem;">${esc(s.invoice_footer)}</div>`:''}
   `;
