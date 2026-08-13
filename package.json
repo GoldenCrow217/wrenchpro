@@ -1,6 +1,6 @@
 {
   "name": "wrenchpro",
-  "version": "1.0.30",
+  "version": "1.0.31",
   "description": "WrenchPro Mobile Mechanic Manager",
   "author": "GoldenCrow217",
   "main": "electron/main.js",
@@ -23,6 +23,9 @@
     "qa:inventory-values": "node scripts/inventory-negative-qa.js",
     "qa:focus-refresh": "node scripts/focus-refresh-qa.js",
     "qa:pricing": "node scripts/pricing-qa.js",
+    "qa:dashboard": "node scripts/dashboard-qa.js",
+    "qa:printing": "node scripts/print-qa.js",
+    "qa:tenant": "node scripts/tenant-qa.js",
     "test:render-security": "node scripts/run-render-security.js",
     "rebuild-node": "npm rebuild better-sqlite3"
   },

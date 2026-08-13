@@ -21,6 +21,14 @@ const MENU_COMMANDS = new Set([
 contextBridge.exposeInMainWorld('electronAPI', {
   version:  require('../package.json').version,
   platform: process.platform,
+  printDocument(payload) {
+    if (!payload || typeof payload.html !== 'string') return Promise.reject(new Error('Invalid print request'));
+    return ipcRenderer.invoke('document:print', { html: payload.html, title: payload.title, filename: payload.filename });
+  },
+  savePdf(payload) {
+    if (!payload || typeof payload.html !== 'string') return Promise.reject(new Error('Invalid PDF request'));
+    return ipcRenderer.invoke('document:save-pdf', { html: payload.html, title: payload.title, filename: payload.filename });
+  },
   onMenuCommand(callback) {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, command) => {

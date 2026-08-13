@@ -54,6 +54,7 @@ db.exec(`
     labor REAL DEFAULT 0,
     parts REAL DEFAULT 0,
     status TEXT DEFAULT 'Pending',
+    parts_deposit_required REAL DEFAULT 0,
     notes TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers(id),
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
@@ -83,6 +84,8 @@ db.exec(`
     amount REAL,
     paid INTEGER DEFAULT 0,
     paid_date TEXT,
+    amount_paid REAL DEFAULT 0,
+    late_fee REAL DEFAULT 0,
     FOREIGN KEY (plan_id) REFERENCES payment_plans(id)
   );
 
@@ -129,7 +132,11 @@ db.exec(`
     invoice_terms TEXT DEFAULT 'Due on receipt',
     invoice_footer TEXT DEFAULT 'Thank you for your business!',
     invoice_logo TEXT DEFAULT '',
-    parts_markup_tiers TEXT DEFAULT ''
+    parts_markup_tiers TEXT DEFAULT '',
+    require_parts_deposit INTEGER DEFAULT 0,
+    parts_deposit_percent REAL DEFAULT 100,
+    payment_grace_days INTEGER DEFAULT 0,
+    late_fee REAL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS employees (
@@ -208,6 +215,7 @@ db.exec(`
     employee_id INTEGER,
     estimate_number TEXT,
     date TEXT,
+    miles INTEGER DEFAULT 0,
     status TEXT DEFAULT 'Draft',
     notes TEXT DEFAULT '',
     customer_complaint TEXT DEFAULT '',
@@ -411,6 +419,10 @@ db.exec(`
     warranty_terms TEXT DEFAULT '12 months / 12,000 miles',
     estimate_terms TEXT DEFAULT '',
     parts_markup_tiers TEXT DEFAULT '',
+    require_parts_deposit INTEGER DEFAULT 0,
+    parts_deposit_percent REAL DEFAULT 100,
+    payment_grace_days INTEGER DEFAULT 0,
+    late_fee REAL DEFAULT 0,
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (shop_id) REFERENCES shops(id)
   );
@@ -460,6 +472,7 @@ if (!jobCols.includes('closed_at'))        db.prepare(`ALTER TABLE jobs ADD COLU
 if (!jobCols.includes('deleted_at'))       db.prepare(`ALTER TABLE jobs ADD COLUMN deleted_at TEXT`).run();
 if (!jobCols.includes('notify_en_route'))  db.prepare(`ALTER TABLE jobs ADD COLUMN notify_en_route INTEGER DEFAULT 1`).run();
 if (!jobCols.includes('repair_order_number')) db.prepare(`ALTER TABLE jobs ADD COLUMN repair_order_number TEXT DEFAULT ''`).run();
+if (!jobCols.includes('parts_deposit_required')) db.prepare(`ALTER TABLE jobs ADD COLUMN parts_deposit_required REAL DEFAULT 0`).run();
 
 // Migrate: vehicles
 const vehCols = db.prepare(`PRAGMA table_info(vehicles)`).all().map(c => c.name);
@@ -478,6 +491,22 @@ const paymentCols = db.prepare(`PRAGMA table_info(payments)`).all().map(c => c.n
 if (!paymentCols.includes('installment_id')) db.prepare(`ALTER TABLE payments ADD COLUMN installment_id INTEGER REFERENCES installments(id)`).run();
 db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_installment_unique ON payments(installment_id) WHERE installment_id IS NOT NULL`).run();
 
+const installmentCols = db.prepare(`PRAGMA table_info(installments)`).all().map(c => c.name);
+if (!installmentCols.includes('amount_paid')) db.prepare(`ALTER TABLE installments ADD COLUMN amount_paid REAL DEFAULT 0`).run();
+if (!installmentCols.includes('late_fee')) db.prepare(`ALTER TABLE installments ADD COLUMN late_fee REAL DEFAULT 0`).run();
+db.prepare(`UPDATE installments SET amount_paid=amount WHERE paid=1 AND COALESCE(amount_paid,0)=0`).run();
+db.exec(`
+  CREATE TABLE IF NOT EXISTS payment_allocations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    payment_id INTEGER NOT NULL REFERENCES payments(id),
+    installment_id INTEGER NOT NULL REFERENCES installments(id),
+    amount REAL NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_payment_allocations_payment ON payment_allocations(payment_id);
+  CREATE INDEX IF NOT EXISTS idx_payment_allocations_installment ON payment_allocations(installment_id);
+`);
+
 // Migrate: settings (new columns)
 const settCols = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);
 const newSettCols = [
@@ -495,6 +524,10 @@ const newSettCols = [
   ['warranty_terms',  "TEXT DEFAULT '12 months / 12,000 miles'"],
   ['estimate_terms',  "TEXT DEFAULT ''"],
   ['parts_markup_tiers', "TEXT DEFAULT ''"],
+  ['require_parts_deposit', 'INTEGER DEFAULT 0'],
+  ['parts_deposit_percent', 'REAL DEFAULT 100'],
+  ['payment_grace_days', 'INTEGER DEFAULT 0'],
+  ['late_fee', 'REAL DEFAULT 0'],
 ];
 for (const [col, def] of newSettCols) {
   if (!settCols.includes(col)) db.prepare(`ALTER TABLE settings ADD COLUMN ${col} ${def}`).run();
@@ -512,6 +545,7 @@ if (!estCols.includes('approved_at'))     db.prepare(`ALTER TABLE estimates ADD 
 if (!estCols.includes('approved_by'))     db.prepare(`ALTER TABLE estimates ADD COLUMN approved_by TEXT DEFAULT ''`).run();
 if (!estCols.includes('approval_notes'))  db.prepare(`ALTER TABLE estimates ADD COLUMN approval_notes TEXT DEFAULT ''`).run();
 if (!estCols.includes('deleted_at'))      db.prepare(`ALTER TABLE estimates ADD COLUMN deleted_at TEXT`).run();
+if (!estCols.includes('miles'))           db.prepare(`ALTER TABLE estimates ADD COLUMN miles INTEGER DEFAULT 0`).run();
 
 // Migrate: estimate_items
 const estItemCols = db.prepare(`PRAGMA table_info(estimate_items)`).all().map(c => c.name);

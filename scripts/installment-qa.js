@@ -74,6 +74,25 @@ async function createPlan(customerId, jobId, amount = 50) {
     const invalidCustom = await request('POST', '/api/plans', { customer_id: customer.id, job_id: job.id, description: 'Invalid custom amounts', total: 50, plan_type: 'custom', installment_count: 2, installments: [{ due_date: '2026-09-01', amount: 10 }, { due_date: '2026-10-01', amount: 30 }] });
     assert(invalidCustom.status === 400 && invalidCustom.body.field === 'installments', 'unbalanced custom payment amounts were not rejected');
     assert(db.prepare('SELECT count(*) AS n FROM payment_plans').get().n === planCountBeforeInvalidCustom, 'rejected custom plan was partially written');
+    await successful('PUT', '/api/settings', { payment_grace_days: 2, late_fee: 5, require_parts_deposit: 1, parts_deposit_percent: 100 });
+    const depositJob = await successful('POST', '/api/jobs', { customer_id: customer.id, vehicle_id: vehicle.id, repair_order_number: 'RO-9002', service: 'Deposit QA', date: '2026-08-03', labor: 20, parts: 50, parts_deposit_required: 54.13 });
+    assert(db.prepare('SELECT parts_deposit_required FROM jobs WHERE id=?').get(depositJob.id).parts_deposit_required === 54.13, 'repair-order parts deposit was not persisted');
+    const blockedStart = await request('PUT', `/api/jobs/${depositJob.id}`, { service: 'Deposit QA', repair_order_number: 'RO-9002', date: '2026-08-03', status: 'In Progress', invoice_status: 'Unpaid', parts_deposit_required: 54.13 });
+    assert(blockedStart.status === 409 && blockedStart.body.field === 'parts_deposit_required', 'work began without the required parts deposit');
+    await successful('POST', '/api/payments', { customer_id: customer.id, job_id: depositJob.id, description: 'Parts deposit', amount: 54.13, method: 'Cash', date: '2026-08-03' });
+    await successful('PUT', `/api/jobs/${depositJob.id}`, { service: 'Deposit QA', repair_order_number: 'RO-9002', date: '2026-08-03', status: 'In Progress', invoice_status: 'Partial', parts_deposit_required: 54.13 });
+    const allocationPlan = await successful('POST', '/api/plans', { customer_id: customer.id, job_id: job.id, description: 'Allocation QA', total: 40, installment_count: 2, installments: [{ due_date: '2026-08-15', amount: 20 }, { due_date: '2026-09-15', amount: 20 }] });
+    const allocated = await successful('POST', '/api/payments', { customer_id: customer.id, plan_id: allocationPlan.id, description: 'Late additional payment', amount: 25, method: 'Cash', date: '2026-08-20' });
+    assert(allocated.allocations.length === 1 && allocated.allocations[0].installment_id === allocationPlan.installments[0].id, 'payment was not allocated to the oldest installment first');
+    assert(allocated.plan_installments[0].paid === 1 && allocated.plan_installments[0].late_fee === 5, 'late fee and completed allocation were not persisted');
+    const partial = await successful('POST', '/api/payments', { customer_id: customer.id, plan_id: allocationPlan.id, description: 'Partial next payment', amount: 10, method: 'Cash', date: '2026-08-20' });
+    assert(partial.plan_installments[1].amount_paid === 10 && partial.plan_installments[1].paid === 0, 'partial payment was not retained on the next installment');
+    await successful('DELETE', `/api/payments/${partial.id}`);
+    assert(db.prepare('SELECT amount_paid FROM installments WHERE id=?').get(allocationPlan.installments[1].id).amount_paid === 0, 'deleting an allocated payment did not reverse its allocation');
+    const legacyPlanId = db.prepare("INSERT INTO payment_plans (customer_id,description,total) VALUES (?,?,?)").run(customer.id, 'Legacy QA', 30).lastInsertRowid;
+    db.prepare("INSERT INTO payments (customer_id,plan_id,description,amount,method,date) VALUES (?,?,?,?,?,?)").run(customer.id, legacyPlanId, 'Legacy payment', 5, 'Cash', '2026-08-03');
+    const linked = await successful('PUT', `/api/plans/${legacyPlanId}/link-job`, { job_id: job.id });
+    assert(linked.job_id === job.id && db.prepare('SELECT job_id FROM payments WHERE plan_id=?').get(legacyPlanId).job_id === job.id, 'legacy plan and payments were not linked to the repair order');
     const installment = plan.installments[0];
 
     const paid = await successful('PUT', `/api/plans/installment/${installment.id}/pay`, { method: 'Card', date: '2026-08-03' });
@@ -146,6 +165,9 @@ async function createPlan(customerId, jobId, amount = 50) {
     assert(frontend.includes('const linkedPlans=state.plans.filter(p=>p.job_id===jobId)'), 'invoice payment-plan rendering is missing');
     assert(frontend.includes('function customPlanInstallments()') && frontend.includes('Custom payment amounts'), 'custom payment amount editor is missing');
     assert(frontend.includes('function planAdditionalPayments(p)') && frontend.includes('Additional payments'), 'additional plan payment display is missing');
+    assert(frontend.includes('id="jf-require-parts-deposit"') && frontend.includes('parts_deposit_required:'), 'repair-order parts deposit controls are missing');
+    assert(frontend.includes('function linkLegacyPlan(planId)') && frontend.includes('/link-job'), 'legacy plan repair-order linking is missing');
+    assert(frontend.includes('payment_grace_days') && frontend.includes('late_fee_due'), 'grace-period and late-fee display is missing');
     assert(!frontend.includes("api('POST','/api/payments',{customer_id:p.customer_id"), 'old two-request payment sequence remains');
 
     console.log('Atomic installment payment QA passed');

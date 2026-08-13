@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./database');
 const pkg = require('../package.json');
-const { customerTenantWhere, shopTenantWhere } = require('./tenant');
+const { customerTenantWhere, shopTenantWhere, validateRequestedShopContext } = require('./tenant');
 const { positiveId } = require('./validation');
 
 const app = express();
@@ -20,7 +20,7 @@ app.disable('x-powered-by');
 // load from a file/null origin.
 const LOCALHOST_ORIGIN = /^http:\/\/localhost(:\d+)?$/;
 function configuredAllowedOrigins() {
-  return String(process.env.WRENCHPRO_ALLOWED_ORIGINS || '')
+  return String(process.env.WRENCHPRO_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || '')
     .split(',')
     .map(origin => origin.trim().replace(/\/$/, ''))
     .filter(origin => /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(origin));
@@ -66,6 +66,7 @@ app.get('/api/health', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({ ok: true, version: pkg.version });
 });
+app.use('/api', validateRequestedShopContext);
 
 // Validate every stable record ID before a route can pass it to SQLite. This
 // covers ordinary resource routes plus nested conversion/status endpoints.
@@ -98,6 +99,8 @@ app.use('/api/leads',        require('./routes/leads'));
 
 app.get('/api/dashboard', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const totalRevenue = db.prepare(`
     SELECT COALESCE(SUM(p.amount),0) as total
     FROM payments p
@@ -106,11 +109,24 @@ app.get('/api/dashboard', (req, res) => {
   `).get(...tenant.values).total;
   const expenseTenant = shopTenantWhere(req);
   const totalExpenses  = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE ${expenseTenant.clause}`).get(...expenseTenant.values).total;
+  const monthRevenue = db.prepare(`
+    SELECT COALESCE(SUM(p.amount),0) AS total
+    FROM payments p
+    JOIN customers c ON p.customer_id = c.id
+    WHERE substr(p.date,1,7) = ? AND c.deleted_at IS NULL AND ${tenant.clause}
+  `).get(currentMonth, ...tenant.values).total;
+  const monthExpenses = db.prepare(`
+    SELECT COALESCE(SUM(amount),0) AS total
+    FROM expenses
+    WHERE substr(date,1,7) = ? AND ${expenseTenant.clause}
+  `).get(currentMonth, ...expenseTenant.values).total;
   const activeJobs = db.prepare(`
     SELECT COUNT(*) as count
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
-    WHERE j.status NOT IN ('Complete','Canceled') AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+    JOIN vehicles v ON j.vehicle_id = v.id
+    WHERE j.status NOT IN ('Complete','Canceled') AND j.closed_at IS NULL
+      AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND v.deleted_at IS NULL AND ${tenant.clause}
   `).get(...tenant.values).count;
   const totalCustomers = db.prepare(`SELECT COUNT(*) as count FROM customers c WHERE c.deleted_at IS NULL AND ${tenant.clause}`).get(...tenant.values).count;
   const totalVehicles = db.prepare(`
@@ -127,6 +143,7 @@ app.get('/api/dashboard', (req, res) => {
     WHERE j.deleted_at IS NULL
       AND c.deleted_at IS NULL
       AND v.deleted_at IS NULL
+      AND j.closed_at IS NULL
       AND j.status NOT IN ('Complete', 'Canceled')
       AND ${tenant.clause}
     ORDER BY j.date DESC LIMIT 5
@@ -137,7 +154,11 @@ app.get('/api/dashboard', (req, res) => {
     WHERE c.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY p.date DESC LIMIT 5
   `).all(...tenant.values);
-  res.json({ totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses, activeJobs, totalCustomers, totalVehicles, recentJobs, recentPayments });
+  res.json({
+    totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses,
+    monthRevenue, monthExpenses, monthNetProfit: monthRevenue - monthExpenses, profitMonth: currentMonth,
+    activeJobs, totalCustomers, totalVehicles, recentJobs, recentPayments,
+  });
 });
 
 app.use('/api', (req, res) => {

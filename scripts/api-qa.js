@@ -103,6 +103,7 @@ async function waitForServer() {
       year: 2019,
       make: 'Chevrolet',
       model: 'Express',
+      miles: 12000,
     });
     const manualJob = await request('POST', '/api/jobs', {
       customer_id: customer.id,
@@ -110,16 +111,45 @@ async function waitForServer() {
       repair_order_number: '  RO-00042  ',
       service: 'Diagnostic check',
       date: '2026-07-29',
+      miles: 12500,
       items: [{ type: 'labor', description: 'Diagnostic labor', qty: 1, rate: 75, amount: 75, taxable: 0 }],
     });
+    assert(manualJob.labor === 75 && manualJob.parts === 0, 'Created job response did not return its calculated column totals');
+    assert(manualJob.first === customer.first && manualJob.year === vehicle.year, 'Created job response was not hydrated for immediate table rendering');
+    assert(manualJob.items.length === 1 && manualJob.items[0].amount === 75, 'Created job response did not return its saved line items');
+    assert(manualJob.vehicle_mileage === 12500, 'Created R/O did not return the advanced vehicle mileage');
+    let mileageVehicle = (await request('GET', '/api/vehicles')).find(row => row.id === vehicle.id);
+    assert(mileageVehicle.miles === 12500, 'Creating an R/O did not advance vehicle mileage');
     let manualJobRecord = (await request('GET', '/api/jobs')).find(job => job.id === manualJob.id);
     assert(manualJobRecord.repair_order_number === 'RO-00042', 'Repair order number was not trimmed and persisted');
     assert(manualJobRecord.items[0].inventory_id === null, 'Manual job QA requires a null inventory link');
-    await request('PUT', `/api/jobs/${manualJob.id}`, {
+    const updatedManualJob = await request('PUT', `/api/jobs/${manualJob.id}`, {
       repair_order_number: 'RO-00043',
       service: manualJobRecord.service,
       date: manualJobRecord.date,
       status: manualJobRecord.status,
+      items: manualJobRecord.items,
+    });
+    assert(updatedManualJob.labor === 75 && updatedManualJob.parts === 0, 'Updated job response did not return recalculated column totals');
+    assert(updatedManualJob.repair_order_number === 'RO-00043' && updatedManualJob.first === customer.first, 'Updated job response was not ready for immediate table rendering');
+    const advancedMileageJob = await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: 'RO-00043', service: manualJobRecord.service, date: manualJobRecord.date, status: manualJobRecord.status, miles: 13000, items: manualJobRecord.items,
+    });
+    assert(advancedMileageJob.vehicle_mileage === 13000, 'Editing an R/O did not return the advanced vehicle mileage');
+    await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: 'RO-00043', service: manualJobRecord.service, date: manualJobRecord.date, status: manualJobRecord.status, miles: 11000, items: manualJobRecord.items,
+    });
+    mileageVehicle = (await request('GET', '/api/vehicles')).find(row => row.id === vehicle.id);
+    assert(mileageVehicle.miles === 13000, 'Editing an older R/O reduced the vehicle mileage');
+    const negativeMileage = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { date: manualJobRecord.date, miles: -1 });
+    assert(negativeMileage.status === 400 && negativeMileage.body.field === 'miles', 'Negative R/O mileage should return field-specific HTTP 400');
+    const recalculatedManualJob = await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: 'RO-00043', service: manualJobRecord.service, date: manualJobRecord.date, status: manualJobRecord.status,
+      items: [{ type: 'labor', description: 'Diagnostic labor', qty: 2, rate: 75, amount: 150, taxable: 0 }, { type: 'part', description: 'Test part', qty: 1, rate: 25, amount: 25, taxable: 1 }],
+    });
+    assert(recalculatedManualJob.labor === 150 && recalculatedManualJob.parts === 25, 'Changed line items were not reflected immediately in the updated job response');
+    await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: 'RO-00043', service: manualJobRecord.service, date: manualJobRecord.date, status: manualJobRecord.status,
       items: manualJobRecord.items,
     });
     manualJobRecord = (await request('GET', '/api/jobs')).find(job => job.id === manualJob.id);
@@ -181,6 +211,7 @@ async function waitForServer() {
       customer_id: customer.id,
       vehicle_id: vehicle.id,
       date: '2026-07-29',
+      miles: 13500,
       status: 'Approved',
       customer_complaint: 'Brake noise',
       items: [{
@@ -196,6 +227,8 @@ async function waitForServer() {
       customer_id: customer.id,
       vehicle_id: vehicle.id,
       date: '2026-07-29',
+      estimate_number: 'EST-9999',
+      miles: 12000,
       tax_rate: 10,
       total: 999,
       items: [
@@ -204,6 +237,17 @@ async function waitForServer() {
       ],
     });
     assert(taxedEstimate.total === 155, `Estimate should tax only parts and ignore a supplied total, got ${taxedEstimate.total}`);
+    const firstEstimateSequence = Number(estimate.estimate_number.match(/^EST-(\d+)$/)?.[1]);
+    const secondEstimateSequence = Number(taxedEstimate.estimate_number.match(/^EST-(\d+)$/)?.[1]);
+    assert(Number.isSafeInteger(firstEstimateSequence), `First estimate did not receive an EST-#### number: ${estimate.estimate_number}`);
+    assert(secondEstimateSequence === firstEstimateSequence + 1, `Estimate numbers were not sequential: ${estimate.estimate_number}, ${taxedEstimate.estimate_number}`);
+    assert(taxedEstimate.estimate_number !== 'EST-9999', 'Client input overrode the server-assigned estimate number');
+    let estimateMileageVehicle = (await request('GET', '/api/vehicles')).find(row => row.id === vehicle.id);
+    assert(estimateMileageVehicle.miles === 13500, 'Estimate creation did not advance vehicle mileage or allowed a lower estimate to reduce it');
+    const negativeEstimateMileage = await requestRaw('PUT', `/api/estimates/${estimate.id}`, { miles: -1 });
+    assert(negativeEstimateMileage.status === 400 && negativeEstimateMileage.body.field === 'miles', 'Negative estimate mileage should return field-specific HTTP 400');
+    const orderedEstimates = await request('GET', '/api/estimates');
+    assert(orderedEstimates[0].id === taxedEstimate.id && orderedEstimates[1].id === estimate.id, 'Same-day estimates were not returned newest first');
 
     const insufficient = await requestRaw('POST', `/api/estimates/${estimate.id}/convert`);
     assert(insufficient.status === 409, `Insufficient inventory should return 409, got ${insufficient.status}`);
@@ -213,6 +257,7 @@ async function waitForServer() {
     await request('PUT', `/api/estimates/${estimate.id}`, {
       status: 'Approved',
       customer_complaint: 'Brake noise',
+      miles: 14000,
       items: [{
         type: 'part',
         description: 'Brake pads',
@@ -222,12 +267,19 @@ async function waitForServer() {
         inventory_id: inventory.id,
       }],
     });
+    estimateMileageVehicle = (await request('GET', '/api/vehicles')).find(row => row.id === vehicle.id);
+    assert(estimateMileageVehicle.miles === 14000, 'Editing an estimate did not advance vehicle mileage');
+    await request('PUT', `/api/estimates/${taxedEstimate.id}`, { status: 'Draft', miles: 11000 });
+    estimateMileageVehicle = (await request('GET', '/api/vehicles')).find(row => row.id === vehicle.id);
+    assert(estimateMileageVehicle.miles === 14000, 'Editing an older estimate reduced vehicle mileage');
     const firstEstimateConversion = await request('POST', `/api/estimates/${estimate.id}/convert`);
     const secondEstimateConversion = await request('POST', `/api/estimates/${estimate.id}/convert`);
     assert(firstEstimateConversion.job_id === secondEstimateConversion.job_id, 'Repeat estimate conversion created a second job');
     assert(secondEstimateConversion.already_converted === true, 'Repeat estimate conversion was not identified as idempotent');
     assert(/^RO-\d{4,}$/.test(firstEstimateConversion.repair_order_number), `Converted estimate did not receive an RO-#### number: ${firstEstimateConversion.repair_order_number}`);
     assert(secondEstimateConversion.repair_order_number === firstEstimateConversion.repair_order_number, 'Repeat estimate conversion changed the repair-order number');
+    const convertedEstimateJob = (await request('GET', '/api/jobs')).find(job => job.id === firstEstimateConversion.job_id);
+    assert(convertedEstimateJob.miles === 14000, 'Estimate mileage was not carried into the converted repair order');
     inventoryRows = await request('GET', '/api/inventory');
     assert(inventoryRows.find(row => row.id === inventory.id).quantity === 0, 'Successful conversion did not deduct inventory exactly once');
 
@@ -250,6 +302,17 @@ async function waitForServer() {
     });
     jobs = await request('GET', '/api/jobs');
     assert(jobs.find(job => job.id === firstEstimateConversion.job_id).closed_at === null, 'Reopened job retained closed_at');
+
+    const dashboardBefore = await request('GET', '/api/dashboard');
+    const dashboardDate = new Date();
+    const dashboardDateString = `${dashboardDate.getFullYear()}-${String(dashboardDate.getMonth() + 1).padStart(2, '0')}-${String(dashboardDate.getDate()).padStart(2, '0')}`;
+    await request('POST', '/api/payments', { customer_id: customer.id, description: 'Dashboard monthly revenue QA', amount: 123, method: 'Cash', date: dashboardDateString });
+    await request('POST', '/api/expenses', { description: 'Dashboard monthly expense QA', category: 'Other', amount: 23, date: dashboardDateString });
+    const dashboardAfter = await request('GET', '/api/dashboard');
+    assert(dashboardAfter.monthRevenue - dashboardBefore.monthRevenue === 123, 'Dashboard monthly revenue did not use payment dates');
+    assert(dashboardAfter.monthExpenses - dashboardBefore.monthExpenses === 23, 'Dashboard monthly expenses did not use expense dates');
+    assert(dashboardAfter.monthNetProfit - dashboardBefore.monthNetProfit === 100, 'Dashboard monthly net profit did not equal monthly revenue minus expenses');
+    assert(dashboardAfter.totalRevenue - dashboardBefore.totalRevenue === 123 && dashboardAfter.totalExpenses - dashboardBefore.totalExpenses === 23, 'Dashboard all-time totals changed inconsistently with monthly totals');
 
     console.log('Local desktop API QA passed:', JSON.stringify({
       port,

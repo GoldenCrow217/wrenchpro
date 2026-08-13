@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { customerTenantWhere } = require('../tenant');
+const { customerTenantWhere, resolveShopId } = require('../tenant');
 const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
 
 function validatePlan(res, body) {
@@ -27,7 +27,22 @@ function validatePlan(res, body) {
   return true;
 }
 
+function paymentSettings(req) {
+  const shopId = resolveShopId(req);
+  return (shopId ? db.prepare('SELECT payment_grace_days, late_fee FROM shop_settings WHERE shop_id = ?').get(shopId) : null)
+    || db.prepare('SELECT payment_grace_days, late_fee FROM settings WHERE id = 1').get()
+    || {};
+}
+
+function isPastGrace(dueDate, paymentDate, graceDays) {
+  if (!dueDate || !paymentDate) return false;
+  const cutoff = new Date(`${dueDate}T00:00:00Z`);
+  cutoff.setUTCDate(cutoff.getUTCDate() + Math.max(0, Number(graceDays) || 0));
+  return paymentDate > cutoff.toISOString().slice(0, 10);
+}
+
 router.get('/', (req, res) => {
+  const settings = paymentSettings(req);
   const tenant = customerTenantWhere(req, 'c');
   const plans = db.prepare(`
     SELECT pp.*, c.first, c.last, j.repair_order_number
@@ -39,6 +54,8 @@ router.get('/', (req, res) => {
   `).all(...tenant.values);
   plans.forEach(p => {
     p.installments = db.prepare('SELECT * FROM installments WHERE plan_id = ? ORDER BY due_date').all(p.id);
+    p.grace_days = Number(settings.payment_grace_days) || 0;
+    p.installments.forEach(inst => { inst.late_fee_due = !inst.paid && isPastGrace(inst.due_date, new Date().toISOString().slice(0, 10), p.grace_days) ? Number(inst.late_fee || settings.late_fee) || 0 : Number(inst.late_fee) || 0; });
   });
   res.json(plans);
 });
@@ -75,6 +92,18 @@ router.post('/', (req, res) => {
   res.json(plan);
 });
 
+router.put('/:id/link-job', (req, res) => {
+  if (!positiveId(res, req.body.job_id, 'job_id', { required: true })) return;
+  const tenant = customerTenantWhere(req, 'c');
+  const plan = db.prepare(`SELECT pp.* FROM payment_plans pp JOIN customers c ON pp.customer_id=c.id WHERE pp.id=? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
+  if (!plan) return res.status(404).json({ error: 'Payment plan not found' });
+  const job = db.prepare('SELECT id, repair_order_number FROM jobs WHERE id=? AND customer_id=? AND deleted_at IS NULL').get(req.body.job_id, plan.customer_id);
+  if (!job) return fail(res, 'job_id', 'Repair order not found or does not belong to this customer', 404);
+  db.prepare('UPDATE payment_plans SET job_id=? WHERE id=?').run(job.id, plan.id);
+  db.prepare('UPDATE payments SET job_id=? WHERE plan_id=? AND job_id IS NULL').run(job.id, plan.id);
+  res.json({ success: true, job_id: job.id, repair_order_number: job.repair_order_number });
+});
+
 router.put('/installment/:id/pay', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const installmentId = Number(req.params.id);
@@ -92,10 +121,11 @@ router.put('/installment/:id/pay', (req, res) => {
   `).get(installment.plan_id, ...tenant.values);
   if (!plan) return res.status(404).json({ error: 'Payment plan not found for this installment' });
 
-  const amount = Number(installment.amount);
-  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Installment amount must be greater than zero' });
-
   const paidDate = req.body.date || new Date().toISOString().split('T')[0];
+  const settings = paymentSettings(req);
+  const assessedLateFee = isPastGrace(installment.due_date, paidDate, settings.payment_grace_days) ? Number(installment.late_fee || settings.late_fee) || 0 : Number(installment.late_fee) || 0;
+  const amount = Math.round((Number(installment.amount) + assessedLateFee - Number(installment.amount_paid || 0)) * 100) / 100;
+  if (!installment.paid && (!Number.isFinite(amount) || amount <= 0)) return res.status(400).json({ error: 'Installment amount must be greater than zero' });
   const method = req.body.method || 'Cash';
   const description = `${plan.description || 'Payment plan'} (installment)`;
 
@@ -127,7 +157,7 @@ router.put('/installment/:id/pay', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(plan.customer_id, plan.id, installmentId, plan.job_id || null, description, amount, method, paidDate, 'Auto-logged from payment plan installment');
 
-    const updateResult = db.prepare('UPDATE installments SET paid=1, paid_date=? WHERE id=? AND paid=0').run(paidDate, installmentId);
+    const updateResult = db.prepare('UPDATE installments SET paid=1, paid_date=?, amount_paid=amount+?, late_fee=? WHERE id=? AND paid=0').run(paidDate, assessedLateFee, assessedLateFee, installmentId);
     if (updateResult.changes !== 1) {
       const error = new Error('Installment changed while payment was being recorded; no changes were saved');
       error.status = 409;
@@ -156,6 +186,8 @@ router.delete('/:id', (req, res) => {
   if (!current) return res.status(404).json({ error: 'Payment plan not found' });
 
   db.transaction(() => {
+    db.prepare('DELETE FROM payment_allocations WHERE installment_id IN (SELECT id FROM installments WHERE plan_id = ?)').run(req.params.id);
+    db.prepare('UPDATE payments SET plan_id=NULL, installment_id=NULL WHERE plan_id = ?').run(req.params.id);
     db.prepare('DELETE FROM installments WHERE plan_id = ?').run(req.params.id);
     db.prepare('DELETE FROM payment_plans WHERE id = ?').run(req.params.id);
   })();
