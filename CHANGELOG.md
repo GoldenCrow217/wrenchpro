@@ -21,6 +21,31 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.32 - 2026-08-12
+
+### Added
+
+- Focused accounting and historical-integrity QA covering archived records, payment reconciliation, atomic plan down payments, authoritative line pricing, tax snapshots, employee history, and time validation.
+- Shared local business-date, line-item normalization, and repair-order finance helpers.
+
+### Changed
+
+- Repair-order and estimate line amounts are calculated on the server from quantity and rate, and parts taxability is derived from the controlled item type.
+- Customer and vehicle archival removes records from active selection lists while retaining repair orders, estimates, payments, plans, inspections, warranties, and revenue history.
+- Employees are archived instead of hard-deleted; open jobs are unassigned while closed-job assignments and time history remain intact.
+- Payment-plan creation records any down payment in the same database transaction, and fully paid plans no longer create zero-dollar installments.
+- Profit and Loss caps invoice allocation at the invoice total and reports excess receipts as customer-credit liabilities rather than operating income or sales tax.
+
+### Fixed
+
+- Repair-order invoice status now reconciles with actual payments after payment creation, editing, deletion, installment payment, and repair-order total changes.
+- Existing closed and paid repair orders receive a frozen tax-rate snapshot so later Settings changes do not rewrite historical totals.
+- Automatic payment and overdue-plan dates use the desktop's local business date rather than UTC.
+- Invalid or reversed time-log timestamps return clear validation errors instead of corrupting calculated hours.
+- Malformed line-item payloads return HTTP 400 instead of an internal server error.
+- Startup loading tolerates unavailable optional endpoints while preserving successfully loaded state, and desktop startup uses one IPv4-consistent, single-instance server lifecycle.
+- Unexpected external-link protocols are blocked, numeric API inputs receive consistent validation, and referenced inventory deletion returns a clear conflict response.
+
 ## v1.0.31 - 2026-08-12
 
 ### Added

@@ -114,8 +114,9 @@ async function createPlan(customerId, jobId, amount = 50) {
     assert(doubleResults.some(result => result.already_paid === true), 'concurrent repeat was not identified');
     assert(db.prepare('SELECT count(*) AS n FROM payments WHERE installment_id=?').get(doubleId).n === 1, 'double request created duplicate payments');
 
-    const invalidPlan = await createPlan(customer.id, job.id, 0);
-    const invalid = await request('PUT', `/api/plans/installment/${invalidPlan.installments[0].id}/pay`, {});
+    const invalidPlanId = db.prepare("INSERT INTO payment_plans (customer_id,job_id,description,total,installment_count) VALUES (?,?,?,0,1)").run(customer.id, job.id, 'Corrupted zero plan').lastInsertRowid;
+    const invalidInstallmentId = db.prepare("INSERT INTO installments (plan_id,due_date,amount,paid) VALUES (?,'2026-08-15',0,0)").run(invalidPlanId).lastInsertRowid;
+    const invalid = await request('PUT', `/api/plans/installment/${invalidInstallmentId}/pay`, {});
     assert(invalid.status === 400 && /amount/i.test(invalid.body.error), 'invalid installment amount was not rejected');
 
     const missing = await request('PUT', '/api/plans/installment/999999/pay', {});

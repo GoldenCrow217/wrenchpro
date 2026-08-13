@@ -53,6 +53,7 @@ db.exec(`
     miles INTEGER,
     labor REAL DEFAULT 0,
     parts REAL DEFAULT 0,
+    tax_rate REAL,
     status TEXT DEFAULT 'Pending',
     parts_deposit_required REAL DEFAULT 0,
     notes TEXT,
@@ -473,6 +474,7 @@ if (!jobCols.includes('deleted_at'))       db.prepare(`ALTER TABLE jobs ADD COLU
 if (!jobCols.includes('notify_en_route'))  db.prepare(`ALTER TABLE jobs ADD COLUMN notify_en_route INTEGER DEFAULT 1`).run();
 if (!jobCols.includes('repair_order_number')) db.prepare(`ALTER TABLE jobs ADD COLUMN repair_order_number TEXT DEFAULT ''`).run();
 if (!jobCols.includes('parts_deposit_required')) db.prepare(`ALTER TABLE jobs ADD COLUMN parts_deposit_required REAL DEFAULT 0`).run();
+if (!jobCols.includes('tax_rate'))              db.prepare(`ALTER TABLE jobs ADD COLUMN tax_rate REAL`).run();
 
 // Migrate: vehicles
 const vehCols = db.prepare(`PRAGMA table_info(vehicles)`).all().map(c => c.name);
@@ -564,6 +566,7 @@ db.prepare(`CREATE INDEX IF NOT EXISTS idx_appointments_shop ON appointments(sho
 // Migrate: employees
 const employeeCols = db.prepare(`PRAGMA table_info(employees)`).all().map(c => c.name);
 if (!employeeCols.includes('shop_id')) db.prepare(`ALTER TABLE employees ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
+if (!employeeCols.includes('deleted_at')) db.prepare(`ALTER TABLE employees ADD COLUMN deleted_at TEXT`).run();
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_employees_shop ON employees(shop_id)`).run();
 
 // Migrate: inventory and catalog
@@ -584,5 +587,15 @@ db.prepare(`CREATE INDEX IF NOT EXISTS idx_leads_shop ON leads(shop_id)`).run();
 // Data backfills — run after all schema migrations so columns are guaranteed to exist
 db.prepare(`UPDATE jobs SET status='Complete' WHERE status='Done'`).run();
 db.prepare(`UPDATE jobs SET closed_at=datetime('now') WHERE status IN ('Complete','Canceled') AND closed_at IS NULL`).run();
+db.prepare(`
+  UPDATE jobs
+  SET tax_rate = COALESCE(
+    (SELECT ss.tax_rate FROM customers c JOIN shop_settings ss ON ss.shop_id=c.shop_id WHERE c.id=jobs.customer_id),
+    (SELECT tax_rate FROM settings WHERE id=1),
+    0
+  )
+  WHERE tax_rate IS NULL
+    AND (closed_at IS NOT NULL OR status IN ('Complete','Canceled') OR invoice_status IN ('Paid','Voided'))
+`).run();
 
 module.exports = db;

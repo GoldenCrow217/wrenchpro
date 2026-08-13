@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, shopTenantWhere } = require('../tenant');
-const { fail, requiredText, finiteNumber, nonNegativeNumber, positiveId, isoDate } = require('../validation');
+const { fail, requiredText, nonNegativeNumber, positiveId, isoDate } = require('../validation');
 
 function validateExpense(res, body) {
   if (!(isoDate(res, body, 'date', { required: true, label: 'Date' })
     && requiredText(res, body, 'description', 'Description')
     && requiredText(res, body, 'category', 'Category')
-    && finiteNumber(res, body, 'amount', { required: true, label: 'Amount' }))) return false;
+    && nonNegativeNumber(res, body, 'amount', { required: true, label: 'Amount' }))) return false;
+  if (Number(body.amount) <= 0) return fail(res, 'amount', 'Amount must be greater than zero');
   if (body.inventory === undefined) return true;
   const inventory = body.inventory;
   if (!inventory || typeof inventory !== 'object' || Array.isArray(inventory)) return fail(res, 'inventory', 'Inventory details must be an object');

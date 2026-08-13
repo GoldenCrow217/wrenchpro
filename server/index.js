@@ -18,7 +18,7 @@ app.disable('x-powered-by');
 // localhost regex fully anchored; a loose prefix match would allow origins like
 // http://localhost.evil.test to receive CORS headers. Local desktop builds may
 // load from a file/null origin.
-const LOCALHOST_ORIGIN = /^http:\/\/localhost(:\d+)?$/;
+const LOCALHOST_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(:\d+)?$/;
 function configuredAllowedOrigins() {
   return String(process.env.WRENCHPRO_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || '')
     .split(',')
@@ -105,7 +105,7 @@ app.get('/api/dashboard', (req, res) => {
     SELECT COALESCE(SUM(p.amount),0) as total
     FROM payments p
     JOIN customers c ON p.customer_id = c.id
-    WHERE c.deleted_at IS NULL AND ${tenant.clause}
+    WHERE ${tenant.clause}
   `).get(...tenant.values).total;
   const expenseTenant = shopTenantWhere(req);
   const totalExpenses  = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE ${expenseTenant.clause}`).get(...expenseTenant.values).total;
@@ -113,7 +113,7 @@ app.get('/api/dashboard', (req, res) => {
     SELECT COALESCE(SUM(p.amount),0) AS total
     FROM payments p
     JOIN customers c ON p.customer_id = c.id
-    WHERE substr(p.date,1,7) = ? AND c.deleted_at IS NULL AND ${tenant.clause}
+    WHERE substr(p.date,1,7) = ? AND ${tenant.clause}
   `).get(currentMonth, ...tenant.values).total;
   const monthExpenses = db.prepare(`
     SELECT COALESCE(SUM(amount),0) AS total
@@ -177,5 +177,5 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 });
 
 app.listen(PORT, '127.0.0.1', () => {
-  console.log(`WrenchPro running at http://localhost:${PORT}`);
+  console.log(`WrenchPro running at http://127.0.0.1:${PORT}`);
 });

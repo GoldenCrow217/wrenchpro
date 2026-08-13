@@ -3,13 +3,22 @@ const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, resolveShopId } = require('../tenant');
 const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
+const { reconcileJobInvoiceStatus } = require('../job-finance');
+
+function currentTaxRate(req) {
+  const shopId = resolveShopId(req);
+  const settings = (shopId ? db.prepare('SELECT tax_rate FROM shop_settings WHERE shop_id=?').get(shopId) : null)
+    || db.prepare('SELECT tax_rate FROM settings WHERE id=1').get() || {};
+  return Number(settings.tax_rate) || 0;
+}
 
 function validatePayment(res, body, includeRelationships) {
   if (includeRelationships && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
   if (includeRelationships && !positiveId(res, body.job_id, 'job_id')) return false;
   if (includeRelationships && !positiveId(res, body.plan_id, 'plan_id')) return false;
-  return finiteNumber(res, body, 'amount', { required: true, label: 'Amount' })
-    && isoDate(res, body, 'date', { required: true, label: 'Payment date' });
+  if (!finiteNumber(res, body, 'amount', { required: true, label: 'Amount' })) return false;
+  if (Number(body.amount) <= 0) return fail(res, 'amount', 'Payment amount must be greater than zero');
+  return isoDate(res, body, 'date', { required: true, label: 'Payment date' });
 }
 
 router.get('/', (req, res) => {
@@ -19,7 +28,7 @@ router.get('/', (req, res) => {
     FROM payments p
     JOIN customers c ON p.customer_id = c.id
     LEFT JOIN jobs j ON p.job_id = j.id
-    WHERE c.deleted_at IS NULL AND ${tenant.clause}
+    WHERE ${tenant.clause}
     ORDER BY p.date DESC
   `).all(...tenant.values);
   res.json(payments);
@@ -28,8 +37,6 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
   if (!validatePayment(res, req.body, true)) return;
   const { customer_id, plan_id, job_id, description, amount, method, date, note } = req.body;
-  if (Number(amount) <= 0) return fail(res, 'amount', 'Payment amount must be greater than zero');
-
   const tenant = customerTenantWhere(req, 'c');
   const customer = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`)
     .get(customer_id, ...tenant.values);
@@ -77,29 +84,37 @@ router.post('/', (req, res) => {
         remaining = Math.round((remaining - applied) * 100) / 100;
       }
     }
-    return { id: result.lastInsertRowid, allocations };
+    const jobInvoiceStatus = reconcileJobInvoiceStatus(db, resolvedJobId, currentTaxRate(req));
+    return { id: result.lastInsertRowid, allocations, jobInvoiceStatus };
   });
   const saved = savePayment();
   const planInstallments = plan ? db.prepare('SELECT * FROM installments WHERE plan_id=? ORDER BY due_date').all(plan.id) : undefined;
-  res.json({ id: saved.id, ...req.body, job_id: resolvedJobId, repair_order_number: job?.repair_order_number || null, allocations: saved.allocations, plan_installments: planInstallments });
+  res.json({ id: saved.id, ...req.body, job_id: resolvedJobId, repair_order_number: job?.repair_order_number || null, allocations: saved.allocations, plan_installments: planInstallments, job_invoice_status: saved.jobInvoiceStatus });
 });
 
 router.put('/:id', (req, res) => {
   if (!validatePayment(res, req.body, false)) return;
   const { description, amount, method, date, note } = req.body;
   const tenant = customerTenantWhere(req, 'c');
+  const payment = db.prepare(`SELECT p.* FROM payments p JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
+  if (!payment) return res.status(404).json({ error: 'Payment not found' });
+  if (payment.plan_id && String(payment.note || '').trim().toLowerCase() === 'down payment') return res.status(409).json({ error: 'Plan down payments cannot be edited separately from their payment plan' });
   const allocated = db.prepare(`SELECT pa.id FROM payment_allocations pa JOIN payments p ON pa.payment_id=p.id JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND c.deleted_at IS NULL AND ${tenant.clause} LIMIT 1`).get(req.params.id, ...tenant.values);
   if (allocated) return res.status(409).json({ error: 'Allocated plan payments cannot be edited; delete and re-record the payment instead' });
-  const result = db.prepare(`
-    UPDATE payments SET description=?, amount=?, method=?, date=?, note=?
-    WHERE id IN (
-      SELECT p.id FROM payments p
-      JOIN customers c ON p.customer_id = c.id
-      WHERE p.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}
-    )
-  `).run(description || '', amount, method || 'Cash', date, note || '', req.params.id, ...tenant.values);
+  const result = db.transaction(() => {
+    const update = db.prepare(`
+      UPDATE payments SET description=?, amount=?, method=?, date=?, note=?
+      WHERE id IN (
+        SELECT p.id FROM payments p
+        JOIN customers c ON p.customer_id = c.id
+        WHERE p.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}
+      )
+    `).run(description || '', amount, method || 'Cash', date, note || '', req.params.id, ...tenant.values);
+    if (update.changes) reconcileJobInvoiceStatus(db, payment.job_id, currentTaxRate(req));
+    return update;
+  })();
   if (!result.changes) return res.status(404).json({ error: 'Payment not found' });
-  res.json({ success: true });
+  res.json({ success: true, job_id: payment.job_id || null, job_invoice_status: payment.job_id ? db.prepare('SELECT invoice_status FROM jobs WHERE id=?').get(payment.job_id)?.invoice_status : null });
 });
 
 router.delete('/:id', (req, res) => {
@@ -107,6 +122,7 @@ router.delete('/:id', (req, res) => {
   const payment = db.prepare(`SELECT p.* FROM payments p JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
   if (!payment) return res.status(404).json({ error: 'Payment not found' });
   if (payment.installment_id) return res.status(409).json({ error: 'Installment payments must remain attached to their paid installment' });
+  if (payment.plan_id && String(payment.note || '').trim().toLowerCase() === 'down payment') return res.status(409).json({ error: 'Plan down payments cannot be deleted separately from their payment plan' });
   db.transaction(() => {
     const allocations = db.prepare('SELECT * FROM payment_allocations WHERE payment_id=?').all(payment.id);
     for (const allocation of allocations) {
@@ -117,8 +133,9 @@ router.delete('/:id', (req, res) => {
     }
     db.prepare('DELETE FROM payment_allocations WHERE payment_id=?').run(payment.id);
     db.prepare('DELETE FROM payments WHERE id=?').run(payment.id);
+    reconcileJobInvoiceStatus(db, payment.job_id, currentTaxRate(req));
   })();
-  res.json({ success: true });
+  res.json({ success: true, job_id: payment.job_id || null, job_invoice_status: payment.job_id ? db.prepare('SELECT invoice_status FROM jobs WHERE id=?').get(payment.job_id)?.invoice_status : null });
 });
 
 module.exports = router;

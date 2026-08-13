@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId } = require('../tenant');
-const { fail, finiteNumber } = require('../validation');
+const { fail, nonNegativeNumber } = require('../validation');
 const { normalizeMarkupTiers } = require('../pricing');
 
 const SETTINGS_FIELDS = [
@@ -31,11 +31,12 @@ router.get('/', (req, res) => {
 
 router.put('/', (req, res) => {
   for (const [field, label] of [['default_labor_rate','Default labor rate'],['diagnostic_rate','Diagnostic rate'],['fleet_rate','Fleet rate'],['emergency_rate','Emergency rate'],['service_fee','Service fee'],['tax_rate','Tax rate'],['oil_warn_miles','Oil warning mileage'],['parts_deposit_percent','Parts deposit percent'],['payment_grace_days','Payment grace days'],['late_fee','Late fee']]) {
-    if (!finiteNumber(res, req.body, field, { label })) return;
+    if (!nonNegativeNumber(res, req.body, field, { label })) return;
   }
+  if (Number(req.body.tax_rate || 0) > 100) return fail(res, 'tax_rate', 'Tax rate must be between 0 and 100');
   if (Number(req.body.parts_deposit_percent || 0) < 0 || Number(req.body.parts_deposit_percent || 0) > 100) return fail(res, 'parts_deposit_percent', 'Parts deposit percent must be between 0 and 100');
   if (!Number.isInteger(Number(req.body.payment_grace_days || 0)) || Number(req.body.payment_grace_days || 0) < 0) return fail(res, 'payment_grace_days', 'Payment grace days must be a non-negative whole number');
-  if (Number(req.body.late_fee || 0) < 0) return fail(res, 'late_fee', 'Late fee cannot be negative');
+  if (!Number.isInteger(Number(req.body.oil_warn_miles || 0))) return fail(res, 'oil_warn_miles', 'Oil warning mileage must be a non-negative whole number');
   let partsMarkupTiers;
   try {
     partsMarkupTiers = JSON.stringify(normalizeMarkupTiers(req.body.parts_markup_tiers));
@@ -59,7 +60,7 @@ router.put('/', (req, res) => {
     service_fee: parseFloat(req.body.service_fee) || 0,
     default_pay_method: req.body.default_pay_method || 'Cash',
     tax_rate: parseFloat(req.body.tax_rate) || 0,
-    oil_warn_miles: parseInt(req.body.oil_warn_miles) || 1500,
+    oil_warn_miles: req.body.oil_warn_miles === undefined || req.body.oil_warn_miles === null || req.body.oil_warn_miles === '' ? 1500 : Number(req.body.oil_warn_miles),
     currency_symbol: req.body.currency_symbol || '$',
     tax_id: req.body.tax_id || '',
     invoice_terms: req.body.invoice_terms || 'Due on receipt',

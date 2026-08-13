@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, shopTenantWhere, resolveShopId, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
-const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
+const { fail, nonNegativeNumber, positiveId, isoDate } = require('../validation');
+const { normalizedItemType, normalizeLineItems, lineItemTotals } = require('../line-items');
+const { reconcileJobInvoiceStatus } = require('../job-finance');
+const { localDateKey } = require('../business-date');
 
 function validateJob(res, body, create) {
   if (create && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
@@ -10,20 +13,50 @@ function validateJob(res, body, create) {
   if (!positiveId(res, body.employee_id, 'employee_id')) return false;
   if (!positiveId(res, body.estimate_id, 'estimate_id')) return false;
   if (!isoDate(res, body, 'date', { required: true, label: 'Job date' })) return false;
-  for (const field of ['miles','labor','labor_hours','labor_rate','parts','travel_fee','parts_deposit_required']) if (!finiteNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
-  if (body.miles !== undefined && Number(body.miles) < 0) return fail(res, 'miles', 'Mileage cannot be negative');
-  if (Number(body.parts_deposit_required || 0) < 0) return fail(res, 'parts_deposit_required', 'Parts deposit cannot be negative');
+  for (const field of ['miles','labor','labor_hours','labor_rate','parts','travel_fee','parts_deposit_required']) if (!nonNegativeNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
   if (body.items !== undefined && !Array.isArray(body.items)) return fail(res, 'items', 'Items must be an array');
   for (const item of body.items || []) {
-    for (const field of ['qty','rate','amount']) if (!finiteNumber(res, item, field, { label: `Item ${field}` })) return false;
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return fail(res, 'items', 'Each item must be an object');
+    if (!normalizedItemType(item.type)) return fail(res, 'type', 'Item type is not supported');
+    for (const field of ['qty','rate','amount']) if (!nonNegativeNumber(res, item, field, { label: `Item ${field}` })) return false;
+    if (item.qty !== undefined && Number(item.qty) <= 0) return fail(res, 'qty', 'Item quantity must be greater than zero');
     if (!positiveId(res, item.inventory_id, 'inventory_id')) return false;
   }
   if (body.repair_order_number !== undefined) {
     if (typeof body.repair_order_number !== 'string') return fail(res, 'repair_order_number', 'Repair order number must be text');
     body.repair_order_number = body.repair_order_number.trim();
     if (body.repair_order_number.length > 80) return fail(res, 'repair_order_number', 'Repair order number must be 80 characters or fewer');
+    if (body.repair_order_number && !/^RO-\d{4,}$/i.test(body.repair_order_number)) return fail(res, 'repair_order_number', 'Repair order number must use RO-#### format');
   }
   return true;
+}
+
+function nextRepairOrderNumber(req) {
+  const tenant = customerTenantWhere(req, 'c');
+  const rows = db.prepare(`
+    SELECT j.repair_order_number FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    WHERE ${tenant.clause}
+  `).all(...tenant.values);
+  const highest = rows.reduce((max, job) => {
+    const match = String(job.repair_order_number || '').trim().match(/^RO-(\d+)$/i);
+    if (!match) return max;
+    const number = Number(match[1]);
+    return Number.isSafeInteger(number) ? Math.max(max, number) : max;
+  }, 1000);
+  return `RO-${String(highest + 1).padStart(4, '0')}`;
+}
+
+function repairOrderInUse(req, repairOrderNumber, excludeId = null) {
+  const tenant = customerTenantWhere(req, 'c');
+  return db.prepare(`
+    SELECT j.id FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    WHERE upper(j.repair_order_number) = upper(?)
+      AND (? IS NULL OR j.id <> ?)
+      AND ${tenant.clause}
+    LIMIT 1
+  `).get(repairOrderNumber, excludeId, excludeId, ...tenant.values);
 }
 
 function savedJobRecord(req, jobId) {
@@ -35,8 +68,7 @@ function savedJobRecord(req, jobId) {
     JOIN customers c ON j.customer_id = c.id
     JOIN vehicles v ON j.vehicle_id = v.id
     LEFT JOIN employees e ON j.employee_id = e.id
-    WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL
-      AND v.deleted_at IS NULL AND ${tenant.clause}
+    WHERE j.id = ? AND j.deleted_at IS NULL AND ${tenant.clause}
   `).get(jobId, ...tenant.values);
   if (!job) return null;
   job.items = db.prepare('SELECT * FROM job_items WHERE job_id = ? ORDER BY id').all(job.id);
@@ -52,7 +84,7 @@ router.get('/', (req, res) => {
     JOIN customers c ON j.customer_id = c.id
     JOIN vehicles  v ON j.vehicle_id  = v.id
     LEFT JOIN employees e ON j.employee_id = e.id
-    WHERE j.deleted_at IS NULL AND c.deleted_at IS NULL AND v.deleted_at IS NULL AND ${tenant.clause}
+    WHERE j.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY j.date DESC
   `).all(...tenant.values);
   if (jobs.length) {
@@ -70,42 +102,33 @@ router.get('/', (req, res) => {
 router.get('/:id/balance', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const job = db.prepare(`
-    SELECT j.labor, j.parts, j.travel_fee
+    SELECT j.labor, j.parts, j.travel_fee, j.tax_rate
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
-    WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+    WHERE j.id = ? AND j.deleted_at IS NULL AND ${tenant.clause}
   `).get(req.params.id, ...tenant.values);
   if (!job) return res.status(404).json({ error: 'Not found' });
   const paid = db.prepare(`
     SELECT COALESCE(SUM(p.amount), 0) AS total
     FROM payments p
     JOIN customers c ON p.customer_id = c.id
-    WHERE p.job_id = ? AND c.deleted_at IS NULL AND ${tenant.clause}
+    WHERE p.job_id = ? AND ${tenant.clause}
   `).get(req.params.id, ...tenant.values).total;
 
   const items = db.prepare('SELECT * FROM job_items WHERE job_id = ?').all(req.params.id);
-  let laborTotal, partsTotal, tax;
+  const currentTaxRate = Number(job.tax_rate ?? billingSettings(req).tax_rate) || 0;
+  let laborTotal, partsTotal;
   if (items.length > 0) {
-    const shopId = resolveShopId(req);
-    const taxRow = shopId ? db.prepare('SELECT tax_rate FROM shop_settings WHERE shop_id = ?').get(shopId) : null;
-    const taxRate = taxRow?.tax_rate ?? (db.prepare('SELECT tax_rate FROM settings WHERE id = 1').get()?.tax_rate ?? 0);
     laborTotal = items.filter(i => !i.taxable).reduce((a, i) => a + (i.amount || 0), 0);
     partsTotal = items.filter(i => i.taxable).reduce((a, i) => a + (i.amount || 0), 0);
-    tax = partsTotal * taxRate / 100;
   } else {
     laborTotal = job.labor || 0;
     partsTotal = job.parts || 0;
-    tax = 0;
   }
+  const tax = partsTotal * currentTaxRate / 100;
   const total = laborTotal + partsTotal + tax + (job.travel_fee || 0);
   res.json({ total, paid, balance: total - paid, labor_total: laborTotal, parts_total: partsTotal, tax });
 });
-
-function itemTotals(items) {
-  let labor = 0, parts = 0;
-  (items || []).forEach(i => { if (i.taxable) parts += (i.amount || 0); else labor += (i.amount || 0); });
-  return { labor, parts };
-}
 
 function billingSettings(req) {
   const shopId = resolveShopId(req);
@@ -114,8 +137,8 @@ function billingSettings(req) {
     || {};
 }
 
-function jobGrandTotal(req, labor, parts, travelFee) {
-  const taxRate = Number(billingSettings(req).tax_rate) || 0;
+function jobGrandTotal(req, labor, parts, travelFee, savedTaxRate) {
+  const taxRate = Number(savedTaxRate ?? billingSettings(req).tax_rate) || 0;
   return Math.round(((Number(labor) || 0) + (Number(parts) || 0) * (1 + taxRate / 100) + (Number(travelFee) || 0) + Number.EPSILON) * 100) / 100;
 }
 
@@ -133,7 +156,7 @@ const saveJobItems = db.transaction((jobId, items) => {
   db.prepare('DELETE FROM job_items WHERE job_id = ?').run(jobId);
   if (!items || !items.length) return;
   const ins = db.prepare(`INSERT INTO job_items (job_id, type, description, qty, rate, amount, taxable, inventory_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-  items.forEach(i => ins.run(jobId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.taxable ? 1 : 0, i.inventory_id || null));
+  items.forEach(i => ins.run(jobId, i.type || 'labor', i.description || '', i.qty ?? 1, i.rate ?? 0, i.amount ?? 0, i.taxable ? 1 : 0, i.inventory_id || null));
 });
 
 function advanceVehicleMileage(vehicleId, mileage) {
@@ -150,24 +173,29 @@ const createJob = db.transaction((values, items, automaticPayment, vehicleMileag
   const result = db.prepare(`
     INSERT INTO jobs
       (customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
-       parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
+       parts, tax_rate, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
        service_address, travel_fee, parts_deposit_required, closed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(...values);
   const jobId = result.lastInsertRowid;
   if (items && items.length) saveJobItems(jobId, items);
   advanceVehicleMileage(vehicleMileage.vehicleId, vehicleMileage.miles);
   const payment = automaticPayment ? insertAutomaticJobPayment(jobId, automaticPayment.customer, automaticPayment.amount, automaticPayment.method, automaticPayment.date, automaticPayment.repairOrderNumber, automaticPayment.service) : null;
+  reconcileJobInvoiceStatus(db, jobId);
   return { jobId, payment };
 });
 
 router.post('/', (req, res) => {
   if (!validateJob(res, req.body, true)) return;
-  const {
+  let {
     customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
     parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
     service_address, travel_fee, parts_deposit_required, items
   } = req.body;
+  items = items === undefined ? undefined : normalizeLineItems(items);
+
+  repair_order_number = repair_order_number || nextRepairOrderNumber(req);
+  if (repairOrderInUse(req, repair_order_number)) return fail(res, 'repair_order_number', 'Repair order number is already in use', 409);
 
   const tenant = customerTenantWhere(req, 'c');
   const cust = db.prepare(`SELECT c.id, c.first, c.last FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
@@ -193,26 +221,28 @@ router.post('/', (req, res) => {
   const closedAt = isTerminal ? new Date().toISOString().replace('T', ' ').split('.')[0] : null;
 
   // Compute labor/parts from items if provided, else use direct values
-  const totals = (items && items.length) ? itemTotals(items) : null;
+  const totals = (items && items.length) ? lineItemTotals(items) : null;
   const laborVal = totals ? totals.labor : (labor || 0);
   const partsVal = totals ? totals.parts : (parts || 0);
 
   const settings = billingSettings(req);
+  const effectiveTaxRate = Number(settings.tax_rate) || 0;
+  const jobTaxRate = isTerminal || invoice_status === 'Paid' ? effectiveTaxRate : null;
   if (Number(parts_deposit_required || 0) > 0 && ['In Progress', 'Complete'].includes(status) && invoice_status !== 'Paid') {
     return fail(res, 'parts_deposit_required', 'Required parts deposit must be paid before work can begin', 409);
   }
   const paidOnCreate = invoice_status === 'Paid' ? {
     customer: cust,
-    amount: jobGrandTotal(req, laborVal, partsVal, travel_fee),
+    amount: jobGrandTotal(req, laborVal, partsVal, travel_fee, effectiveTaxRate),
     method: settings.default_pay_method || 'Cash',
-    date: new Date().toISOString().slice(0, 10),
+    date: localDateKey(),
     repairOrderNumber: repair_order_number || '',
     service: service || '',
   } : null;
   const created = createJob([
     customer_id, vehicle_id, service, repair_order_number || '', date, miles || 0,
     laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
-    partsVal, status || 'Pending', notes || '', employee_id || null,
+    partsVal, jobTaxRate, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
     service_address || '', travel_fee || 0, parts_deposit_required || 0, closedAt
   ], items, paidOnCreate, { vehicleId: vehicle_id, miles: miles || 0 });
@@ -222,20 +252,25 @@ router.post('/', (req, res) => {
 
 router.put('/:id', (req, res) => {
   if (!validateJob(res, req.body, false)) return;
-  const {
+  let {
     service, repair_order_number, date, miles, labor, labor_hours, labor_rate, parts, status, notes,
     employee_id, complaint, diagnosis, invoice_status, estimate_id,
     service_address, travel_fee, parts_deposit_required, items
   } = req.body;
+  items = items === undefined ? undefined : normalizeLineItems(items);
 
   const tenant = customerTenantWhere(req, 'c');
   const current = db.prepare(`
-    SELECT j.closed_at, j.customer_id, j.vehicle_id, j.invoice_status, c.first, c.last
+    SELECT j.closed_at, j.customer_id, j.vehicle_id, j.invoice_status, j.tax_rate, j.repair_order_number, c.first, c.last
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
     WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
   `).get(req.params.id, ...tenant.values);
   if (!current) return res.status(404).json({ error: 'Job not found' });
+  if (repair_order_number && repair_order_number.toUpperCase() !== String(current.repair_order_number || '').toUpperCase()
+      && repairOrderInUse(req, repair_order_number, Number(req.params.id))) {
+    return fail(res, 'repair_order_number', 'Repair order number is already in use', 409);
+  }
 
   if (!employeeInTenant(req, employee_id)) {
     return fail(res, 'employee_id', 'Employee not found', 404);
@@ -255,17 +290,19 @@ router.put('/:id', (req, res) => {
     ? (current.closed_at || new Date().toISOString().replace('T', ' ').split('.')[0])
     : null;
 
-  const updatedTotals = items !== undefined ? itemTotals(items || []) : null;
+  const updatedTotals = items !== undefined ? lineItemTotals(items || []) : null;
   const laborVal = updatedTotals ? updatedTotals.labor : (labor || 0);
   const partsVal = updatedTotals ? updatedTotals.parts : (parts || 0);
-  const shouldRecordPayment = invoice_status === 'Paid' && current.invoice_status !== 'Paid';
+  const shouldRecordPayment = invoice_status === 'Paid';
   const paidToDate = shouldRecordPayment
     ? Number(db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE job_id = ?').get(req.params.id).total) || 0
     : 0;
-  const remainingBalance = shouldRecordPayment
-    ? Math.max(0, Math.round((jobGrandTotal(req, laborVal, partsVal, travel_fee) - paidToDate + Number.EPSILON) * 100) / 100)
-    : 0;
   const settings = billingSettings(req);
+  const effectiveTaxRate = Number(current.tax_rate ?? settings.tax_rate) || 0;
+  const jobTaxRate = isTerminal || invoice_status === 'Paid' ? effectiveTaxRate : current.tax_rate;
+  const remainingBalance = shouldRecordPayment
+    ? Math.max(0, Math.round((jobGrandTotal(req, laborVal, partsVal, travel_fee, effectiveTaxRate) - paidToDate + Number.EPSILON) * 100) / 100)
+    : 0;
   const depositPaid = Number(db.prepare('SELECT COALESCE(SUM(amount),0) AS total FROM payments WHERE job_id=?').get(req.params.id).total) || 0;
   if (Number(parts_deposit_required || 0) > depositPaid + .005 && ['In Progress', 'Complete'].includes(status) && invoice_status !== 'Paid') {
     return fail(res, 'parts_deposit_required', `Required parts deposit has ${Math.max(0, Number(parts_deposit_required) - depositPaid).toFixed(2)} remaining`, 409);
@@ -275,14 +312,14 @@ router.put('/:id', (req, res) => {
   db.transaction(() => {
     db.prepare(`
       UPDATE jobs
-      SET service=?, repair_order_number=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?,
+      SET service=?, repair_order_number=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?, tax_rate=?,
           status=?, notes=?, employee_id=?, complaint=?, diagnosis=?, invoice_status=?,
           estimate_id=?, service_address=?, travel_fee=?, parts_deposit_required=?, closed_at=?
       WHERE id=?
     `).run(
       service, repair_order_number || '', date, miles || 0,
       laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
-      partsVal, status || 'Pending', notes || '', employee_id || null,
+      partsVal, jobTaxRate, status || 'Pending', notes || '', employee_id || null,
       complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
       service_address || '', travel_fee || 0, parts_deposit_required || 0, closedAt,
       req.params.id
@@ -295,11 +332,12 @@ router.put('/:id', (req, res) => {
         { id: current.customer_id, first: current.first, last: current.last },
         remainingBalance,
         settings.default_pay_method || 'Cash',
-        new Date().toISOString().slice(0, 10),
+        localDateKey(),
         repair_order_number || '',
         service || ''
       );
     }
+    reconcileJobInvoiceStatus(db, Number(req.params.id), effectiveTaxRate);
   })();
   const savedJob = savedJobRecord(req, req.params.id);
   res.json({ ...savedJob, success: true, payment: automaticPayment });

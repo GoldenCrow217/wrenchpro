@@ -48,6 +48,24 @@ assert.deepStrictEqual(Array.from(metrics.recentPayments, payment => payment.id)
 assert.deepStrictEqual(Array.from(metrics.recentLeads, lead => lead.id), [1], 'pipeline must be limited to the last 30 days');
 assert.strictEqual(metrics.activity[0].id, 2, 'activity must select the newest records rather than array-tail records');
 
+const reportStart = html.indexOf('function reportMetrics(');
+const reportEnd = html.indexOf('\nfunction renderReport()', reportStart);
+assert.ok(reportStart >= 0 && reportEnd > reportStart, 'P&L calculation helper must be extractable');
+const reportContext = { dashboardJobBalance: qa.dashboardJobBalance, planBalance: context.planBalance };
+vm.runInNewContext(`${html.slice(reportStart, reportEnd)};globalThis.reportMetrics=reportMetrics;`, reportContext);
+const overpaymentReport = reportContext.reportMetrics({
+  settings: { tax_rate: 10 },
+  jobs: [{ id: 9, status: 'Complete', invoice_status: 'Paid', labor: 100, parts: 50, travel_fee: 0, first: 'Credit' }],
+  payments: [{ id: 1, job_id: 9, date: '2026-08-01', amount: 155 }, { id: 2, job_id: 9, date: '2026-08-02', amount: 45 }],
+  expenses: [], plans: [],
+});
+assert.strictEqual(overpaymentReport.income.labor, 100, 'Overpayment must not inflate labor revenue');
+assert.strictEqual(overpaymentReport.income.parts, 50, 'Overpayment must not inflate parts revenue');
+assert.strictEqual(overpaymentReport.income.tax, 5, 'Overpayment must not inflate sales-tax liability');
+assert.strictEqual(overpaymentReport.income.credits, 45, 'Excess receipts must be classified as customer-credit liability');
+assert.strictEqual(overpaymentReport.totalIncome, 150, 'Customer credits must not count as operating income');
+assert.strictEqual(overpaymentReport.totalReceived, 200, 'Cash received must still include the overpayment');
+
 assert.match(html, /const netProfit = Number\(data\.monthNetProfit\)\|\|0/, 'dashboard monthly profit must use monthly server totals');
 assert.match(html, /Revenue · last 7 days/, 'revenue period label must match its calculation');
 assert.match(html, /class="kpi-value">\$\{fmt\$\(weekTotal\)\}/, 'dashboard revenue must display cents without whole-dollar rounding');

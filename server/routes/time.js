@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { shopTenantWhere, customerTenantWhere } = require('../tenant');
-const { fail, requiredText, positiveId } = require('../validation');
+const { fail, positiveId, localDateTime } = require('../validation');
 
 function employeeInTenant(req, employeeId) {
   const tenant = shopTenantWhere(req, 'e');
-  return db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values);
+  return db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND e.deleted_at IS NULL AND ${tenant.clause}`).get(employeeId, ...tenant.values);
 }
 
 function jobInTenant(req, jobId) {
@@ -43,7 +43,9 @@ router.post('/', (req, res) => {
   const { employee_id, job_id, type, clock_in, clock_out, notes } = req.body;
   if (!positiveId(res, employee_id, 'employee_id', { required: true })) return;
   if (!positiveId(res, job_id, 'job_id')) return;
-  if (!requiredText(res, req.body, 'clock_in', 'Clock-in time')) return;
+  if (!localDateTime(res, req.body, 'clock_in', { required: true, label: 'Clock-in time' })) return;
+  if (!localDateTime(res, req.body, 'clock_out', { label: 'Clock-out time' })) return;
+  if (clock_out && new Date(clock_out) < new Date(clock_in)) return fail(res, 'clock_out', 'Clock-out time cannot be before clock-in time');
   if (!employeeInTenant(req, employee_id)) return fail(res, 'employee_id', 'Employee not found', 404);
   if (!jobInTenant(req, job_id)) return fail(res, 'job_id', 'Job not found', 404);
   const result = db.prepare(`
@@ -57,6 +59,14 @@ router.put('/:id', (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   const { clock_out, notes } = req.body;
   const tenant = shopTenantWhere(req, 'e');
+  if (!localDateTime(res, req.body, 'clock_out', { label: 'Clock-out time' })) return;
+  const current = db.prepare(`
+    SELECT t.clock_in FROM time_logs t
+    JOIN employees e ON t.employee_id=e.id
+    WHERE t.id=? AND ${tenant.clause}
+  `).get(req.params.id, ...tenant.values);
+  if (!current) return res.status(404).json({ error: 'Time log not found' });
+  if (clock_out && new Date(clock_out) < new Date(current.clock_in)) return fail(res, 'clock_out', 'Clock-out time cannot be before clock-in time');
   const result = db.prepare(`
     UPDATE time_logs SET clock_out=?, notes=?
     WHERE id IN (

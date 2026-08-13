@@ -108,7 +108,7 @@ function getTenantCustomer(req, customerId, alias = '') {
 function employeeInTenant(req, employeeId) {
   if (!employeeId) return true;
   const tenant = shopTenantWhere(req);
-  return Boolean(db.prepare(`SELECT id FROM employees WHERE id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
+  return Boolean(db.prepare(`SELECT id FROM employees WHERE id = ? AND deleted_at IS NULL AND ${tenant.clause}`).get(employeeId, ...tenant.values));
 }
 
 function inventoryItemsInTenant(req, items) {

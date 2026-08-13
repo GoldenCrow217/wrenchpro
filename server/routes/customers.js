@@ -46,9 +46,13 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   const tenant = customerTenantWhere(req);
-  const result = db.prepare(`UPDATE customers SET deleted_at = datetime('now') WHERE id = ? AND ${tenant.clause}`).run(req.params.id, ...tenant.values);
-  if (!result.changes) return res.status(404).json({ error: 'Customer not found' });
-  db.prepare("UPDATE vehicles SET deleted_at = datetime('now') WHERE customer_id = ? AND deleted_at IS NULL").run(req.params.id);
+  const archiveCustomer = db.transaction(() => {
+    const result = db.prepare(`UPDATE customers SET deleted_at = datetime('now') WHERE id = ? AND ${tenant.clause}`).run(req.params.id, ...tenant.values);
+    if (!result.changes) return false;
+    db.prepare("UPDATE vehicles SET deleted_at = datetime('now') WHERE customer_id = ? AND deleted_at IS NULL").run(req.params.id);
+    return true;
+  });
+  if (!archiveCustomer()) return res.status(404).json({ error: 'Customer not found' });
   res.json({ success: true });
 });
 

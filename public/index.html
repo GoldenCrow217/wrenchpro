@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WrenchPro — Mobile Mechanic Manager</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ── Design Tokens ── */
 :root {
@@ -404,7 +401,7 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="brand-text">
       <span class="brand-name">WrenchPro</span>
-      <span class="brand-sub" id="brand-version">v1.0.30</span>
+      <span class="brand-sub" id="brand-version">Version unavailable</span>
     </div>
   </div>
 
@@ -1733,7 +1730,7 @@ const safeMonth = value => /^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(value))?Strin
 const currencySymbol = () => ['$','€','£','¥'].includes(state.settings.currency_symbol)?state.settings.currency_symbol:'$';
 const fmt$ = n => currencySymbol() + Number(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const fmt$0 = n => (state.settings.currency_symbol||'$') + Math.round(Number(n||0)).toLocaleString();
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => localDateKey();
 const initials = (f,l) => esc(((f||'?')[0]+(l||'?')[0]).toUpperCase());
 const vLabel = v => v ? esc(`${v.year||''} ${v.make||''} ${v.model||''}`.trim()) : '—';
 const fullName = c => c ? esc(`${c.first||''} ${c.last||''}`.trim()) : '—';
@@ -1908,13 +1905,18 @@ async function initVersionLabels() {
     const health = await api('GET', '/api/health');
     setVersionLabels(health.version);
   } catch (_) {
-    setVersionLabels('1.0.26');
+    const settings = document.getElementById('s-app-version');
+    if (settings) settings.textContent = 'WrenchPro version unavailable';
   }
 }
+function applyJobInvoiceStatus(jobId,status){
+  const job=state.jobs.find(item=>Number(item.id)===Number(jobId));
+  if(job&&status)job.invoice_status=status;
+}
 
-async function loadAll({silentErrors=false}={}){
+async function loadAll({silentErrors=false,allowPartial=false}={}){
   const get=path=>api('GET',path,undefined,{silentError:silentErrors});
-  const [custs,vehs,jobs,pmts,plans,exps,settings,appts,emps,interactions,followups,svcRem,estimates,inventory,catalog,inspections,warranties,timeLogs,leads] = await Promise.all([
+  const requests=[
     get('/api/customers'), get('/api/vehicles'),
     get('/api/jobs'), get('/api/payments'),
     get('/api/plans'), get('/api/expenses'),
@@ -1930,28 +1932,35 @@ async function loadAll({silentErrors=false}={}){
     get('/api/warranties'),
     get('/api/time'),
     get('/api/leads'),
-  ]);
-  state.customers = custs||[];
-  state.vehicles = vehs||[];
-  state.jobs = jobs||[];
-  state.payments = pmts||[];
-  state.plans = plans||[];
-  state.expenses = exps||[];
-  state.settings = settings||{};
-  state.appts = appts||[];
-  state.employees = emps||[];
-  state.interactions = interactions||[];
-  state.followups = followups||[];
-  state.serviceReminders = svcRem||[];
-  state.estimates = estimates||[];
-  state.inventory = inventory||[];
-  state.catalog = catalog||[];
-  state.inspections = inspections||[];
-  state.warranties = warranties||[];
-  state.timeLogs = timeLogs||[];
-  state.leads = leads||[];
+  ];
+  const stateKeys=['customers','vehicles','jobs','payments','plans','expenses','settings','appts','employees','interactions','followups','serviceReminders','estimates','inventory','catalog','inspections','warranties','timeLogs','leads'];
+  const failures=[];
+  if(allowPartial){
+    const results=await Promise.allSettled(requests);
+    results.forEach((result,index)=>{
+      if(result.status==='fulfilled')state[stateKeys[index]]=result.value??(stateKeys[index]==='settings'?{}:[]);
+      else failures.push({resource:stateKeys[index],error:result.reason});
+    });
+  }else{
+    const values=await Promise.all(requests);
+    values.forEach((value,index)=>{state[stateKeys[index]]=value??(stateKeys[index]==='settings'?{}:[]);});
+  }
   updateSidebarFoot();
   renderPage(currentPage);
+  return failures;
+}
+
+async function initializeApp(){
+  try{
+    const failures=await loadAll({silentErrors:true,allowPartial:true});
+    if(failures.length){
+      console.error('Initial data load was incomplete:',failures.map(failure=>failure.resource).join(', '));
+      toast('Some data could not be loaded. You can continue using the available information and try refreshing.',8000);
+    }
+  }catch(error){
+    console.error('Initial data load failed:',error);
+    toast('WrenchPro could not finish loading. Check the application logs and try reopening it.',8000);
+  }
 }
 
 function updateSidebarFoot(){
@@ -2060,7 +2069,8 @@ function localDateKey(date=new Date()){
 
 function dashboardJobTotal(job,taxRate=0){
   const labor=Number(job.labor)||0,parts=Number(job.parts)||0,travel=Number(job.travel_fee)||0;
-  return Math.round((labor+parts+(parts*(Number(taxRate)||0)/100)+travel+Number.EPSILON)*100)/100;
+  const effectiveTaxRate=Number(job.tax_rate??taxRate)||0;
+  return Math.round((labor+parts+(parts*effectiveTaxRate/100)+travel+Number.EPSILON)*100)/100;
 }
 
 function dashboardJobBalance(job,payments,taxRate=0){
@@ -2722,6 +2732,7 @@ async function markInstPaid(instId, planId){
     const paymentIndex=state.payments.findIndex(payment=>payment.id===result.payment.id);
     if(paymentIndex>=0)state.payments[paymentIndex]=result.payment;
     else state.payments.push(result.payment);
+    applyJobInvoiceStatus(p.job_id,result.job_invoice_status);
     renderPlans();
     renderFinance();
     openPlanDetail(planId);
@@ -2772,45 +2783,73 @@ async function deleteExpense(id){
   await runMutation(`expense-delete-${id}`,{action:'Deleting expense',request:()=>api('DELETE',`/api/expenses/${id}`),apply:()=>removeStateRecord('expenses',id),render:()=>renderSafely(renderExpenses,renderFinance,renderDashboard),success:'Expense deleted'});
 }
 
+function reportMetrics(snapshot,period='all'){
+  const inPeriod=date=>!!date&&(period==='all'||String(date).startsWith(period));
+  const allPayments=[...(snapshot.payments||[])].sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||Number(a.id||0)-Number(b.id||0));
+  const payments=allPayments.filter(payment=>inPeriod(payment.date));
+  const expenses=(snapshot.expenses||[]).filter(expense=>inPeriod(expense.date));
+  const jobs=Array.isArray(snapshot.jobs)?snapshot.jobs:[];
+  const taxRate=Number(snapshot.settings?.tax_rate)||0;
+  const income={labor:0,parts:0,tax:0,fees:0,unallocated:0,credits:0};
+  const allocatedByJob=new Map();
+  allPayments.forEach(payment=>{
+    const amount=Number(payment.amount)||0;
+    const job=jobs.find(candidate=>Number(candidate.id)===Number(payment.job_id));
+    if(!job){if(inPeriod(payment.date))income.unallocated+=amount;return;}
+    const components={labor:Math.max(0,Number(job.labor)||0),parts:Math.max(0,Number(job.parts)||0),fees:Math.max(0,Number(job.travel_fee)||0)};
+    components.tax=components.parts*(Number(job.tax_rate??taxRate)||0)/100;
+    const jobTotal=components.labor+components.parts+components.tax+components.fees;
+    if(!(jobTotal>0)){if(inPeriod(payment.date))income.unallocated+=amount;return;}
+    const previouslyAllocated=allocatedByJob.get(job.id)||0;
+    const invoiceAmount=Math.min(amount,Math.max(0,jobTotal-previouslyAllocated));
+    allocatedByJob.set(job.id,previouslyAllocated+invoiceAmount);
+    if(!inPeriod(payment.date))return;
+    Object.keys(components).forEach(key=>{income[key]+=invoiceAmount*components[key]/jobTotal;});
+    income.credits+=amount-invoiceAmount;
+  });
+  const totalReceived=payments.reduce((sum,payment)=>sum+(Number(payment.amount)||0),0);
+  const totalIncome=income.labor+income.parts+income.fees+income.unallocated;
+  const totalExpenses=expenses.reduce((sum,expense)=>sum+(Number(expense.amount)||0),0);
+  const expensesByCategory={};
+  expenses.forEach(expense=>{const category=expense.category||'Uncategorized';expensesByCategory[category]=(expensesByCategory[category]||0)+(Number(expense.amount)||0);});
+  const paymentsByMethod={};
+  payments.forEach(payment=>{const method=payment.method||'Other';paymentsByMethod[method]=(paymentsByMethod[method]||0)+(Number(payment.amount)||0);});
+  const jobBalances=jobs.filter(job=>job.status!=='Canceled'&&!['Paid','Voided'].includes(job.invoice_status)).map(job=>({...job,balance:dashboardJobBalance(job,snapshot.payments||[],taxRate)})).filter(job=>job.balance>0);
+  const legacyPlanBalances=(snapshot.plans||[]).filter(plan=>!plan.job_id&&planBalance(plan)>0).map(plan=>({...plan,balance:planBalance(plan)}));
+  const outstanding=[...jobBalances.map(job=>({label:`${job.first||''} ${job.last||''} — ${job.repair_order_number||'Repair order'}`.trim(),balance:job.balance})),...legacyPlanBalances.map(plan=>({label:`${plan.first||''} ${plan.last||''} — ${plan.description||'Payment plan'}`.trim(),balance:plan.balance}))];
+  return {income,totalReceived,totalIncome,totalExpenses,net:totalIncome-totalExpenses,expensesByCategory,paymentsByMethod,outstanding,totalOutstanding:outstanding.reduce((sum,item)=>sum+item.balance,0)};
+}
+
 function renderReport(){
   const period=(document.getElementById('rpt-period')||{value:'all'}).value;
-  function inPeriod(d){
-    if(!d)return false;
-    if(period==='all')return true;
-    if(period.includes('Q1'))return d>='2025-01-01'&&d<='2025-03-31';
-    if(period.length===4)return d.startsWith(period);
-    return d.startsWith(period);
-  }
-  const pmts=state.payments.filter(p=>inPeriod(p.date));
-  const exps=state.expenses.filter(e=>inPeriod(e.date));
-  const totalIncome=pmts.reduce((a,p)=>a+p.amount,0);
-  const totalExp=exps.reduce((a,e)=>a+e.amount,0);
-  const net=totalIncome-totalExp;
-  const laborEst=totalIncome*0.58, partsEst=totalIncome*0.42;
-  const expByCat={}; exps.forEach(e=>{expByCat[e.category]=(expByCat[e.category]||0)+e.amount;});
-  const pmtByMethod={}; pmts.forEach(p=>{pmtByMethod[p.method]=(pmtByMethod[p.method]||0)+p.amount;});
-  const outstanding=state.plans.filter(p=>planBalance(p)>0);
+  const metrics=reportMetrics(state,period);
+  const {income,totalReceived,totalIncome,totalExpenses,net,expensesByCategory,paymentsByMethod,outstanding,totalOutstanding}=metrics;
   document.getElementById('report-body').innerHTML=`
     <div class="card card-pad">
       <div class="report-sect"><h3>Income</h3>
-        <div class="report-line"><span>Labor revenue (est. 58%)</span><span style="color:#3B6D11;">${fmt$(laborEst)}</span></div>
-        <div class="report-line"><span>Parts / materials (est. 42%)</span><span style="color:#3B6D11;">${fmt$(partsEst)}</span></div>
-        <div class="report-total"><span>Total income</span><span style="color:#3B6D11;">${fmt$(totalIncome)}</span></div>
+        <div class="report-line"><span>Labor revenue</span><span style="color:#3B6D11;">${fmt$(income.labor)}</span></div>
+        <div class="report-line"><span>Parts / materials</span><span style="color:#3B6D11;">${fmt$(income.parts)}</span></div>
+        <div class="report-line"><span>Trip / service fees</span><span style="color:#3B6D11;">${fmt$(income.fees)}</span></div>
+        <div class="report-line"><span>Sales tax collected (liability)</span><span>${fmt$(income.tax)}</span></div>
+        ${Math.abs(income.unallocated)>=.005?`<div class="report-line"><span>Unallocated payments</span><span style="color:#3B6D11;">${fmt$(income.unallocated)}</span></div>`:''}
+        ${income.credits>=.005?`<div class="report-line"><span>Customer credits / overpayments (liability)</span><span>${fmt$(income.credits)}</span></div>`:''}
+        <div class="report-line"><span>Total cash received</span><span>${fmt$(totalReceived)}</span></div>
+        <div class="report-total"><span>Total operating income</span><span style="color:#3B6D11;">${fmt$(totalIncome)}</span></div>
       </div>
       <div class="report-sect"><h3>Expenses by category</h3>
-        ${Object.entries(expByCat).length?Object.entries(expByCat).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<div class="report-line"><span>${esc(cat)}</span><span style="color:#A32D2D;">(${fmt$(amt)})</span></div>`).join(''):'<div style="color:#aaa;font-size:13px;padding:6px 0;">No expenses in period</div>'}
-        <div class="report-total"><span>Total expenses</span><span style="color:#A32D2D;">(${fmt$(totalExp)})</span></div>
+        ${Object.entries(expensesByCategory).length?Object.entries(expensesByCategory).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<div class="report-line"><span>${esc(cat)}</span><span style="color:#A32D2D;">(${fmt$(amt)})</span></div>`).join(''):'<div style="color:#aaa;font-size:13px;padding:6px 0;">No expenses in period</div>'}
+        <div class="report-total"><span>Total expenses</span><span style="color:#A32D2D;">(${fmt$(totalExpenses)})</span></div>
       </div>
       <div class="report-sect"><h3>Net profit</h3>
         <div class="report-total"><span>Net profit / loss</span><span style="color:${net>=0?'#3B6D11':'#A32D2D'};">${net<0?'-':''}${fmt$(Math.abs(net))}</span></div>
         <div style="font-size:12px;color:#888;margin-top:.5rem;">Profit margin: ${totalIncome>0?Math.round(net/totalIncome*100):0}%</div>
       </div>
       <div class="report-sect"><h3>Payments by method</h3>
-        ${Object.entries(pmtByMethod).map(([m,a])=>`<div class="report-line"><span>${esc(m)}</span><span>${fmt$(a)}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No payments in period</div>'}
+        ${Object.entries(paymentsByMethod).map(([m,a])=>`<div class="report-line"><span>${esc(m)}</span><span>${fmt$(a)}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No payments in period</div>'}
       </div>
       <div class="report-sect"><h3>Outstanding balances</h3>
-        ${outstanding.map(p=>`<div class="report-line"><span>${esc(p.first)} ${esc(p.last)} — ${esc(p.description)}</span><span style="color:#854F0B;">${fmt$(planBalance(p))}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No outstanding balances</div>'}
-        <div class="report-total"><span>Total outstanding</span><span style="color:#854F0B;">${fmt$(outstanding.reduce((a,p)=>a+planBalance(p),0))}</span></div>
+        ${outstanding.map(item=>`<div class="report-line"><span>${esc(item.label)}</span><span style="color:#854F0B;">${fmt$(item.balance)}</span></div>`).join('')||'<div style="color:#aaa;font-size:13px;padding:6px 0;">No outstanding balances</div>'}
+        <div class="report-total"><span>Total outstanding</span><span style="color:#854F0B;">${fmt$(totalOutstanding)}</span></div>
       </div>
     </div>`;
   populateReportPeriods();
@@ -2825,15 +2864,7 @@ function populateReportPeriods(){
 
 function exportReport(){
   const period=(document.getElementById('rpt-period')||{value:'all'}).value;
-  function inP(d){ if(!d)return false; if(period==='all')return true; if(period.length===4)return d.startsWith(period); return d.startsWith(period); }
-  const pmts=state.payments.filter(p=>inP(p.date));
-  const exps=state.expenses.filter(e=>inP(e.date));
-  const totalIncome=pmts.reduce((a,p)=>a+p.amount,0);
-  const totalExp=exps.reduce((a,e)=>a+e.amount,0);
-  const net=totalIncome-totalExp;
-  const expByCat={}; exps.forEach(e=>{expByCat[e.category]=(expByCat[e.category]||0)+e.amount;});
-  const pmtByMethod={}; pmts.forEach(p=>{pmtByMethod[p.method]=(pmtByMethod[p.method]||0)+p.amount;});
-  const outstanding=state.plans.filter(p=>planBalance(p)>0);
+  const {income,totalReceived,totalIncome,totalExpenses,net,expensesByCategory,paymentsByMethod,outstanding,totalOutstanding}=reportMetrics(state,period);
   const bizName = state.settings.business_name || 'WrenchPro';
   const lines=[
     `${bizName} — P&L Report`,
@@ -2844,23 +2875,27 @@ function exportReport(){
     state.settings.address?`Service area: ${state.settings.address}`:'',
     ``,
     `INCOME`,
-    `  Labor revenue (est. 58%): ${fmt$(totalIncome*0.58)}`,
-    `  Parts / materials (est. 42%): ${fmt$(totalIncome*0.42)}`,
-    `  Total income: ${fmt$(totalIncome)}`,
+    `  Labor revenue: ${fmt$(income.labor)}`,
+    `  Parts / materials: ${fmt$(income.parts)}`,
+    `  Trip / service fees: ${fmt$(income.fees)}`,
+    `  Sales tax collected (liability): ${fmt$(income.tax)}`,
+    `  Unallocated payments: ${fmt$(income.unallocated)}`,
+    `  Total cash received: ${fmt$(totalReceived)}`,
+    `  Total operating income: ${fmt$(totalIncome)}`,
     ``,
     `EXPENSES BY CATEGORY`,
-    ...Object.entries(expByCat).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`  ${cat}: (${fmt$(amt)})`),
-    `  Total expenses: (${fmt$(totalExp)})`,
+    ...Object.entries(expensesByCategory).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`  ${cat}: (${fmt$(amt)})`),
+    `  Total expenses: (${fmt$(totalExpenses)})`,
     ``,
     `NET PROFIT / LOSS: ${fmt$(net)}`,
     `Profit margin: ${totalIncome>0?Math.round(net/totalIncome*100):0}%`,
     ``,
     `PAYMENTS BY METHOD`,
-    ...Object.entries(pmtByMethod).map(([m,a])=>`  ${m}: ${fmt$(a)}`),
+    ...Object.entries(paymentsByMethod).map(([m,a])=>`  ${m}: ${fmt$(a)}`),
     ``,
     `OUTSTANDING BALANCES`,
-    ...outstanding.map(p=>`  ${p.first} ${p.last} — ${p.description}: ${fmt$(planBalance(p))}`),
-    `  Total outstanding: ${fmt$(outstanding.reduce((a,p)=>a+planBalance(p),0))}`,
+    ...outstanding.map(item=>`  ${item.label}: ${fmt$(item.balance)}`),
+    `  Total outstanding: ${fmt$(totalOutstanding)}`,
   ];
   const blob=new Blob([lines.join('\n')],{type:'text/plain'});
   const a=document.createElement('a');
@@ -2981,7 +3016,8 @@ function _calcJob(){
   });
   const laborTotal = jobItems.filter(i=>!i.taxable).reduce((a,i)=>a+(i.amount||0),0);
   const partsTotal = jobItems.filter(i=>i.taxable).reduce((a,i)=>a+(i.amount||0),0);
-  const taxRate = state.settings.tax_rate || 0;
+  const savedJob=editJobId?state.jobs.find(job=>job.id===editJobId):null;
+  const taxRate = savedJob?.tax_rate??state.settings.tax_rate??0;
   const tax = partsTotal * taxRate / 100;
   const travel = document.getElementById('jf-apply-trip-fee')?.checked?(parseFloat(document.getElementById('jf-travel-fee')?.value)||0):0;
   const total = laborTotal + partsTotal + tax + travel;
@@ -3457,7 +3493,7 @@ async function savePayment(){
   const amt=parseFloat(document.getElementById('pf-amt').value)||0;
   if(!custId||!amt){toast('Please fill in customer and amount.');return;}
   const body={customer_id:custId,job_id:parseInt(document.getElementById('pf-job').value)||null,plan_id:parseInt(document.getElementById('pf-plan').value)||null,description:document.getElementById('pf-desc').value,amount:amt,method:document.getElementById('pf-method').value,date:document.getElementById('pf-date').value,note:document.getElementById('pf-note').value};
-  await runMutation('payment-save-new',{buttonId:'save-payment-btn',action:'Recording payment',request:()=>api('POST','/api/payments',body),apply:r=>{upsertStateRecord('payments',{...body,...r});const plan=state.plans.find(item=>item.id===body.plan_id);if(plan&&r.plan_installments)plan.installments=r.plan_installments;},render:()=>renderSafely(renderFinance,renderDashboard,renderPlans),close:'m-pmt',success:'Payment recorded'});
+  await runMutation('payment-save-new',{buttonId:'save-payment-btn',action:'Recording payment',request:()=>api('POST','/api/payments',body),apply:r=>{upsertStateRecord('payments',{...body,...r});applyJobInvoiceStatus(r.job_id,r.job_invoice_status);const plan=state.plans.find(item=>item.id===body.plan_id);if(plan&&r.plan_installments)plan.installments=r.plan_installments;},render:()=>renderSafely(renderFinance,renderDashboard,renderPlans),close:'m-pmt',success:'Payment recorded'});
 }
 
 async function openPlanModal(){
@@ -3558,17 +3594,17 @@ async function savePlan(){
   const freqDays={weekly:7,biweekly:14,monthly:30};
   const days=freqDays[freq]||30;
   let installments=[];
-  if(document.getElementById('pl-type').value==='custom'){
+  if(rem>0&&document.getElementById('pl-type').value==='custom'){
     installments=customPlanInstallments();
     if(installments.length!==count||installments.some(item=>!item.due_date||!Number.isFinite(item.amount)||item.amount<=0)){toast('Enter a valid due date and amount greater than zero for every custom payment.',8000);return;}
     const customTotal=Math.round(installments.reduce((sum,item)=>sum+item.amount,0)*100);
     if(customTotal!==Math.round(rem*100)){toast(`Custom payment amounts must total ${fmt$(rem)}.`,8000);return;}
-  }else{
+  }else if(rem>0){
     const remainingCents=Math.round(rem*100),baseCents=Math.floor(remainingCents/count);
     for(let i=0;i<count;i++)installments.push({due_date:addDays(start,i*days),amount:(i===count-1?remainingCents-baseCents*(count-1):baseCents)/100});
   }
-  const body={customer_id:custId,job_id:jobId,description:document.getElementById('pl-desc').value,total,down_payment:down,plan_type:document.getElementById('pl-type').value,installment_count:count,frequency:freq,start_date:start,notes:document.getElementById('pl-notes').value,installments};
-  await runMutation('plan-save-new',{buttonId:'save-plan-btn',action:'Creating payment plan',request:async()=>{const plan=await api('POST','/api/plans',body);let payment=null,warning='';if(down>0){try{payment=await api('POST','/api/payments',{customer_id:custId,job_id:jobId,plan_id:plan.id,description:(body.description||'Plan')+' — down payment',amount:down,method:state.settings.default_pay_method||'Cash',date:today(),note:'Down payment'});}catch(error){console.error('Plan saved but down payment failed:',error);warning=`Payment plan saved, but the down payment was not recorded: ${error.message}. Record it from Payments.`;}}return {plan,payment,warning};},apply:r=>{upsertStateRecord('plans',r.plan);if(r.payment)upsertStateRecord('payments',r.payment);},render:()=>renderSafely(renderPlans,renderFinance),close:'m-plan',success:r=>r.warning||'Payment plan created'});
+  const body={customer_id:custId,job_id:jobId,description:document.getElementById('pl-desc').value,total,down_payment:down,down_payment_method:state.settings.default_pay_method||'Cash',down_payment_date:today(),plan_type:document.getElementById('pl-type').value,installment_count:rem>0?count:0,frequency:freq,start_date:start,notes:document.getElementById('pl-notes').value,installments};
+  await runMutation('plan-save-new',{buttonId:'save-plan-btn',action:'Creating payment plan',request:()=>api('POST','/api/plans',body),apply:plan=>{const payment=plan.payment;upsertStateRecord('plans',plan);if(payment){upsertStateRecord('payments',payment);applyJobInvoiceStatus(payment.job_id,payment.job_invoice_status);}},render:()=>renderSafely(renderPlans,renderFinance,renderDashboard),close:'m-plan',success:'Payment plan created'});
 }
 
 function updateExpenseInventoryOption(){
@@ -3904,7 +3940,7 @@ function openInvoice(jobId){
   const c = state.customers.find(x=>x.id===j.customer_id);
   const v = state.vehicles.find(x=>x.id===j.vehicle_id);
   const s = state.settings;
-  const taxRate = s.tax_rate || 0;
+  const taxRate = j.tax_rate??s.tax_rate??0;
   const invoiceNum = `INV-${String(safeId(j.id)).padStart(4,'0')}`;
   printableDocumentInfo={title:`Invoice ${invoiceNum}`,filename:`${invoiceNum}.pdf`};
 
@@ -5075,9 +5111,9 @@ function openWarrantyModal(jobId,custId,vehId,warrId){
     if(!w)return;
     document.getElementById('m-warr-title').textContent='Edit Warranty';
     document.getElementById('wrf-desc').value=w.description||'';
-    document.getElementById('wrf-labor').value=w.labor_months||12;
-    document.getElementById('wrf-parts').value=w.parts_months||12;
-    document.getElementById('wrf-miles').value=w.mileage_limit||12000;
+    document.getElementById('wrf-labor').value=w.labor_months??12;
+    document.getElementById('wrf-parts').value=w.parts_months??12;
+    document.getElementById('wrf-miles').value=w.mileage_limit??12000;
     document.getElementById('wrf-start').value=w.start_date||today();
     document.getElementById('wrf-status').value=w.status||'Active';
     document.getElementById('wrf-notes').value=w.notes||'';
@@ -5098,7 +5134,8 @@ function openWarrantyModal(jobId,custId,vehId,warrId){
 async function saveWarranty(){
   const desc=document.getElementById('wrf-desc').value.trim();
   if(!desc&&!editWarrId){toast('Please enter a description.');return;}
-  const body={job_id:warrJobId||null,customer_id:warrCustId||(editWarrId?state.warranties.find(w=>w.id===editWarrId)?.customer_id:null),vehicle_id:warrVehId||null,description:desc,labor_months:parseInt(document.getElementById('wrf-labor').value)||12,parts_months:parseInt(document.getElementById('wrf-parts').value)||12,mileage_limit:parseInt(document.getElementById('wrf-miles').value)||12000,start_date:document.getElementById('wrf-start').value,status:document.getElementById('wrf-status').value,notes:document.getElementById('wrf-notes').value};
+  const laborMonths=parseInt(document.getElementById('wrf-labor').value),partsMonths=parseInt(document.getElementById('wrf-parts').value),mileageLimit=parseInt(document.getElementById('wrf-miles').value);
+  const body={job_id:warrJobId||null,customer_id:warrCustId||(editWarrId?state.warranties.find(w=>w.id===editWarrId)?.customer_id:null),vehicle_id:warrVehId||null,description:desc,labor_months:Number.isInteger(laborMonths)?laborMonths:12,parts_months:Number.isInteger(partsMonths)?partsMonths:12,mileage_limit:Number.isInteger(mileageLimit)?mileageLimit:12000,start_date:document.getElementById('wrf-start').value,status:document.getElementById('wrf-status').value,notes:document.getElementById('wrf-notes').value};
   if(!body.customer_id&&!editWarrId){toast('No customer linked. Open from a job or customer record.');return;}
   const id=editWarrId, existing=id?state.warranties.find(w=>w.id===id):null;
   await runMutation(`warranty-save-${id||'new'}`,{buttonId:'save-warranty-btn',action:'Saving warranty',request:()=>id?api('PUT',`/api/warranties/${id}`,body):api('POST','/api/warranties',body),apply:r=>upsertStateRecord('warranties',id?{...existing,...body,id,job_id:existing.job_id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,start_date:existing.start_date}:{...body,...r}),render:renderWarranties,close:'m-warranty',success:id?'Warranty updated':'Warranty added'});
@@ -5208,7 +5245,7 @@ const CP_NAV=[
 const CP_ACTIONS=[
   {kind:'action',label:'New Job',fn:()=>openJobModal()},
   {kind:'action',label:'New Customer',fn:()=>openCustModal()},
-  {kind:'action',label:'New Estimate',fn:()=>openEstModal()},
+  {kind:'action',label:'New Estimate',fn:()=>openEstimateModal()},
   {kind:'action',label:'Record Payment',fn:()=>openPmtModal()},
   {kind:'action',label:'Quick entry (historical job)',fn:()=>openQuickEntry()},
   {kind:'action',label:'New Inspection',fn:()=>openInspModal()},
@@ -5323,7 +5360,7 @@ if(window.electronAPI&&typeof window.electronAPI.onMenuCommand==='function'){
 
 // Boot
 initVersionLabels();
-loadAll();
+void initializeApp();
 </script>
 </body>
 </html>

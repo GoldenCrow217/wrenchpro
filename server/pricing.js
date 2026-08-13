@@ -80,5 +80,6 @@ module.exports = {
   roundCurrency,
   normalizeMarkupTiers,
   markupForCost,
+  isTaxablePart,
   calculateEstimateTotals,
 };

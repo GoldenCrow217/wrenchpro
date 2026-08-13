@@ -12,7 +12,7 @@ function tenantCustomerOr400(req, customerId) {
 function employeeInTenant(req, employeeId) {
   if (!employeeId) return true;
   const tenant = shopTenantWhere(req, 'e');
-  return Boolean(db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
+  return Boolean(db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND e.deleted_at IS NULL AND ${tenant.clause}`).get(employeeId, ...tenant.values));
 }
 
 function vehicleBelongsToTenantCustomer(req, vehicleId, customerId) {
