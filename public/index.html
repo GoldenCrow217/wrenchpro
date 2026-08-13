@@ -82,6 +82,7 @@ input,select,textarea{font-family:inherit;}
 ::-webkit-scrollbar-thumb:hover{background:var(--fg-faint);}
 .mono{font-family:var(--font-mono);font-feature-settings:'tnum';}
 .num{font-variant-numeric:tabular-nums;}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 
 /* ── App layout ── */
 .app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;height:100vh;background:var(--bg);}
@@ -249,6 +250,10 @@ textarea.input{height:auto;padding:8px 10px;min-height:64px;resize:vertical;}
 .table-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--fg-faint);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-subtle);}
+.job-sort-btn{display:inline-flex;align-items:center;gap:5px;border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;white-space:nowrap;}
+.job-sort-btn:hover,.job-sort-btn:focus-visible{color:var(--fg);}
+.job-sort-btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px;}
+.job-sort-indicator{display:inline-block;min-width:9px;color:var(--accent);}
 td{padding:10px 12px;border-bottom:1px solid var(--border);}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:var(--bg-subtle);}
@@ -332,9 +337,11 @@ tr:hover td{background:var(--bg-subtle);}
 .settings-hint{font-size:11px;color:var(--fg-faint);margin-top:-8px;margin-bottom:8px;}
 .settings-markup-table input{min-width:90px;}
 .settings-markup-table .gross-margin{white-space:nowrap;font-variant-numeric:tabular-nums;}
-.est-item-row{display:grid;grid-template-columns:85px 1fr 60px 90px 80px 28px;gap:4px;padding:3px 0;align-items:center;}
+.line-item-grid{display:grid;grid-template-columns:78px minmax(120px,1fr) 62px 52px 82px 78px 28px;gap:4px;align-items:center;}
+.est-item-row{display:grid;grid-template-columns:78px minmax(120px,1fr) 62px 52px 82px 78px 28px;gap:4px;padding:3px 0;align-items:center;}
 .est-item-row input,.est-item-row select{padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;font-family:inherit;}
 .est-item-amt{text-align:right;font-size:12px;font-weight:500;padding-right:2px;}
+.line-item-na{text-align:center;color:var(--fg-faint);font-size:12px;}
 .insp-cat{margin-bottom:12px;}
 .insp-cat-hdr{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted);border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:6px;}
 .insp-item-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:4px 0;border-bottom:1px solid var(--bg-subtle);align-items:center;}
@@ -538,12 +545,25 @@ tr:hover td{background:var(--bg-subtle);}
         <input type="text" id="job-search" placeholder="Search repair orders, jobs, customers, vehicles..." oninput="renderJobs()">
         <select id="job-status-filter" onchange="renderJobs()">
           <option value="">All statuses</option>
-          <option>Pending</option><option>In Progress</option><option>Complete</option>
+          <option value="open">All open Repair orders</option>
+          <option value="closed">All closed repair orders</option>
         </select>
       </div>
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="table-wrap">
-          <table><thead><tr><th>RO #</th><th>Date</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Assigned to</th><th>Labor</th><th>Parts</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <table><thead><tr>
+            <th><button type="button" class="job-sort-btn" data-job-sort="ro" onclick="setJobSort('ro')">RO # <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="date" onclick="setJobSort('date')">Date <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="customer" onclick="setJobSort('customer')">Customer <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="vehicle" onclick="setJobSort('vehicle')">Vehicle <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="service" onclick="setJobSort('service')">Service <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="employee" onclick="setJobSort('employee')">Assigned to <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="labor" onclick="setJobSort('labor')">Labor <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="parts" onclick="setJobSort('parts')">Parts <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="total" onclick="setJobSort('total')">Total <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="status" onclick="setJobSort('status')">Status <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><span class="sr-only">Actions</span></th>
+          </tr></thead>
           <tbody id="jobs-tbody"></tbody></table>
         </div>
       </div>
@@ -724,6 +744,16 @@ tr:hover td{background:var(--bg-subtle);}
           <div class="fr"><label>Warranty terms</label><input id="s-warranty-terms" placeholder="12 months / 12,000 miles parts and labor"></div>
           <div class="fr"><label>Estimate terms / expiration notice</label><input id="s-est-terms" placeholder="This estimate is valid for 30 days."></div>
         </div>
+        <div class="card">
+          <div class="settings-section-title">Deposits &amp; payment plans</div>
+          <div class="fr"><label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="s-require-parts-deposit"> Require parts money upfront by default</label></div>
+          <div class="f2">
+            <div class="fr"><label>Parts deposit (% of retail + tax)</label><input type="number" id="s-parts-deposit-percent" min="0" max="100" step="1" value="100"></div>
+            <div class="fr"><label>Payment grace period (days)</label><input type="number" id="s-payment-grace-days" min="0" step="1" value="0"></div>
+          </div>
+          <div class="fr"><label>Late fee ($, optional)</label><input type="number" id="s-late-fee" min="0" step="0.01" value="0"></div>
+          <div class="settings-hint">Late fees apply only when a payment is recorded after the grace period.</div>
+        </div>
         <div class="card settings-wide">
           <div class="settings-section-title">Parts markup schedule</div>
           <div class="settings-hint" style="margin-top:0;">When a part cost changes, its retail price uses the first matching tier. Gross margin is calculated automatically.</div>
@@ -881,14 +911,14 @@ tr:hover td{background:var(--bg-subtle);}
 
 <!-- MODAL: Job -->
 <div class="modal-overlay" id="m-job">
-  <div class="modal">
+  <div class="modal" style="width:760px;">
     <h2 id="m-job-title">New Job</h2>
     <div class="f2">
       <div class="fr"><label>Customer</label>
         <select id="jf-cust" onchange="loadVehiclesForJob()"><option value="">— Select —</option></select>
       </div>
       <div class="fr"><label>Vehicle</label>
-        <select id="jf-veh"><option value="">— Select vehicle —</option></select>
+        <select id="jf-veh" onchange="fillJobMileageFromVehicle()"><option value="">— Select vehicle —</option></select>
       </div>
     </div>
     <div class="fr"><label>Customer complaint / concern</label><textarea id="jf-complaint" placeholder="What does the customer say is wrong?" rows="2"></textarea></div>
@@ -915,8 +945,8 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div style="margin-bottom:12px;">
       <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Line items</div>
-      <div style="display:grid;grid-template-columns:85px 1fr 60px 90px 78px 28px;gap:4px;padding:4px 0;font-size:10px;color:#888;font-weight:600;border-bottom:1px solid var(--border);">
-        <div>Type</div><div>Description</div><div>Qty</div><div>Rate ($)</div><div style="text-align:right;">Amount</div><div></div>
+      <div class="line-item-grid" style="padding:4px 0;font-size:10px;color:#888;font-weight:600;border-bottom:1px solid var(--border);">
+        <div>Type</div><div>Description</div><div>Labor hours</div><div>Qty</div><div>Rate ($)</div><div style="text-align:right;">Amount</div><div></div>
       </div>
       <div id="job-items-container"><div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div></div>
       <div style="display:flex;gap:8px;margin-top:6px;">
@@ -928,8 +958,10 @@ tr:hover td{background:var(--bg-subtle);}
           <div class="report-line"><span>Subtotal — Labor</span><span id="job-labor-val">$0.00</span></div>
           <div class="report-line"><span>Subtotal — Parts</span><span id="job-parts-val">$0.00</span></div>
           <div class="report-line" id="job-tax-line"><span id="job-tax-label">Sales Tax (0%)</span><span id="job-tax-val">$0.00</span></div>
-          <div class="report-line"><span>Travel / trip fee ($) <input type="number" id="jf-travel-fee" placeholder="0.00" step="10" min="0" style="width:70px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" oninput="_calcJob()"></span><span id="job-travel-val">$0.00</span></div>
+          <div class="report-line" style="align-items:center;"><label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" id="jf-apply-trip-fee" onchange="toggleJobTripFee()"> Apply trip fee</label><span><input type="number" id="jf-travel-fee" aria-label="Travel or trip fee amount" placeholder="0.00" step="10" min="0" style="width:76px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" oninput="_calcJob()"> <span id="job-travel-val">$0.00</span></span></div>
           <div class="report-total"><span>Total</span><span id="job-total-val">$0.00</span></div>
+          <div class="report-line" style="align-items:center;"><label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" id="jf-require-parts-deposit" onchange="document.getElementById('jf-parts-deposit').dataset.manual='';_calcJob()"> Require parts upfront</label><input type="number" id="jf-parts-deposit" min="0" step="0.01" style="width:90px;" oninput="this.dataset.manual='1'"></div>
+          <div id="jf-parts-deposit-status" style="font-size:11px;color:#777;text-align:right;"></div>
         </div>
       </div>
     </div>
@@ -951,11 +983,11 @@ tr:hover td{background:var(--bg-subtle);}
 <!-- MODAL: Add job item from catalog -->
 <div class="modal-overlay" id="m-job-catalog">
   <div class="modal" style="width:480px;">
-    <h2>Add from service catalog</h2>
-    <div class="fr"><label>Catalog item</label>
+    <h2>Add service or inventory item</h2>
+    <div class="fr"><label>Service or part</label>
       <select id="job-catalog-select" onkeydown="if(event.key==='Enter'){event.preventDefault();addSelectedJobCatalogItem();}"></select>
     </div>
-    <div class="settings-hint" style="margin-top:0;">The catalog price, hours, and taxable setting will be added to this repair order.</div>
+    <div class="settings-hint" style="margin-top:0;">Services use their catalog hours and price. Inventory parts use their retail price and remain linked to the inventory record.</div>
     <div class="mfooter"><div></div><div class="mfooter-r">
       <button type="button" class="btn" onclick="closeM('m-job-catalog')">Cancel</button>
       <button type="button" class="btn btn-primary" onclick="addSelectedJobCatalogItem()">Add selected item</button>
@@ -1007,15 +1039,13 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div id="cf-veh-section" style="display:none;background:var(--bg-subtle);border-radius:8px;padding:12px;margin-bottom:8px;">
       <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">New Vehicle (optional)</div>
+      <div class="fr"><label>VIN</label><input id="cf-veh-vin" placeholder="1HGCM82633A123456" style="font-family:monospace;font-size:12px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="f3">
         <div class="fr"><label>Year</label><input type="number" id="cf-veh-year" placeholder="2019"></div>
         <div class="fr"><label>Make</label><input id="cf-veh-make" placeholder="Toyota"></div>
         <div class="fr"><label>Model</label><input id="cf-veh-model" placeholder="Camry"></div>
       </div>
-      <div class="f2">
-        <div class="fr"><label>VIN</label><input id="cf-veh-vin" placeholder="1HGCM82633A123456" style="font-family:monospace;font-size:12px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"></div>
-        <div class="fr"><label>License plate</label><input id="cf-veh-plate" placeholder="ABC-1234"></div>
-      </div>
+      <div class="fr"><label>License plate</label><input id="cf-veh-plate" placeholder="ABC-1234"></div>
     </div>
     <div class="mfooter">
       <div id="cf-del"></div>
@@ -1031,6 +1061,7 @@ tr:hover td{background:var(--bg-subtle);}
 <div class="modal-overlay" id="m-veh">
   <div class="modal">
     <h2 id="m-veh-title">Add vehicle</h2>
+    <div class="fr"><label>VIN</label><input id="vf-vin" placeholder="1HGCM82633A123456" style="font-family:monospace;font-size:12px;"></div>
     <div class="fr" id="vf-cust-row" style="display:none;"><label>Customer</label>
       <select id="vf-cust"><option value="">— Select customer —</option></select>
     </div>
@@ -1062,7 +1093,6 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="fr"><label>License plate</label><input id="vf-plate" placeholder="ABC-1234"></div>
       <div class="fr"><label>State</label><input id="vf-state" placeholder="TX"></div>
     </div>
-    <div class="fr"><label>VIN</label><input id="vf-vin" placeholder="1HGCM82633A123456" style="font-family:monospace;font-size:12px;"></div>
     <div class="f2">
       <div class="fr"><label>Current mileage</label><input type="number" id="vf-miles" placeholder="45000"></div>
       <div class="fr"><label>Next oil change (mi)</label><input type="number" id="vf-oilmi" placeholder="50000"></div>
@@ -1382,9 +1412,10 @@ tr:hover td{background:var(--bg-subtle);}
         <select id="estf-cust" onchange="loadVehiclesForEst()"><option value="">— Select —</option></select>
       </div>
       <div class="fr"><label>Vehicle</label>
-        <select id="estf-veh"><option value="">— Select vehicle —</option></select>
+        <select id="estf-veh" onchange="fillEstimateMileageFromVehicle()"><option value="">— Select vehicle —</option></select>
       </div>
     </div>
+    <div class="fr"><label>Mileage</label><input type="number" id="estf-miles" min="0" placeholder="45000"></div>
     <div class="f3">
       <div class="fr"><label>Date</label><input type="date" id="estf-date"></div>
       <div class="fr"><label>Status</label>
@@ -1394,8 +1425,8 @@ tr:hover td{background:var(--bg-subtle);}
     </div>
     <div class="fr"><label>Customer complaint / concern</label><textarea id="estf-complaint" rows="2" placeholder="What does the customer say is wrong?"></textarea></div>
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#888;margin:8px 0 4px;">Line items</div>
-    <div style="display:grid;grid-template-columns:85px 1fr 60px 90px 78px 28px;gap:4px;padding:4px 0;font-size:10px;color:#888;font-weight:600;border-bottom:1px solid #e8e8e4;">
-      <div>Type</div><div>Description</div><div>Qty</div><div>Rate ($)</div><div style="text-align:right;">Amount</div><div></div>
+    <div class="line-item-grid" style="padding:4px 0;font-size:10px;color:#888;font-weight:600;border-bottom:1px solid #e8e8e4;">
+      <div>Type</div><div>Description</div><div>Labor hours</div><div>Qty</div><div>Rate ($)</div><div style="text-align:right;">Amount</div><div></div>
     </div>
     <div id="est-items-container"><div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div></div>
     <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
@@ -1422,7 +1453,8 @@ tr:hover td{background:var(--bg-subtle);}
       <div class="mfooter-r">
         <button class="btn" onclick="closeM('m-estimate')">Cancel</button>
         <button type="button" class="btn" id="estf-convert-btn" style="display:none;" onclick="convertEstToJob()">Convert to RO ▸</button>
-        <button class="btn" onclick="printEstimate()">Print PDF</button>
+        <button type="button" class="btn" onclick="printEstimate()">Print</button>
+        <button type="button" class="btn" onclick="saveEstimatePdf()">Save PDF</button>
         <button id="save-estimate-btn" type="button" class="btn btn-primary" onclick="saveEstimate()">Save estimate</button>
       </div>
     </div>
@@ -1659,8 +1691,9 @@ tr:hover td{background:var(--bg-subtle);}
   <div class="modal" style="width:680px;padding:0;">
     <div id="invoice-content" style="padding:1.5rem;"></div>
     <div style="padding:1rem 1.5rem;border-top:1px solid #e8e8e4;display:flex;justify-content:flex-end;gap:8px;">
-      <button class="btn" onclick="closeM('m-invoice')">Close</button>
-      <button class="btn btn-primary" onclick="printInvoice()">Print / Save PDF</button>
+      <button type="button" class="btn" onclick="closeM('m-invoice')">Close</button>
+      <button type="button" class="btn" onclick="saveInvoicePdf()">Save PDF</button>
+      <button type="button" class="btn btn-primary" onclick="printInvoice()">Print</button>
     </div>
   </div>
 </div>
@@ -1675,6 +1708,7 @@ const payingInstallmentIds = new Set();
 const activeMutations = new Set();
 let detailCustId = null, detailTab = 'vehicles';
 let calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
+let jobSortKey = '', jobSortDirection = 'asc';
 
 // ── Utilities ──
 function esc(value){
@@ -2019,6 +2053,48 @@ function renderPage(id){
   else if(id==='time') renderTime();
 }
 
+function localDateKey(date=new Date()){
+  const value=date instanceof Date?date:new Date(date);
+  return `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
+}
+
+function dashboardJobTotal(job,taxRate=0){
+  const labor=Number(job.labor)||0,parts=Number(job.parts)||0,travel=Number(job.travel_fee)||0;
+  return Math.round((labor+parts+(parts*(Number(taxRate)||0)/100)+travel+Number.EPSILON)*100)/100;
+}
+
+function dashboardJobBalance(job,payments,taxRate=0){
+  const paid=(payments||[]).filter(payment=>payment.job_id===job.id).reduce((sum,payment)=>sum+(Number(payment.amount)||0),0);
+  return Math.max(0,Math.round((dashboardJobTotal(job,taxRate)-paid+Number.EPSILON)*100)/100);
+}
+
+function dashboardMetrics(snapshot,now=new Date()){
+  const jobs=Array.isArray(snapshot.jobs)?snapshot.jobs:[],payments=Array.isArray(snapshot.payments)?snapshot.payments:[];
+  const plans=Array.isArray(snapshot.plans)?snapshot.plans:[],leads=Array.isArray(snapshot.leads)?snapshot.leads:[];
+  const todayStr=localDateKey(now),taxRate=Number(snapshot.settings?.tax_rate)||0;
+  const recentDays=Array.from({length:7},(_,index)=>new Date(now.getFullYear(),now.getMonth(),now.getDate()-(6-index)));
+  const recentDateKeys=recentDays.map(localDateKey),recentDateSet=new Set(recentDateKeys);
+  const week=recentDateKeys.map(date=>payments.filter(payment=>payment.date===date).reduce((sum,payment)=>sum+(Number(payment.amount)||0),0));
+  const active=jobs.filter(job=>!job.closed_at&&!['Complete','Canceled'].includes(job.status));
+  const todayJobs=active.filter(job=>job.date===todayStr);
+  const receivableJobs=jobs.filter(job=>job.status!=='Canceled'&&!['Paid','Voided'].includes(job.invoice_status));
+  const linkedPlanJobIds=new Set(plans.map(plan=>Number(plan.job_id)).filter(jobId=>Number.isSafeInteger(jobId)&&jobId>0));
+  const outstanding=receivableJobs.reduce((sum,job)=>sum+dashboardJobBalance(job,payments,taxRate),0)
+    + plans.filter(plan=>!linkedPlanJobIds.has(Number(plan.job_id))).reduce((sum,plan)=>sum+planBalance(plan),0);
+  const overdueInvoices=receivableJobs.filter(job=>{
+    const closedDate=String(job.closed_at||'').slice(0,10);
+    return (job.status==='Complete'||!!closedDate)&&['Unpaid','Partial'].includes(job.invoice_status||'Unpaid')&&(closedDate||job.date||'')<todayStr&&dashboardJobBalance(job,payments,taxRate)>0;
+  });
+  const recentPayments=payments.filter(payment=>recentDateSet.has(payment.date)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||Number(b.id||0)-Number(a.id||0)).slice(0,5);
+  const pipelineStart=localDateKey(new Date(now.getFullYear(),now.getMonth(),now.getDate()-29));
+  const recentLeads=leads.filter(lead=>String(lead.created_at||'').slice(0,10)>=pipelineStart&&String(lead.created_at||'').slice(0,10)<=todayStr);
+  const activity=[
+    ...jobs.map(job=>({kind:job.status==='Complete'?'complete':'job',who:`${job.first||''} ${job.last||''}`,what:job.status==='Complete'?'job marked complete':`job ${(job.status||'updated').toLowerCase()}`,t:job.date||'',id:Number(job.id)||0})),
+    ...payments.map(payment=>({kind:'pmt',who:`${payment.first||''} ${payment.last||''}`,what:`paid ${fmt$(payment.amount)}`,t:payment.date||'',id:Number(payment.id)||0})),
+  ].sort((a,b)=>String(b.t).localeCompare(String(a.t))||b.id-a.id).slice(0,6);
+  return {todayStr,week,weekTotal:week.reduce((sum,value)=>sum+value,0),active,todayJobs,outstanding,overdueInvoices,recentPayments,recentLeads,activity};
+}
+
 async function renderDashboard(){
   const el = document.getElementById('page-dashboard');
   el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--fg-faint);font-size:13px;">Loading…</div>';
@@ -2026,26 +2102,14 @@ async function renderDashboard(){
     const data = await api('GET','/api/dashboard');
 
     // KPI computations
-    const active = state.jobs.filter(j=>!['Complete','Canceled'].includes(j.status));
-    const todayStr = today();
-    const week = Array.from({length:7},(_,i)=>{
-      const d = new Date(); d.setDate(d.getDate()-(6-i));
-      const ds = d.toISOString().split('T')[0];
-      return state.payments.filter(p=>p.date===ds).reduce((a,p)=>a+Number(p.amount||0),0);
-    });
-    const weekTotal = week.reduce((a,b)=>a+b,0);
-    const outstanding = state.plans.reduce((a,p)=>a+planBalance(p),0);
-    const overdueCount = state.plans.reduce((a,p)=>a+planOverdue(p),0);
-    const netProfit = data.netProfit||0;
-
-    // Today's route
-    const todayJobs = state.jobs.filter(j=>j.date===todayStr);
+    const metrics=dashboardMetrics(state);
+    const {active,todayStr,week,weekTotal,outstanding,todayJobs,overdueInvoices,recentPayments:recentPmts,recentLeads,activity:actFeed}=metrics;
+    const overdueCount = overdueInvoices.length;
+    const netProfit = Number(data.monthNetProfit)||0;
 
     // Action needed
     const lowStockItems = state.inventory.filter(p=>p.reorder_qty>0&&p.quantity<=p.reorder_qty);
     const pendingEsts = state.estimates.filter(e=>e.status==='Sent'||e.status==='Draft');
-    const overdueInvoices = state.jobs.filter(j=>j.status==='Unpaid'&&j.date<todayStr);
-
     // Pipeline funnel
     const pipeRows = [
       {label:'New Leads',s:'New',color:'var(--info)'},
@@ -2053,18 +2117,10 @@ async function renderDashboard(){
       {label:'Quoted',s:'Quoted',color:'var(--warning)'},
       {label:'Scheduled',s:'Scheduled',color:'var(--accent)'},
       {label:'Won',s:'Won',color:'var(--success)'},
-    ].map(r=>({...r,n:state.leads.filter(l=>l.status===r.s).length}));
+    ].map(r=>({...r,n:recentLeads.filter(l=>l.status===r.s).length}));
     const maxLead = Math.max(...pipeRows.map(r=>r.n),1);
 
-    // Recent payments (last 5)
-    const recentPmts = [...state.payments].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
     const avColors = ['amber','blue','green','violet','rose'];
-
-    // Activity feed from recent jobs + payments
-    const actFeed = [
-      ...state.jobs.slice(-8).map(j=>({kind:j.status==='Complete'?'complete':'job',who:(j.first||'')+' '+(j.last||''),what:j.status==='Complete'?'job marked complete':'job '+j.status.toLowerCase(),t:j.date||''})),
-      ...state.payments.slice(-4).map(p=>({kind:'pmt',who:(p.first||'')+' '+(p.last||''),what:'paid '+fmt$(p.amount),t:p.date||''}))
-    ].sort((a,b)=>b.t.localeCompare(a.t)).slice(0,6);
 
     // Update nav badges
     const badgeMap = {'nb-jobs':active.length,'nb-estimates':pendingEsts.length,'nb-inventory':lowStockItems.length,'nb-leads':state.leads.filter(l=>l.status==='New').length};
@@ -2076,7 +2132,7 @@ async function renderDashboard(){
     const ownerFirstName = String((state.settings&&state.settings.owner_name)||'').trim().split(/\s+/)[0];
     const dateStr = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
     const subParts = [`${todayJobs.length} job${todayJobs.length!==1?'s':''} on the route today`];
-    if(lowStockItems.length) subParts.push(`${lowStockItems.length} part${lowStockItems.length!==1?'s':''} on backorder`);
+    if(lowStockItems.length) subParts.push(`${lowStockItems.length} low-stock part${lowStockItems.length!==1?'s':''}`);
 
     const iconSvg = (path,sz=14) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
     const iPlus = iconSvg('<path d="M12 5v14M5 12h14"/>');
@@ -2103,22 +2159,22 @@ async function renderDashboard(){
   <div class="kpi">
     <div class="kpi-label"><span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:var(--accent);margin-right:6px;vertical-align:2px;"></span>Active jobs</div>
     <div class="kpi-value">${active.length}</div>
-    <div class="kpi-meta"><span class="kpi-delta up">+${data.activeJobs||active.length}</span><span>total open</span></div>
+    <div class="kpi-meta"><span>${active.length} total open</span></div>
   </div>
   <div class="kpi">
-    <div class="kpi-label">Revenue this week</div>
-    <div class="kpi-value">${fmt$0(weekTotal)}</div>
+    <div class="kpi-label">Revenue · last 7 days</div>
+    <div class="kpi-value">${fmt$(weekTotal)}</div>
     <div style="margin-top:4px;">${buildSpark(week)}</div>
   </div>
   <div class="kpi">
     <div class="kpi-label">Outstanding</div>
-    <div class="kpi-value">${fmt$0(outstanding)}</div>
+    <div class="kpi-value">${fmt$(outstanding)}</div>
     <div class="kpi-meta">${overdueCount>0?`<span class="kpi-delta down">${overdueCount} overdue</span>`:'<span style="color:var(--success-fg);">all current</span>'}</div>
   </div>
   <div class="kpi">
     <div class="kpi-label">Net profit · ${new Date().toLocaleDateString('en-US',{month:'short'})}</div>
-    <div class="kpi-value">${fmt$0(netProfit)}</div>
-    <div class="kpi-meta"><span class="kpi-delta ${netProfit>=0?'up':'down'}">${netProfit>=0?'+':''}${fmt$0(netProfit)}</span><span>this month</span></div>
+    <div class="kpi-value">${fmt$(netProfit)}</div>
+    <div class="kpi-meta"><span class="kpi-delta ${netProfit>=0?'up':'down'}">${netProfit>=0?'+':''}${fmt$(netProfit)}</span><span>this month</span></div>
   </div>
 </div>
 
@@ -2141,7 +2197,7 @@ async function renderDashboard(){
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
         ${statusPill(j.status)}
-        <span class="mono num" style="font-size:12px;color:var(--fg-muted);">${fmt$((j.labor||0)+(j.parts||0))}</span>
+        <span class="mono num" style="font-size:12px;color:var(--fg-muted);">${fmt$(dashboardJobTotal(j,state.settings.tax_rate))}</span>
       </div>
     </div>`).join(''):`<div style="padding:36px 18px;text-align:center;color:var(--fg-faint);font-size:13px;">No jobs scheduled for today</div>`}
   </div>
@@ -2151,7 +2207,7 @@ async function renderDashboard(){
       <div class="card-head"><div><div class="card-title">Action needed</div><div class="card-sub">Pinned items</div></div></div>
       ${overdueInvoices.length?`<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);">
         <div style="width:30px;height:30px;border-radius:8px;background:var(--danger-soft);color:var(--danger-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${iWarn}</div>
-        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${overdueInvoices.length} invoice${overdueInvoices.length!==1?'s':''} overdue</div><div class="muted" style="font-size:12px;">${fmt$(overdueInvoices.reduce((a,j)=>a+(j.labor||0)+(j.parts||0),0))} total</div></div>
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${overdueInvoices.length} invoice${overdueInvoices.length!==1?'s':''} overdue</div><div class="muted" style="font-size:12px;">${fmt$(overdueInvoices.reduce((sum,job)=>sum+dashboardJobBalance(job,state.payments,state.settings.tax_rate),0))} remaining</div></div>
         <button class="btn btn-sm" onclick="sp('finance')">Follow up</button>
       </div>`:''}
       ${lowStockItems.length?`<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:${pendingEsts.length?'1px solid var(--border)':'none'};">
@@ -2161,7 +2217,7 @@ async function renderDashboard(){
       </div>`:''}
       ${pendingEsts.length?`<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;">
         <div style="width:30px;height:30px;border-radius:8px;background:var(--info-soft);color:var(--info-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${iEst}</div>
-        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${pendingEsts.length} estimate${pendingEsts.length!==1?'s':''} awaiting approval</div><div class="muted" style="font-size:12px;">${fmt$(pendingEsts.reduce((a,e)=>a+Number(e.total||0),0))} pipeline</div></div>
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${pendingEsts.length} open estimate${pendingEsts.length!==1?'s':''}</div><div class="muted" style="font-size:12px;">${fmt$(pendingEsts.reduce((a,e)=>a+Number(e.total||0),0))} pipeline</div></div>
         <button class="btn btn-sm" onclick="sp('estimates')">Review</button>
       </div>`:''}
       ${!overdueInvoices.length&&!lowStockItems.length&&!pendingEsts.length?`<div style="padding:28px 18px;text-align:center;color:var(--fg-faint);font-size:13px;">All clear</div>`:''}
@@ -2214,6 +2270,49 @@ async function renderDashboard(){
   }
 }
 
+function jobMatchesOrderFilter(job, filter){
+  const isClosed=!!job.closed_at||['Complete','Canceled'].includes(job.status);
+  if(filter==='open')return !isClosed;
+  if(filter==='closed')return isClosed;
+  return !filter;
+}
+
+function jobSortValue(job, key){
+  if(key==='ro')return job.repair_order_number||'';
+  if(key==='date')return job.date||'';
+  if(key==='customer')return `${job.first||''} ${job.last||''}`.trim();
+  if(key==='vehicle')return `${job.year||''} ${job.make||''} ${job.model||''} ${job.plate||''}`.trim();
+  if(key==='service')return job.service||'';
+  if(key==='employee')return `${job.emp_first||''} ${job.emp_last||''}`.trim();
+  if(key==='labor')return Number(job.labor||0);
+  if(key==='parts')return Number(job.parts||0);
+  if(key==='total')return Number(job.labor||0)+Number(job.parts||0);
+  if(key==='status')return job.status||'';
+  return '';
+}
+
+function compareJobsForSort(a,b,key,direction){
+  const av=jobSortValue(a,key),bv=jobSortValue(b,key);
+  const comparison=typeof av==='number'&&typeof bv==='number'?av-bv:String(av).localeCompare(String(bv),undefined,{numeric:true,sensitivity:'base'});
+  return (direction==='desc'?-1:1)*comparison;
+}
+
+function setJobSort(key){
+  if(jobSortKey===key)jobSortDirection=jobSortDirection==='asc'?'desc':'asc';
+  else{jobSortKey=key;jobSortDirection='asc';}
+  renderJobs();
+}
+
+function updateJobSortHeaders(){
+  document.querySelectorAll('[data-job-sort]').forEach(button=>{
+    const active=button.dataset.jobSort===jobSortKey;
+    const direction=active?jobSortDirection:'';
+    button.closest('th')?.setAttribute('aria-sort',active?(direction==='asc'?'ascending':'descending'):'none');
+    button.querySelector('.job-sort-indicator').textContent=active?(direction==='asc'?'▲':'▼'):'';
+    button.setAttribute('aria-label',`${button.textContent.trim().replace(/[▲▼]/g,'')} — ${active?`sorted ${direction}ending; activate to sort ${direction==='asc'?'descending':'ascending'}`:'activate to sort ascending'}`);
+  });
+}
+
 function renderJobs(){
   const q = (document.getElementById('job-search')||{value:''}).value.toLowerCase();
   const sf = (document.getElementById('job-status-filter')||{value:''}).value;
@@ -2222,8 +2321,10 @@ function renderJobs(){
     const veh = `${j.year||''} ${j.make||''} ${j.model||''}`.toLowerCase();
     const svc = (j.service||'').toLowerCase();
     const repairOrder=(j.repair_order_number||'').toLowerCase();
-    return (!q||name.includes(q)||veh.includes(q)||svc.includes(q)||repairOrder.includes(q)) && (!sf||j.status===sf);
+    return (!q||name.includes(q)||veh.includes(q)||svc.includes(q)||repairOrder.includes(q)) && jobMatchesOrderFilter(j,sf);
   });
+  if(jobSortKey)jobs.sort((a,b)=>compareJobsForSort(a,b,jobSortKey,jobSortDirection));
+  updateJobSortHeaders();
   const tbody = document.getElementById('jobs-tbody');
   if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="11" class="empty">No jobs found</td></tr>`; return; }
   tbody.innerHTML = jobs.map(j=>`<tr>
@@ -2542,8 +2643,8 @@ function planAdditionalPayments(p){
   return state.payments.filter(payment=>payment.plan_id===p.id&&!payment.installment_id&&String(payment.note||'').trim().toLowerCase()!=='down payment'&&!String(payment.description||'').toLowerCase().endsWith('— down payment'));
 }
 function planBalance(p){ return Math.max(0,Number(p.total||0)-planPaid(p)); }
-function planPaid(p){ return Number(p.down_payment||0)+(p.installments||[]).filter(i=>i.paid).reduce((a,i)=>a+Number(i.amount||0),0)+planAdditionalPayments(p).reduce((a,payment)=>a+Number(payment.amount||0),0); }
-function planOverdue(p){ const t=today(); return (p.installments||[]).filter(i=>!i.paid&&i.due_date<t).length; }
+function planPaid(p){ return Number(p.down_payment||0)+(p.installments||[]).reduce((sum,inst)=>sum+Math.min(Number(inst.amount||0),Number(inst.amount_paid??(inst.paid?inst.amount:0))),0); }
+function planOverdue(p){ const t=today(); return (p.installments||[]).filter(i=>!i.paid&&addDays(i.due_date,Number(p.grace_days||state.settings.payment_grace_days||0))<t).length; }
 
 function renderPlans(){
   const el=document.getElementById('plans-list');
@@ -2577,7 +2678,7 @@ function openPlanDetail(id){
   const additionalPayments=planAdditionalPayments(p);
   document.getElementById('plan-detail-inner').innerHTML=`
     <h2>${esc(p.first)} ${esc(p.last)} — ${esc(p.description||'')}</h2>
-    ${p.repair_order_number?`<div style="font-size:13px;margin:-.5rem 0 1rem;">Repair order: <button class="btn btn-sm" onclick="closeM('m-plan-detail');openJobModal(${safeId(p.job_id)})">${esc(p.repair_order_number)}</button></div>`:'<div style="font-size:12px;color:#A32D2D;margin:-.5rem 0 1rem;">Legacy plan: no repair order is linked.</div>'}
+    ${p.repair_order_number?`<div style="font-size:13px;margin:-.5rem 0 1rem;">Repair order: <button class="btn btn-sm" onclick="closeM('m-plan-detail');openJobModal(${safeId(p.job_id)})">${esc(p.repair_order_number)}</button></div>`:`<div style="padding:10px;background:#FFF4E5;border-radius:6px;margin:-.5rem 0 1rem;"><div style="font-size:12px;color:#854F0B;margin-bottom:6px;">Legacy plan: select its repair order so it appears on the invoice.</div><div style="display:flex;gap:6px;"><select id="legacy-plan-job">${state.jobs.filter(job=>job.customer_id===p.customer_id&&job.deleted_at==null).map(job=>`<option value="${safeId(job.id)}">${esc(job.repair_order_number||'Job #'+job.id)} — ${esc(job.service||'Service')}</option>`).join('')}</select><button class="btn btn-sm" onclick="linkLegacyPlan(${safeId(p.id)})">Link R/O</button></div></div>`}
     <div style="display:flex;gap:12px;margin-bottom:1rem;">
       <div class="stat" style="flex:1;"><div class="stat-label">Total</div><div class="stat-value">${fmt$(p.total)}</div></div>
       <div class="stat" style="flex:1;"><div class="stat-label">Paid</div><div class="stat-value green">${fmt$(paid)}</div></div>
@@ -2591,7 +2692,7 @@ function openPlanDetail(id){
       return `<div class="inst-row">
         <span style="width:20px;font-size:11px;color:#888;">${i+1}</span>
         <span style="flex:1;">${esc(inst.due_date)}</span>
-        <span style="flex:1;">${fmt$(inst.amount)}</span>
+        <span style="flex:1;">${fmt$(inst.amount)}${Number(inst.late_fee_due||inst.late_fee||0)>0?` + ${fmt$(inst.late_fee_due||inst.late_fee)} late fee`:''}${Number(inst.amount_paid||0)>0&&!inst.paid?` · ${fmt$(inst.amount_paid)} paid`:''}</span>
         <span style="flex:1;">${inst.paid?'<span class="badge b-green">Paid</span>':od?'<span class="badge b-red">Overdue</span>':'<span class="badge b-amber">Pending</span>'}</span>
         ${!inst.paid?`<button class="btn btn-sm btn-success" id="installment-pay-${safeId(inst.id)}" onclick="markInstPaid(${safeId(inst.id)},${safeId(p.id)})">Mark paid</button>`:''}
       </div>`;
@@ -2859,6 +2960,13 @@ function nextRepairOrderNumber(jobs=state.jobs){
   return `RO-${String(highest+1).padStart(4,'0')}`;
 }
 
+async function linkLegacyPlan(planId){
+  const jobId=parseInt(document.getElementById('legacy-plan-job')?.value);
+  if(!jobId){toast('Select a repair order to link.',8000);return;}
+  const plan=state.plans.find(item=>item.id===planId);
+  await runMutation(`plan-link-${planId}`,{action:'Linking payment plan',request:()=>api('PUT',`/api/plans/${planId}/link-job`,{job_id:jobId}),apply:result=>{Object.assign(plan,{job_id:result.job_id,repair_order_number:result.repair_order_number});state.payments.filter(payment=>payment.plan_id===planId&&!payment.job_id).forEach(payment=>{payment.job_id=result.job_id;payment.repair_order_number=result.repair_order_number;});},render:()=>{renderPlans();openPlanDetail(planId);},success:'Payment plan linked to repair order'});
+}
+
 function normalizeRepairOrderNumber(value){
   const raw=String(value||'').trim().toUpperCase();
   const digits=raw.startsWith('RO-')?raw.slice(3):raw;
@@ -2875,7 +2983,7 @@ function _calcJob(){
   const partsTotal = jobItems.filter(i=>i.taxable).reduce((a,i)=>a+(i.amount||0),0);
   const taxRate = state.settings.tax_rate || 0;
   const tax = partsTotal * taxRate / 100;
-  const travel = parseFloat(document.getElementById('jf-travel-fee')?.value) || 0;
+  const travel = document.getElementById('jf-apply-trip-fee')?.checked?(parseFloat(document.getElementById('jf-travel-fee')?.value)||0):0;
   const total = laborTotal + partsTotal + tax + travel;
   const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
   set('job-labor-val', fmt$(laborTotal));
@@ -2884,8 +2992,21 @@ function _calcJob(){
   set('job-tax-val', fmt$(tax));
   set('job-travel-val', fmt$(travel));
   set('job-total-val', fmt$(total));
+  const depositEnabled=document.getElementById('jf-require-parts-deposit');
+  const depositInput=document.getElementById('jf-parts-deposit');
+  if(depositEnabled&&depositInput){depositInput.disabled=!depositEnabled.checked;if(depositEnabled.checked&&!depositInput.dataset.manual)depositInput.value=(Math.round((partsTotal+tax)*(Number(state.settings.parts_deposit_percent??100)/100)*100)/100).toFixed(2);if(!depositEnabled.checked)depositInput.value='0.00';}
+  const depositStatus=document.getElementById('jf-parts-deposit-status');if(depositStatus){const required=depositEnabled?.checked?Number(depositInput.value||0):0;const received=editJobId?state.payments.filter(p=>p.job_id===editJobId).reduce((sum,p)=>sum+Number(p.amount||0),0):0;depositStatus.textContent=required>0?`${fmt$(Math.min(received,required))} received · ${fmt$(Math.max(0,required-received))} still due`:'';}
   const taxLine = document.getElementById('job-tax-line');
   if(taxLine) taxLine.style.display = taxRate > 0 ? '' : 'none';
+}
+
+function toggleJobTripFee(){
+  const enabled=document.getElementById('jf-apply-trip-fee');
+  const amount=document.getElementById('jf-travel-fee');
+  if(!enabled||!amount)return;
+  amount.disabled=!enabled.checked;
+  if(enabled.checked&&!(parseFloat(amount.value)>0))amount.value=Number(state.settings.service_fee||0).toFixed(2);
+  _calcJob();
 }
 
 function renderJobItems(){
@@ -2894,17 +3015,28 @@ function renderJobItems(){
   if(!jobItems.length){ c.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div>'; _calcJob(); return; }
   const TYPES = ['labor','part','diagnostic','shop_supply'];
   c.innerHTML = jobItems.map((item,i)=>`
-    <div style="display:grid;grid-template-columns:85px 1fr 60px 90px 78px 28px;gap:4px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
-      <select style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);" onchange="jobItems[${i}].type=this.value;jobItems[${i}].taxable=(this.value==='part'||this.value==='shop_supply')?1:0;_calcJob();">
+    <div class="line-item-grid" style="padding:4px 0;border-bottom:1px solid var(--border);">
+      <select style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);" onchange="setJobItemType(${i},this.value)">
         ${TYPES.map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t==='shop_supply'?'supply':t}</option>`).join('')}
       </select>
       <input style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${attrEsc(item.description||'')}" placeholder="Description..." oninput="jobItems[${i}].description=this.value;">
-      <input type="number" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">
+      ${isLaborLineItem(item.type)?`<input type="number" aria-label="Labor hours" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">`:'<span class="line-item-na">—</span>'}
+      ${isLaborLineItem(item.type)?'<span class="line-item-na">—</span>':`<input type="number" aria-label="Part quantity" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">`}
       <input type="number" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="jobItems[${i}].rate=parseFloat(this.value)||0;_calcJob();">
       <span class="job-item-amt" style="text-align:right;font-size:13px;font-variant-numeric:tabular-nums;">${fmt$(item.amount||0)}</span>
       <button class="btn btn-sm btn-danger" style="padding:2px 6px;min-width:0;" onclick="jobItems.splice(${i},1);renderJobItems();">×</button>
     </div>`).join('');
   _calcJob();
+}
+
+function isLaborLineItem(type){return ['labor','diagnostic'].includes(String(type||'').toLowerCase());}
+
+function setJobItemType(index,type){
+  const item=jobItems[index];if(!item)return;
+  if(isLaborLineItem(item.type)!==isLaborLineItem(type))item.qty=1;
+  item.type=type;
+  item.taxable=(type==='part'||type==='shop_supply')?1:0;
+  renderJobItems();
 }
 
 function addJobItem(type='labor'){
@@ -2914,21 +3046,39 @@ function addJobItem(type='labor'){
   renderJobItems();
 }
 
+function catalogServiceLine(service){
+  const hours=Number(service?.default_hours)>0?Number(service.default_hours):1;
+  const price=Number(service?.default_price)||0;
+  return {type:'labor',description:service?.name||'Service',qty:hours,rate:price,amount:+(hours*price).toFixed(2),taxable:0};
+}
+
 function addJobItemFromCatalog(){
   const cat=Array.isArray(state.catalog)?state.catalog:[];
-  if(!cat.length){toast('No catalog items are available. Add a service in the Service Catalog first.',8000);return;}
+  const inventory=Array.isArray(state.inventory)?state.inventory:[];
+  if(!cat.length&&!inventory.length){toast('No services or inventory parts are available. Add one in Service Catalog or Parts & Inventory first.',8000);return;}
   const select=document.getElementById('job-catalog-select');
-  select.innerHTML=cat.map(s=>`<option value="${safeId(s.id)}">${esc(s.category||'General')} — ${esc(s.name||'Service')} (${fmt$(s.default_price)})</option>`).join('');
+  const serviceOptions=cat.map(s=>`<option value="service:${safeId(s.id)}">${esc(s.category||'General')} — ${esc(s.name||'Service')} (${fmt$(s.default_price)})</option>`).join('');
+  const inventoryOptions=inventory.map(part=>`<option value="inventory:${safeId(part.id)}">${esc(part.name||'Part')}${part.part_number?' · '+esc(part.part_number):''} — ${fmt$(part.retail_price)} (${Number(part.quantity||0)} in stock)</option>`).join('');
+  select.innerHTML=`${serviceOptions?`<optgroup label="Service Catalog">${serviceOptions}</optgroup>`:''}${inventoryOptions?`<optgroup label="Parts &amp; Inventory">${inventoryOptions}</optgroup>`:''}`;
   document.getElementById('m-job-catalog').classList.add('open');
   select.focus();
 }
 
 function addSelectedJobCatalogItem(){
-  const selectedId=parseInt(document.getElementById('job-catalog-select').value);
-  const s=(Array.isArray(state.catalog)?state.catalog:[]).find(item=>item.id===selectedId);
-  if(!s){toast('That catalog item is no longer available. Close the picker and try again.',8000);return;}
-  const taxable = s.taxable ? 1 : 0;
-  jobItems.push({type:taxable?'part':'labor', description:s.name, qty:s.default_hours||1, rate:s.default_hours>0?s.default_price/s.default_hours:s.default_price, amount:s.default_price, taxable});
+  const [source,idText]=String(document.getElementById('job-catalog-select').value||'').split(':');
+  const selectedId=parseInt(idText);
+  if(source==='inventory'){
+    const part=(Array.isArray(state.inventory)?state.inventory:[]).find(item=>item.id===selectedId);
+    if(!part){toast('That inventory part is no longer available. Close the picker and try again.',8000);return;}
+    const rate=Number(part.retail_price)||0;
+    jobItems.push({type:'part',description:part.name||'Part',qty:1,rate,amount:rate,taxable:1,inventory_id:part.id});
+  }else if(source==='service'){
+    const service=(Array.isArray(state.catalog)?state.catalog:[]).find(item=>item.id===selectedId);
+    if(!service){toast('That service is no longer available. Close the picker and try again.',8000);return;}
+    jobItems.push(catalogServiceLine(service));
+  }else{
+    toast('Select a service or inventory part to add.',8000);return;
+  }
   renderJobItems();
   closeM('m-job-catalog');
 }
@@ -2964,7 +3114,11 @@ async function openJobModal(id){
       document.getElementById('jf-diagnosis').value=j.diagnosis||'';
       document.getElementById('jf-inv-status').value=j.invoice_status||'Unpaid';
       document.getElementById('jf-service-addr').value=j.service_address||'';
-      document.getElementById('jf-travel-fee').value=j.travel_fee||'';
+      document.getElementById('jf-apply-trip-fee').checked=Number(j.travel_fee||0)>0;
+      document.getElementById('jf-travel-fee').value=Number(j.travel_fee||state.settings.service_fee||0).toFixed(2);
+      document.getElementById('jf-require-parts-deposit').checked=Number(j.parts_deposit_required||0)>0;
+      document.getElementById('jf-parts-deposit').value=Number(j.parts_deposit_required||0).toFixed(2);
+      document.getElementById('jf-parts-deposit').dataset.manual='1';
       jobItems = (j.items||[]).map(i=>({...i}));
       if(!jobItems.length && (j.labor||j.parts)){
         if(j.labor) jobItems.push({type:'labor',description:j.service||'Labor',qty:j.labor_hours||1,rate:j.labor_hours>0?+(j.labor/j.labor_hours).toFixed(2):j.labor,amount:j.labor,taxable:0});
@@ -2973,13 +3127,18 @@ async function openJobModal(id){
       document.getElementById('jf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteJob(${safeId(id)})">Delete job</button>`;
     } else {
       document.getElementById('m-job-title').textContent='New Job';
-      ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr','jf-travel-fee'].forEach(x=>document.getElementById(x).value='');
+      ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr'].forEach(x=>document.getElementById(x).value='');
+      document.getElementById('jf-apply-trip-fee').checked=false;
+      document.getElementById('jf-travel-fee').value=Number(state.settings.service_fee||0).toFixed(2);
       document.getElementById('jf-ro').value=nextRepairOrderNumber();
       document.getElementById('jf-status').value='Pending';
       document.getElementById('jf-inv-status').value='Unpaid';
+      document.getElementById('jf-require-parts-deposit').checked=!!Number(state.settings.require_parts_deposit||0);
+      document.getElementById('jf-parts-deposit').dataset.manual='';
       jobItems = [];
       if(!(Array.isArray(state.customers)&&state.customers.length))toast('No customers are available. Add a customer before saving a job.',8000);
     }
+    toggleJobTripFee();
     renderJobItems();
   }catch(e){
     console.error('Unable to initialize job form:',e);
@@ -3003,6 +3162,15 @@ async function loadVehiclesForJob(selectId){
   }
 }
 
+function fillJobMileageFromVehicle(){
+  if(editJobId)return;
+  const vehicleId=parseInt(document.getElementById('jf-veh')?.value);
+  const mileageInput=document.getElementById('jf-miles');
+  if(!mileageInput)return;
+  const vehicle=(Array.isArray(state.vehicles)?state.vehicles:[]).find(item=>item.id===vehicleId);
+  mileageInput.value=vehicle&&Number(vehicle.miles)>0?Number(vehicle.miles):'';
+}
+
 async function saveJob(){
   const custId=parseInt(document.getElementById('jf-cust').value);
   const vehId=parseInt(document.getElementById('jf-veh').value);
@@ -3013,13 +3181,15 @@ async function saveJob(){
   if(!repairOrderNumber){toast('Repair order number must use the format RO-#### (for example, RO-1001).',8000);return;}
   repairOrderInput.value=repairOrderNumber;
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
-  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,repair_order_number:repairOrderNumber,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:parseFloat(document.getElementById('jf-travel-fee').value)||0,items:jobItems};
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,repair_order_number:repairOrderNumber,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:document.getElementById('jf-apply-trip-fee').checked?(parseFloat(document.getElementById('jf-travel-fee').value)||0):0,parts_deposit_required:document.getElementById('jf-require-parts-deposit').checked?(parseFloat(document.getElementById('jf-parts-deposit').value)||0):0,items:jobItems};
   const id=editJobId, existing=id?state.jobs.find(j=>j.id===id):null;
   await runMutation(`job-save-${id||'new'}`,{
     buttonId:'save-job-btn',action:'Saving job',request:()=>id?api('PUT',`/api/jobs/${id}`,body):api('POST','/api/jobs',body),
     apply:r=>{
       const {payment,...jobResult}=r;
-      upsertStateRecord('jobs',id?{...existing,...body,id,customer_id:existing.customer_id,vehicle_id:existing.vehicle_id,items:jobItems}:{...body,...jobResult,items:jobItems});
+      upsertStateRecord('jobs',{...(existing||{}),...body,...jobResult,items:Array.isArray(jobResult.items)?jobResult.items:jobItems});
+      const vehicle=state.vehicles.find(item=>item.id===vehId);
+      if(vehicle&&Number.isFinite(Number(jobResult.vehicle_mileage)))upsertStateRecord('vehicles',{...vehicle,miles:Number(jobResult.vehicle_mileage)});
       if(payment)upsertStateRecord('payments',payment);
     },
     render:()=>{renderSafely(renderJobs,renderDashboard,renderFinance,renderReport);if(detailCustId)renderCustDetail();},
@@ -3287,7 +3457,7 @@ async function savePayment(){
   const amt=parseFloat(document.getElementById('pf-amt').value)||0;
   if(!custId||!amt){toast('Please fill in customer and amount.');return;}
   const body={customer_id:custId,job_id:parseInt(document.getElementById('pf-job').value)||null,plan_id:parseInt(document.getElementById('pf-plan').value)||null,description:document.getElementById('pf-desc').value,amount:amt,method:document.getElementById('pf-method').value,date:document.getElementById('pf-date').value,note:document.getElementById('pf-note').value};
-  await runMutation('payment-save-new',{buttonId:'save-payment-btn',action:'Recording payment',request:()=>api('POST','/api/payments',body),apply:r=>upsertStateRecord('payments',{...body,...r}),render:()=>renderSafely(renderFinance,renderDashboard,renderPlans),close:'m-pmt',success:'Payment recorded'});
+  await runMutation('payment-save-new',{buttonId:'save-payment-btn',action:'Recording payment',request:()=>api('POST','/api/payments',body),apply:r=>{upsertStateRecord('payments',{...body,...r});const plan=state.plans.find(item=>item.id===body.plan_id);if(plan&&r.plan_installments)plan.installments=r.plan_installments;},render:()=>renderSafely(renderFinance,renderDashboard,renderPlans),close:'m-pmt',success:'Payment recorded'});
 }
 
 async function openPlanModal(){
@@ -3651,6 +3821,10 @@ function renderSettings(){
   document.getElementById('s-area').value     = s.service_area||'';
   document.getElementById('s-warranty-terms').value = s.warranty_terms||'12 months / 12,000 miles';
   document.getElementById('s-est-terms').value= s.estimate_terms||'';
+  document.getElementById('s-require-parts-deposit').checked=!!Number(s.require_parts_deposit||0);
+  document.getElementById('s-parts-deposit-percent').value=Number(s.parts_deposit_percent??100);
+  document.getElementById('s-payment-grace-days').value=Number(s.payment_grace_days||0);
+  document.getElementById('s-late-fee').value=Number(s.late_fee||0);
   renderPartsMarkupSettings(partsMarkupTiers());
   // Logo preview
   const preview = document.getElementById('s-logo-preview');
@@ -3713,11 +3887,17 @@ async function saveSettings(){
     warranty_terms:      document.getElementById('s-warranty-terms').value,
     estimate_terms:      document.getElementById('s-est-terms').value,
     parts_markup_tiers:  JSON.stringify(markupTiers),
+    require_parts_deposit: document.getElementById('s-require-parts-deposit').checked?1:0,
+    parts_deposit_percent: parseFloat(document.getElementById('s-parts-deposit-percent').value)||0,
+    payment_grace_days: parseInt(document.getElementById('s-payment-grace-days').value)||0,
+    late_fee: parseFloat(document.getElementById('s-late-fee').value)||0,
   };
   await runMutation('settings-save',{buttonId:'settings-save-btn',action:'Saving settings',request:()=>api('PUT','/api/settings',body),apply:()=>{state.settings={...state.settings,...body};delete state.settings._pendingLogo;},render:()=>{const saved=document.getElementById('s-saved');saved.style.display='';setTimeout(()=>saved.style.display='none',2500);},success:'Settings saved'});
 }
 
 // ── Invoice ──
+let printableDocumentInfo={title:'Invoice',filename:'WrenchPro-Invoice.pdf'};
+
 function openInvoice(jobId){
   const j = state.jobs.find(x=>x.id===jobId);
   if(!j) return;
@@ -3726,6 +3906,7 @@ function openInvoice(jobId){
   const s = state.settings;
   const taxRate = s.tax_rate || 0;
   const invoiceNum = `INV-${String(safeId(j.id)).padStart(4,'0')}`;
+  printableDocumentInfo={title:`Invoice ${invoiceNum}`,filename:`${invoiceNum}.pdf`};
 
   // Build line rows and compute breakdowns from items when available
   let lineRows = '';
@@ -3756,11 +3937,14 @@ function openInvoice(jobId){
 
   const tax = partsTotal * taxRate / 100;
   const total = laborTotal + partsTotal + tax + travelFee;
+  const jobPaid=state.payments.filter(payment=>payment.job_id===jobId).reduce((sum,payment)=>sum+Number(payment.amount||0),0);
+  const depositRequired=Number(j.parts_deposit_required||0);
+  const depositRemaining=Math.max(0,depositRequired-jobPaid);
   const linkedPlans=state.plans.filter(p=>p.job_id===jobId);
   const paymentPlanHtml=linkedPlans.map(p=>{const additionalPayments=planAdditionalPayments(p);return `<div style="margin-top:1rem;padding:12px;border:1px solid #deded8;border-radius:6px;break-inside:avoid;">
     <div style="display:flex;justify-content:space-between;gap:1rem;font-weight:600;"><span>Payment plan — ${esc(p.description||p.repair_order_number||'')}</span><span>Balance: ${fmt$(planBalance(p))}</span></div>
     <div style="display:flex;gap:18px;margin-top:5px;font-size:12px;color:#666;"><span>Plan total: ${fmt$(p.total)}</span><span>Paid: ${fmt$(planPaid(p))}</span><span>Frequency: ${esc(p.frequency||'monthly')}</span></div>
-    <div style="margin-top:8px;font-size:11px;color:#555;">${(p.installments||[]).map((inst,index)=>`${index+1}. ${esc(inst.due_date||'No due date')} — ${fmt$(inst.amount)} (${inst.paid?'Paid':'Due'})`).join('<br>')||'No installment schedule available'}</div>
+    <div style="margin-top:8px;font-size:11px;color:#555;">${(p.installments||[]).map((inst,index)=>`${index+1}. ${esc(inst.due_date||'No due date')} — ${fmt$(inst.amount)}${Number(inst.late_fee_due||inst.late_fee||0)>0?` + ${fmt$(inst.late_fee_due||inst.late_fee)} late fee`:''} (${inst.paid?'Paid':Number(inst.amount_paid||0)>0?`${fmt$(inst.amount_paid)} paid, balance due`:'Due'})`).join('<br>')||'No installment schedule available'}</div>
     ${additionalPayments.length?`<div style="margin-top:8px;font-size:11px;color:#555;"><strong>Additional payments</strong><br>${additionalPayments.map(payment=>`${esc(payment.date||'—')} — ${esc(payment.description||'Payment')}: ${fmt$(payment.amount)}`).join('<br>')}</div>`:''}
     ${p.notes?`<div style="margin-top:7px;font-size:11px;color:#777;">Terms: ${esc(p.notes)}</div>`:''}
   </div>`;}).join('');
@@ -3818,6 +4002,7 @@ function openInvoice(jobId){
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;margin-top:4px;"><span>Total</span><span>${fmt$(total)}</span></div>
       </div>
     </div>
+    ${depositRequired>0?`<div style="margin-top:1rem;padding:10px;border:1px solid ${depositRemaining>0?'#E6A23C':'#74A84A'};border-radius:6px;font-size:12px;"><strong>Parts deposit:</strong> Required ${fmt$(depositRequired)} · Received ${fmt$(Math.min(jobPaid,depositRequired))} · <strong>${depositRemaining>0?`Still due ${fmt$(depositRemaining)}`:'Paid'}</strong></div>`:''}
     ${paymentPlanHtml}
     ${j.notes?`<div style="margin-top:1rem;padding:10px;background:#f5f5f0;border-radius:6px;font-size:12px;color:#666;"><strong>Notes:</strong> ${esc(j.notes)}</div>`:''}
     ${s.invoice_footer?`<div style="margin-top:1.5rem;text-align:center;font-size:12px;color:#aaa;border-top:1px solid #e8e8e4;padding-top:1rem;">${esc(s.invoice_footer)}</div>`:''}
@@ -3825,9 +4010,10 @@ function openInvoice(jobId){
   document.getElementById('m-invoice').classList.add('open');
 }
 
-function printInvoice(){
+function browserPrintDocument(){
   const content = document.getElementById('invoice-content').innerHTML;
   const w = window.open('','_blank','width=800,height:900');
+  if(!w){toast('The print window was blocked. Allow pop-ups and try again.',8000);return;}
   w.document.write(`<!DOCTYPE html><html><head><title>Invoice</title><style>
     *{box-sizing:border-box;margin:0;padding:0;} body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px;color:#1a1a1a;font-size:14px;}
     @media print{body{padding:20px;}}
@@ -3835,6 +4021,32 @@ function printInvoice(){
   w.document.close();
   w.focus();
   setTimeout(()=>{ w.print(); w.close(); }, 400);
+}
+
+function buildPrintableDocument(){
+  const content=document.getElementById('invoice-content').innerHTML;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>${esc(printableDocumentInfo.title)}</title><style>
+    *{box-sizing:border-box;margin:0;padding:0;} body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px;color:#1a1a1a;font-size:14px;}
+    @page{size:Letter;margin:.45in;} @media print{body{padding:20px;}}
+  </style></head><body>${content}</body></html>`;
+}
+
+async function printInvoice(){
+  const payload={...printableDocumentInfo,html:buildPrintableDocument()};
+  if(!window.electronAPI?.printDocument){browserPrintDocument();return;}
+  try{
+    const result=await window.electronAPI.printDocument(payload);
+    if(!result.success&&!result.canceled)toast(`Printing failed: ${result.error||'No printer was available.'}`,8000);
+  }catch(error){console.error('Native print failed:',error);toast(`Printing failed: ${error.message||'Check your printer and try again.'}`,8000);}
+}
+
+async function saveInvoicePdf(){
+  const payload={...printableDocumentInfo,html:buildPrintableDocument()};
+  if(!window.electronAPI?.savePdf){toast('Direct PDF saving is available in the installed WrenchPro app. Use Print and choose Save as PDF in this browser.',8000);return;}
+  try{
+    const result=await window.electronAPI.savePdf(payload);
+    if(result.success)toast(`PDF saved to ${result.filePath}`,8000);
+  }catch(error){console.error('PDF save failed:',error);toast(`PDF could not be saved: ${error.message||'Choose another location and try again.'}`,8000);}
 }
 
 // ── Quick Entry ──
@@ -4272,6 +4484,7 @@ async function openEstimateModal(id){
     await loadVehiclesForEst(e.vehicle_id);
     document.getElementById('estf-status').value=e.status||'Draft';
     document.getElementById('estf-date').value=e.date||today();
+    document.getElementById('estf-miles').value=e.miles||'';
     document.getElementById('estf-expires').value=e.expires_date||'';
     document.getElementById('estf-complaint').value=e.customer_complaint||'';
     document.getElementById('estf-notes').value=e.notes||'';
@@ -4282,7 +4495,7 @@ async function openEstimateModal(id){
     document.getElementById('estf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEstimate(${safeId(id)})">Delete</button>`;
   } else {
     document.getElementById('m-est-title').textContent='New Estimate';
-    ['estf-complaint','estf-notes'].forEach(x=>document.getElementById(x).value='');
+    ['estf-complaint','estf-notes','estf-miles'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('estf-status').value='Draft';
     document.getElementById('estf-convert-btn').style.display='none';
     const d=new Date(); d.setDate(d.getDate()+30);
@@ -4300,6 +4513,15 @@ async function loadVehiclesForEst(selectId){
   sel.innerHTML='<option value="">— Select vehicle —</option>'+vehs.map(v=>`<option value="${safeId(v.id)}" ${selectId===v.id?'selected':''}>${vLabel(v)}${v.plate?' · '+esc(v.plate):''}</option>`).join('');
 }
 
+function fillEstimateMileageFromVehicle(){
+  if(editEstId)return;
+  const vehicleId=parseInt(document.getElementById('estf-veh')?.value);
+  const mileageInput=document.getElementById('estf-miles');
+  if(!mileageInput)return;
+  const vehicle=(Array.isArray(state.vehicles)?state.vehicles:[]).find(item=>item.id===vehicleId);
+  mileageInput.value=vehicle&&Number(vehicle.miles)>0?Number(vehicle.miles):'';
+}
+
 function addEstItem(type='labor',desc='',qty=1,rate=0){
   estItems.push({type,description:desc,qty,rate,amount:qty*rate});
   renderEstItems();
@@ -4311,7 +4533,7 @@ function addEstItemFromCatalog(){
   const pick=prompt('Enter service name to add (or cancel):\n\n'+state.catalog.map((s,i)=>`${i+1}. ${s.name} — ${fmt$(s.default_price)}`).join('\n'));
   if(!pick)return;
   const svc=state.catalog.find(s=>s.name.toLowerCase()===pick.toLowerCase())||state.catalog[parseInt(pick)-1];
-  if(svc) addEstItem('labor',svc.name,svc.default_hours||1,svc.default_hours?svc.default_price/(svc.default_hours||1):svc.default_price);
+  if(svc){estItems.push(catalogServiceLine(svc));renderEstItems();}
 }
 
 function renderEstItems(){
@@ -4319,16 +4541,24 @@ function renderEstItems(){
   if(!estItems.length){c.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0;">No items yet. Click + Add item.</div>';_calcEst();return;}
   c.innerHTML=estItems.map((item,i)=>`
     <div class="est-item-row">
-      <select style="padding:4px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onchange="estItems[${i}].type=this.value;_calcEst()">
+      <select style="padding:4px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onchange="setEstItemType(${i},this.value)">
         ${['labor','parts','fee','diagnostic','sublet'].map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t[0].toUpperCase()+t.slice(1)}</option>`).join('')}
       </select>
       <input style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${attrEsc(item.description||'')}" placeholder="Description" oninput="estItems[${i}].description=this.value">
-      <input type="number" style="padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">
+      ${isLaborLineItem(item.type)?`<input type="number" aria-label="Labor hours" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">`:'<span class="line-item-na">—</span>'}
+      ${isLaborLineItem(item.type)?'<span class="line-item-na">—</span>':`<input type="number" aria-label="Part quantity" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">`}
       <input type="number" style="padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="estItems[${i}].rate=parseFloat(this.value)||0;_calcEst()">
       <span class="est-item-amt">${fmt$((item.qty||0)*(item.rate||0))}</span>
       <button class="btn btn-sm btn-danger" onclick="estItems.splice(${i},1);renderEstItems()">×</button>
     </div>`).join('');
   _calcEst();
+}
+
+function setEstItemType(index,type){
+  const item=estItems[index];if(!item)return;
+  if(isLaborLineItem(item.type)!==isLaborLineItem(type))item.qty=1;
+  item.type=type;
+  renderEstItems();
 }
 
 function calculateEstimateTotals(items,discount,taxRate){
@@ -4365,7 +4595,7 @@ async function saveEstimate(){
   const disc=parseFloat(document.getElementById('est-discount').value)||0;
   const taxRate=parseFloat(document.getElementById('est-taxrate').value)||0;
   const total=calculateEstimateTotals(estItems,disc,taxRate).total;
-  const body={customer_id:custId,vehicle_id:parseInt(document.getElementById('estf-veh').value)||null,date:document.getElementById('estf-date').value,status:document.getElementById('estf-status').value,customer_complaint:document.getElementById('estf-complaint').value,notes:document.getElementById('estf-notes').value,discount:disc,tax_rate:taxRate,expires_date:document.getElementById('estf-expires').value||null,total,items:estItems};
+  const body={customer_id:custId,vehicle_id:parseInt(document.getElementById('estf-veh').value)||null,date:document.getElementById('estf-date').value,miles:parseInt(document.getElementById('estf-miles').value)||0,status:document.getElementById('estf-status').value,customer_complaint:document.getElementById('estf-complaint').value,notes:document.getElementById('estf-notes').value,discount:disc,tax_rate:taxRate,expires_date:document.getElementById('estf-expires').value||null,total,items:estItems};
   const wantsConversion=body.status==='Approved';
   if(wantsConversion&&!body.vehicle_id){toast('Select a vehicle before approving and converting this estimate to a repair order.',8000);return;}
   const id=editEstId, existing=id?state.estimates.find(e=>e.id===id):null;
@@ -4376,7 +4606,7 @@ async function saveEstimate(){
       const saveBody=wantsConversion?{...body,status:'Draft'}:body;
       const saved=id?await api('PUT',`/api/estimates/${id}`,saveBody,{silentError:true}):await api('POST','/api/estimates',saveBody,{silentError:true});
       const savedId=id||saved.id;
-      const record=id?{...existing,...saveBody,id,items:estItems}:{...saveBody,...saved,id:savedId,items:estItems};
+      const record=id?{...existing,...saveBody,...saved,id,items:estItems}:{...saveBody,...saved,id:savedId,items:estItems};
       if(!wantsConversion)return{record};
       editEstId=savedId;
       upsertStateRecord('estimates',record);
@@ -4388,7 +4618,11 @@ async function saveEstimate(){
         throw new Error(`The estimate was saved as Draft, but no repair order was created. Correct the issue and approve it again. (${error.message})`);
       }
     },
-    apply:r=>upsertStateRecord('estimates',r.record),
+    apply:r=>{
+      upsertStateRecord('estimates',r.record);
+      const vehicle=state.vehicles.find(item=>item.id===r.record.vehicle_id);
+      if(vehicle&&Number.isFinite(Number(r.record.vehicle_mileage)))upsertStateRecord('vehicles',{...vehicle,miles:Number(r.record.vehicle_mileage)});
+    },
     render:renderEstimates,
     close:'m-estimate',
     success:r=>wantsConversion?`Estimate approved and converted to ${r.conversion?.repair_order_number||'a repair order'}.`:(id?'Estimate updated':'Estimate saved')
@@ -4416,13 +4650,15 @@ async function openConvertedRepairOrder(conversion){
 }
 
 function openEstimateInvoice(id){
-  const e=state.estimates.find(x=>x.id===id); if(!e)return;
+  const e=state.estimates.find(x=>x.id===id); if(!e)return false;
   const c=state.customers.find(x=>x.id===e.customer_id);
   const v=state.vehicles.find(x=>x.id===e.vehicle_id);
   const s=state.settings;
   const disc=e.discount||0, taxRate=e.tax_rate||0;
   const totals=calculateEstimateTotals(e.items||[],disc,taxRate);
   const tax=totals.tax;
+  const estimateNumber=e.estimate_number||`EST-${String(safeId(e.id)).padStart(4,'0')}`;
+  printableDocumentInfo={title:`Estimate ${estimateNumber}`,filename:`${estimateNumber}.pdf`};
   document.getElementById('invoice-content').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a1a1a;">
       <div>${safeImageSrc(s.invoice_logo)?`<img src="${safeImageSrc(s.invoice_logo)}" style="max-height:60px;max-width:180px;margin-bottom:6px;display:block;">`:''}
@@ -4443,6 +4679,7 @@ function openEstimateInvoice(id){
       </div>
       <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#aaa;margin-bottom:4px;">Vehicle</div>
         <div style="font-weight:600;">${vLabel(v)}</div>
+        ${e.miles?`<div style="font-size:12px;color:#888;">Mileage: ${Number(e.miles).toLocaleString()} mi</div>`:''}
       </div>
     </div>
     ${e.customer_complaint?`<div style="background:#f5f5f0;padding:8px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px;"><strong>Customer concern:</strong> ${esc(e.customer_complaint)}</div>`:''}
@@ -4466,9 +4703,18 @@ function openEstimateInvoice(id){
     ${s.invoice_footer?`<div style="margin-top:1rem;text-align:center;font-size:11px;color:#aaa;">${esc(s.invoice_footer)}</div>`:''}
   `;
   document.getElementById('m-invoice').classList.add('open');
+  return true;
 }
 
-function printEstimate(){ printInvoice(); }
+async function printEstimate(){
+  if(!editEstId||!openEstimateInvoice(editEstId)){toast('Save the estimate before printing it.',8000);return;}
+  await printInvoice();
+}
+
+async function saveEstimatePdf(){
+  if(!editEstId||!openEstimateInvoice(editEstId)){toast('Save the estimate before exporting it as a PDF.',8000);return;}
+  await saveInvoicePdf();
+}
 
 // ── Inspections ───────────────────────────────────────────────────────────────
 let editInspId = null;

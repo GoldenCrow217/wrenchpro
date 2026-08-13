@@ -10,7 +10,9 @@ function validateJob(res, body, create) {
   if (!positiveId(res, body.employee_id, 'employee_id')) return false;
   if (!positiveId(res, body.estimate_id, 'estimate_id')) return false;
   if (!isoDate(res, body, 'date', { required: true, label: 'Job date' })) return false;
-  for (const field of ['miles','labor','labor_hours','labor_rate','parts','travel_fee']) if (!finiteNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
+  for (const field of ['miles','labor','labor_hours','labor_rate','parts','travel_fee','parts_deposit_required']) if (!finiteNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
+  if (body.miles !== undefined && Number(body.miles) < 0) return fail(res, 'miles', 'Mileage cannot be negative');
+  if (Number(body.parts_deposit_required || 0) < 0) return fail(res, 'parts_deposit_required', 'Parts deposit cannot be negative');
   if (body.items !== undefined && !Array.isArray(body.items)) return fail(res, 'items', 'Items must be an array');
   for (const item of body.items || []) {
     for (const field of ['qty','rate','amount']) if (!finiteNumber(res, item, field, { label: `Item ${field}` })) return false;
@@ -22,6 +24,23 @@ function validateJob(res, body, create) {
     if (body.repair_order_number.length > 80) return fail(res, 'repair_order_number', 'Repair order number must be 80 characters or fewer');
   }
   return true;
+}
+
+function savedJobRecord(req, jobId) {
+  const tenant = customerTenantWhere(req, 'c');
+  const job = db.prepare(`
+    SELECT j.*, c.first, c.last, v.year, v.make, v.model, v.plate, v.miles AS vehicle_mileage,
+           e.first AS emp_first, e.last AS emp_last
+    FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    JOIN vehicles v ON j.vehicle_id = v.id
+    LEFT JOIN employees e ON j.employee_id = e.id
+    WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL
+      AND v.deleted_at IS NULL AND ${tenant.clause}
+  `).get(jobId, ...tenant.values);
+  if (!job) return null;
+  job.items = db.prepare('SELECT * FROM job_items WHERE job_id = ? ORDER BY id').all(job.id);
+  return job;
 }
 
 router.get('/', (req, res) => {
@@ -117,16 +136,27 @@ const saveJobItems = db.transaction((jobId, items) => {
   items.forEach(i => ins.run(jobId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.taxable ? 1 : 0, i.inventory_id || null));
 });
 
-const createJob = db.transaction((values, items, automaticPayment) => {
+function advanceVehicleMileage(vehicleId, mileage) {
+  const nextMileage = Number(mileage);
+  if (!Number.isFinite(nextMileage) || nextMileage < 0) return;
+  db.prepare(`
+    UPDATE vehicles
+    SET miles = ?
+    WHERE id = ? AND deleted_at IS NULL AND ? > COALESCE(miles, 0)
+  `).run(nextMileage, vehicleId, nextMileage);
+}
+
+const createJob = db.transaction((values, items, automaticPayment, vehicleMileage) => {
   const result = db.prepare(`
     INSERT INTO jobs
       (customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
        parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
-       service_address, travel_fee, closed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       service_address, travel_fee, parts_deposit_required, closed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(...values);
   const jobId = result.lastInsertRowid;
   if (items && items.length) saveJobItems(jobId, items);
+  advanceVehicleMileage(vehicleMileage.vehicleId, vehicleMileage.miles);
   const payment = automaticPayment ? insertAutomaticJobPayment(jobId, automaticPayment.customer, automaticPayment.amount, automaticPayment.method, automaticPayment.date, automaticPayment.repairOrderNumber, automaticPayment.service) : null;
   return { jobId, payment };
 });
@@ -136,7 +166,7 @@ router.post('/', (req, res) => {
   const {
     customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
     parts, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
-    service_address, travel_fee, items
+    service_address, travel_fee, parts_deposit_required, items
   } = req.body;
 
   const tenant = customerTenantWhere(req, 'c');
@@ -168,6 +198,9 @@ router.post('/', (req, res) => {
   const partsVal = totals ? totals.parts : (parts || 0);
 
   const settings = billingSettings(req);
+  if (Number(parts_deposit_required || 0) > 0 && ['In Progress', 'Complete'].includes(status) && invoice_status !== 'Paid') {
+    return fail(res, 'parts_deposit_required', 'Required parts deposit must be paid before work can begin', 409);
+  }
   const paidOnCreate = invoice_status === 'Paid' ? {
     customer: cust,
     amount: jobGrandTotal(req, laborVal, partsVal, travel_fee),
@@ -181,9 +214,10 @@ router.post('/', (req, res) => {
     laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
     partsVal, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
-    service_address || '', travel_fee || 0, closedAt
-  ], items, paidOnCreate);
-  res.json({ id: created.jobId, closed_at: closedAt, ...req.body, payment: created.payment });
+    service_address || '', travel_fee || 0, parts_deposit_required || 0, closedAt
+  ], items, paidOnCreate, { vehicleId: vehicle_id, miles: miles || 0 });
+  const savedJob = savedJobRecord(req, created.jobId);
+  res.json({ ...savedJob, payment: created.payment });
 });
 
 router.put('/:id', (req, res) => {
@@ -191,12 +225,12 @@ router.put('/:id', (req, res) => {
   const {
     service, repair_order_number, date, miles, labor, labor_hours, labor_rate, parts, status, notes,
     employee_id, complaint, diagnosis, invoice_status, estimate_id,
-    service_address, travel_fee, items
+    service_address, travel_fee, parts_deposit_required, items
   } = req.body;
 
   const tenant = customerTenantWhere(req, 'c');
   const current = db.prepare(`
-    SELECT j.closed_at, j.customer_id, j.invoice_status, c.first, c.last
+    SELECT j.closed_at, j.customer_id, j.vehicle_id, j.invoice_status, c.first, c.last
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
     WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
@@ -232,6 +266,10 @@ router.put('/:id', (req, res) => {
     ? Math.max(0, Math.round((jobGrandTotal(req, laborVal, partsVal, travel_fee) - paidToDate + Number.EPSILON) * 100) / 100)
     : 0;
   const settings = billingSettings(req);
+  const depositPaid = Number(db.prepare('SELECT COALESCE(SUM(amount),0) AS total FROM payments WHERE job_id=?').get(req.params.id).total) || 0;
+  if (Number(parts_deposit_required || 0) > depositPaid + .005 && ['In Progress', 'Complete'].includes(status) && invoice_status !== 'Paid') {
+    return fail(res, 'parts_deposit_required', `Required parts deposit has ${Math.max(0, Number(parts_deposit_required) - depositPaid).toFixed(2)} remaining`, 409);
+  }
   let automaticPayment = null;
 
   db.transaction(() => {
@@ -239,17 +277,18 @@ router.put('/:id', (req, res) => {
       UPDATE jobs
       SET service=?, repair_order_number=?, date=?, miles=?, labor=?, labor_hours=?, labor_rate=?, parts=?,
           status=?, notes=?, employee_id=?, complaint=?, diagnosis=?, invoice_status=?,
-          estimate_id=?, service_address=?, travel_fee=?, closed_at=?
+          estimate_id=?, service_address=?, travel_fee=?, parts_deposit_required=?, closed_at=?
       WHERE id=?
     `).run(
       service, repair_order_number || '', date, miles || 0,
       laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
       partsVal, status || 'Pending', notes || '', employee_id || null,
       complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
-      service_address || '', travel_fee || 0, closedAt,
+      service_address || '', travel_fee || 0, parts_deposit_required || 0, closedAt,
       req.params.id
     );
     if (items !== undefined) saveJobItems(req.params.id, items || []);
+    advanceVehicleMileage(current.vehicle_id, miles || 0);
     if (shouldRecordPayment && remainingBalance > 0) {
       automaticPayment = insertAutomaticJobPayment(
         Number(req.params.id),
@@ -262,7 +301,8 @@ router.put('/:id', (req, res) => {
       );
     }
   })();
-  res.json({ success: true, payment: automaticPayment });
+  const savedJob = savedJobRecord(req, req.params.id);
+  res.json({ ...savedJob, success: true, payment: automaticPayment });
 });
 
 router.delete('/:id', (req, res) => {

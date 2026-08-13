@@ -21,6 +21,32 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.31 - 2026-08-12
+
+### Added
+
+- Native Windows printing and direct PDF saving for invoices and estimates.
+- Dashboard calculation QA covering revenue, profit, outstanding balances, overdue invoices, activity, and pipeline periods.
+- Estimate and repair-order mileage tracking that advances vehicle mileage without allowing older documents to reduce it.
+- Optional parts deposits, configurable payment grace periods and late fees, and expanded payment-plan details on invoices.
+- Request-scoped shop validation for the desktop-to-hosted application bridge while preserving offline desktop behavior.
+
+### Changed
+
+- Jobs can be filtered as all, open, or closed repair orders and sorted in either direction by every data column.
+- Job and estimate line editors separate labor hours from parts quantity and retain service-catalog hours and pricing.
+- The repair-order catalog picker includes both service-catalog and inventory items.
+- Trip fees use the configured default but remain optional per repair order.
+- Dashboard KPIs use their stated periods and include parts-only tax, trip fees, attached payments, and current-month expenses.
+- Vehicle entry places VIN first, and new repair orders and estimates prefill the selected vehicle's current mileage.
+
+### Fixed
+
+- Job rows update deterministically after line-item saves instead of waiting for an unrelated refresh.
+- Estimate numbers are allocated sequentially and same-day estimates have stable newest-first ordering.
+- Estimate mileage is retained when converting an approved estimate into a repair order.
+- Invoice and estimate printing no longer depends on a browser popup workflow in the installed desktop application.
+
 ## v1.0.30 - 2026-08-10
 
 ### Added

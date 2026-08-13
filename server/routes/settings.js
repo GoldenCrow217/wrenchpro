@@ -11,6 +11,7 @@ const SETTINGS_FIELDS = [
   'default_pay_method', 'tax_rate', 'oil_warn_miles', 'currency_symbol',
   'tax_id', 'invoice_terms', 'invoice_footer', 'invoice_logo',
   'warranty_terms', 'estimate_terms', 'parts_markup_tiers',
+  'require_parts_deposit', 'parts_deposit_percent', 'payment_grace_days', 'late_fee',
 ];
 
 function globalSettings() {
@@ -29,9 +30,12 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', (req, res) => {
-  for (const [field, label] of [['default_labor_rate','Default labor rate'],['diagnostic_rate','Diagnostic rate'],['fleet_rate','Fleet rate'],['emergency_rate','Emergency rate'],['service_fee','Service fee'],['tax_rate','Tax rate'],['oil_warn_miles','Oil warning mileage']]) {
+  for (const [field, label] of [['default_labor_rate','Default labor rate'],['diagnostic_rate','Diagnostic rate'],['fleet_rate','Fleet rate'],['emergency_rate','Emergency rate'],['service_fee','Service fee'],['tax_rate','Tax rate'],['oil_warn_miles','Oil warning mileage'],['parts_deposit_percent','Parts deposit percent'],['payment_grace_days','Payment grace days'],['late_fee','Late fee']]) {
     if (!finiteNumber(res, req.body, field, { label })) return;
   }
+  if (Number(req.body.parts_deposit_percent || 0) < 0 || Number(req.body.parts_deposit_percent || 0) > 100) return fail(res, 'parts_deposit_percent', 'Parts deposit percent must be between 0 and 100');
+  if (!Number.isInteger(Number(req.body.payment_grace_days || 0)) || Number(req.body.payment_grace_days || 0) < 0) return fail(res, 'payment_grace_days', 'Payment grace days must be a non-negative whole number');
+  if (Number(req.body.late_fee || 0) < 0) return fail(res, 'late_fee', 'Late fee cannot be negative');
   let partsMarkupTiers;
   try {
     partsMarkupTiers = JSON.stringify(normalizeMarkupTiers(req.body.parts_markup_tiers));
@@ -64,6 +68,10 @@ router.put('/', (req, res) => {
     warranty_terms: req.body.warranty_terms || '12 months / 12,000 miles',
     estimate_terms: req.body.estimate_terms || '',
     parts_markup_tiers: partsMarkupTiers,
+    require_parts_deposit: req.body.require_parts_deposit ? 1 : 0,
+    parts_deposit_percent: parseFloat(req.body.parts_deposit_percent) || 0,
+    payment_grace_days: parseInt(req.body.payment_grace_days) || 0,
+    late_fee: parseFloat(req.body.late_fee) || 0,
   };
 
   if (!shopId) {
@@ -73,7 +81,8 @@ router.put('/', (req, res) => {
         default_labor_rate=?, diagnostic_rate=?, fleet_rate=?, emergency_rate=?, service_fee=?,
         default_pay_method=?, tax_rate=?, oil_warn_miles=?, currency_symbol=?,
         tax_id=?, invoice_terms=?, invoice_footer=?, invoice_logo=?,
-        warranty_terms=?, estimate_terms=?, parts_markup_tiers=?
+        warranty_terms=?, estimate_terms=?, parts_markup_tiers=?,
+        require_parts_deposit=?, parts_deposit_percent=?, payment_grace_days=?, late_fee=?
       WHERE id = 1
     `).run(...SETTINGS_FIELDS.map(field => values[field]));
     return res.json({ ok: true });

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu, ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { findFreePort } = require('./find-free-port');
@@ -37,6 +38,68 @@ function waitForServer(port, attempts = 30) {
     try_(attempts);
   });
 }
+
+function validatePrintPayload(event, payload) {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+    throw new Error('Print request was not sent by the WrenchPro window');
+  }
+  if (!payload || typeof payload.html !== 'string' || !payload.html.trim() || payload.html.length > 5_000_000) {
+    throw new Error('Printable document is missing or too large');
+  }
+  const title = typeof payload.title === 'string' && payload.title.trim() ? payload.title.trim().slice(0, 120) : 'WrenchPro Document';
+  const requestedName = typeof payload.filename === 'string' ? payload.filename : `${title}.pdf`;
+  const safeName = requestedName.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').slice(0, 160);
+  return { html: payload.html, title, filename: safeName.toLowerCase().endsWith('.pdf') ? safeName : `${safeName}.pdf` };
+}
+
+async function createPrintableWindow(document) {
+  const printWindow = new BrowserWindow({
+    show: false,
+    parent: mainWindow,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      javascript: false,
+    },
+  });
+  printWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(document.html)}`);
+  return printWindow;
+}
+
+ipcMain.handle('document:print', async (event, payload) => {
+  const document = validatePrintPayload(event, payload);
+  const printWindow = await createPrintableWindow(document);
+  try {
+    return await new Promise((resolve) => {
+      printWindow.webContents.print({ silent: false, printBackground: true }, (success, failureReason) => {
+        resolve({ success, canceled: !success && /cancel/i.test(failureReason || ''), error: success ? '' : (failureReason || 'Printing was canceled or unavailable') });
+      });
+    });
+  } finally {
+    if (!printWindow.isDestroyed()) printWindow.destroy();
+  }
+});
+
+ipcMain.handle('document:save-pdf', async (event, payload) => {
+  const document = validatePrintPayload(event, payload);
+  const selection = await dialog.showSaveDialog(mainWindow, {
+    title: `Save ${document.title} as PDF`,
+    defaultPath: path.join(app.getPath('documents'), document.filename),
+    filters: [{ name: 'PDF document', extensions: ['pdf'] }],
+    properties: ['createDirectory', 'showOverwriteConfirmation'],
+  });
+  if (selection.canceled || !selection.filePath) return { success: false, canceled: true };
+  const printWindow = await createPrintableWindow(document);
+  try {
+    const pdf = await printWindow.webContents.printToPDF({ printBackground: true, pageSize: 'Letter', preferCSSPageSize: true });
+    await fs.promises.writeFile(selection.filePath, pdf);
+    return { success: true, filePath: selection.filePath };
+  } finally {
+    if (!printWindow.isDestroyed()) printWindow.destroy();
+  }
+});
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 function buildMenu() {

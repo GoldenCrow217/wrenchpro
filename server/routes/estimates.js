@@ -11,7 +11,8 @@ function validateEstimate(res, body, create) {
   if (!positiveId(res, body.employee_id, 'employee_id')) return false;
   if (create && !isoDate(res, body, 'date', { required: true, label: 'Estimate date' })) return false;
   if (!isoDate(res, body, 'expires_date', { label: 'Expiration date' })) return false;
-  for (const field of ['discount','tax_rate','total']) if (!finiteNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
+  for (const field of ['miles','discount','tax_rate','total']) if (!finiteNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
+  if (body.miles !== undefined && Number(body.miles) < 0) return fail(res, 'miles', 'Mileage cannot be negative');
   if (body.items !== undefined && !Array.isArray(body.items)) return fail(res, 'items', 'Items must be an array');
   for (const item of body.items || []) {
     for (const field of ['qty','rate','amount']) if (!finiteNumber(res, item, field, { label: `Item ${field}` })) return false;
@@ -30,7 +31,7 @@ router.get('/', (req, res) => {
     LEFT JOIN vehicles  v   ON e.vehicle_id  = v.id
     LEFT JOIN employees emp ON e.employee_id = emp.id
     WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
-    ORDER BY e.date DESC
+    ORDER BY e.date DESC, e.id DESC
   `).all(...tenant.values);
   if (estimates.length) {
     const ids = estimates.map(e => e.id);
@@ -48,10 +49,61 @@ router.get('/', (req, res) => {
   res.json(estimates);
 });
 
+function nextEstimateNumber(req) {
+  const tenant = customerTenantWhere(req, 'c');
+  const estimates = db.prepare(`
+    SELECT e.estimate_number
+    FROM estimates e
+    JOIN customers c ON e.customer_id = c.id
+    WHERE ${tenant.clause}
+  `).all(...tenant.values);
+  const highest = estimates.reduce((max, estimate) => {
+    const match = String(estimate.estimate_number || '').trim().match(/^EST-(\d+)$/i);
+    if (!match) return max;
+    const number = Number(match[1]);
+    return Number.isSafeInteger(number) ? Math.max(max, number) : max;
+  }, 1000);
+  return `EST-${String(highest + 1).padStart(4, '0')}`;
+}
+
+function advanceEstimateVehicleMileage(vehicleId, mileage) {
+  const nextMileage = Number(mileage);
+  if (!vehicleId || !Number.isFinite(nextMileage) || nextMileage < 0) return;
+  db.prepare(`UPDATE vehicles SET miles=? WHERE id=? AND deleted_at IS NULL AND ? > COALESCE(miles,0)`)
+    .run(nextMileage, vehicleId, nextMileage);
+}
+
+const createEstimate = db.transaction((req, values) => {
+  const num = nextEstimateNumber(req);
+  const total = calculateEstimateTotals(values.items || [], values.discount, values.tax_rate).total;
+  const result = db.prepare(`
+    INSERT INTO estimates
+      (customer_id, vehicle_id, employee_id, estimate_number, date, miles, status, notes,
+       customer_complaint, discount, tax_rate, expires_date, total, approved_by, approval_notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    values.customer_id, values.vehicle_id || null, values.employee_id || null, num, values.date, values.miles || 0,
+    values.status || 'Draft', values.notes || '', values.customer_complaint || '',
+    values.discount || 0, values.tax_rate || 0, values.expires_date || null, total || 0,
+    values.approved_by || '', values.approval_notes || ''
+  );
+  const estId = result.lastInsertRowid;
+  if (values.items && values.items.length) {
+    const ins = db.prepare(`
+      INSERT INTO estimate_items (estimate_id, type, description, qty, rate, amount, inventory_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    values.items.forEach(i => ins.run(estId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.inventory_id || null));
+  }
+  advanceEstimateVehicleMileage(values.vehicle_id, values.miles || 0);
+  const vehicleMileage = values.vehicle_id ? db.prepare('SELECT miles FROM vehicles WHERE id=?').get(values.vehicle_id)?.miles : null;
+  return { id: estId, estimate_number: num, total, vehicle_mileage: vehicleMileage };
+});
+
 router.post('/', (req, res) => {
   if (!validateEstimate(res, req.body, true)) return;
   const {
-    customer_id, vehicle_id, employee_id, date, status, notes,
+    customer_id, vehicle_id, employee_id, date, miles, status, notes,
     customer_complaint, discount, tax_rate, expires_date, items,
     approved_by, approval_notes
   } = req.body;
@@ -69,40 +121,24 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Estimate item inventory is outside the active shop context' });
   }
 
-  const num = 'EST-' + String(Date.now()).slice(-6);
-  const total = calculateEstimateTotals(items || [], discount, tax_rate).total;
-  const result = db.prepare(`
-    INSERT INTO estimates
-      (customer_id, vehicle_id, employee_id, estimate_number, date, status, notes,
-       customer_complaint, discount, tax_rate, expires_date, total, approved_by, approval_notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    customer_id, vehicle_id || null, employee_id || null, num, date,
-    status || 'Draft', notes || '', customer_complaint || '',
-    discount || 0, tax_rate || 0, expires_date || null, total || 0,
-    approved_by || '', approval_notes || ''
-  );
-  const estId = result.lastInsertRowid;
-  if (items && items.length) {
-    const ins = db.prepare(`
-      INSERT INTO estimate_items (estimate_id, type, description, qty, rate, amount, inventory_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    items.forEach(i => ins.run(estId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.inventory_id || null));
-  }
-  res.json({ id: estId, estimate_number: num, ...req.body, total });
+  const created = createEstimate(req, {
+    customer_id, vehicle_id, employee_id, date, miles, status, notes,
+    customer_complaint, discount, tax_rate, expires_date, items,
+    approved_by, approval_notes,
+  });
+  res.json({ ...req.body, ...created });
 });
 
 router.put('/:id', (req, res) => {
   if (!validateEstimate(res, req.body, false)) return;
   const {
-    status, notes, customer_complaint, discount, tax_rate, expires_date, items,
+    status, notes, customer_complaint, miles, discount, tax_rate, expires_date, items,
     approved_by, approval_notes
   } = req.body;
 
   const tenant = customerTenantWhere(req, 'c');
   const current = db.prepare(`
-    SELECT e.approved_at
+    SELECT e.approved_at, e.vehicle_id
     FROM estimates e
     JOIN customers c ON e.customer_id = c.id
     WHERE e.id = ? AND e.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
@@ -123,11 +159,11 @@ router.put('/:id', (req, res) => {
   db.transaction(() => {
     db.prepare(`
       UPDATE estimates
-      SET status=?, notes=?, customer_complaint=?, discount=?, tax_rate=?, expires_date=?, total=?,
+      SET status=?, notes=?, customer_complaint=?, miles=?, discount=?, tax_rate=?, expires_date=?, total=?,
           approved_at=?, approved_by=?, approval_notes=?
       WHERE id=?
     `).run(
-      status || 'Draft', notes || '', customer_complaint || '',
+      status || 'Draft', notes || '', customer_complaint || '', miles || 0,
       discount || 0, tax_rate || 0, expires_date || null, total || 0,
       approvedAt, approved_by || '', approval_notes || '',
       req.params.id
@@ -141,8 +177,10 @@ router.put('/:id', (req, res) => {
       `);
       (items || []).forEach(i => ins.run(req.params.id, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.inventory_id || null));
     }
+    advanceEstimateVehicleMileage(current.vehicle_id, miles || 0);
   })();
-  res.json({ success: true });
+  const vehicleMileage = current.vehicle_id ? db.prepare('SELECT miles FROM vehicles WHERE id=?').get(current.vehicle_id)?.miles : null;
+  res.json({ success: true, vehicle_mileage: vehicleMileage });
 });
 
 router.delete('/:id', (req, res) => {
@@ -223,9 +261,9 @@ router.post('/:id/convert', (req, res) => {
     const repairOrderNumber = `RO-${String(highestRepairOrder + 1).padStart(4, '0')}`;
 
     const result = db.prepare(`
-      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, repair_order_number, date, labor, parts, status, notes, estimate_id, complaint)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
-    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, repairOrderNumber, est.date, labor, parts, est.notes, est.id, est.customer_complaint);
+      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, repair_order_number, date, miles, labor, parts, status, notes, estimate_id, complaint)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
+    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, repairOrderNumber, est.date, est.miles || 0, labor, parts, est.notes, est.id, est.customer_complaint);
     const jobId = result.lastInsertRowid;
 
     db.prepare(`UPDATE estimates SET status='Approved', approved_at=? WHERE id=? AND approved_at IS NULL`)
@@ -244,6 +282,7 @@ router.post('/:id/convert', (req, res) => {
     for (const [inventoryId, requiredQty] of requestedInventory) {
       deduct.run(requiredQty, inventoryId, ...inventoryTenant.values);
     }
+    advanceEstimateVehicleMileage(est.vehicle_id, est.miles || 0);
 
     return { jobId, repairOrderNumber, alreadyConverted: false };
   });
