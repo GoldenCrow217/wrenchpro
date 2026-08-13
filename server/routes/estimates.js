@@ -144,7 +144,8 @@ router.put('/:id', (req, res) => {
 
   const tenant = customerTenantWhere(req, 'c');
   const current = db.prepare(`
-    SELECT e.approved_at, e.vehicle_id
+    SELECT e.approved_at, e.vehicle_id, e.status, e.notes, e.customer_complaint, e.miles,
+           e.discount, e.tax_rate, e.expires_date, e.approved_by, e.approval_notes
     FROM estimates e
     JOIN customers c ON e.customer_id = c.id
     WHERE e.id = ? AND e.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
@@ -153,6 +154,15 @@ router.put('/:id', (req, res) => {
   if (!inventoryItemsInTenant(req, items)) {
     return res.status(400).json({ error: 'Estimate item inventory is outside the active shop context' });
   }
+  status = status ?? current.status;
+  notes = notes ?? current.notes;
+  customer_complaint = customer_complaint ?? current.customer_complaint;
+  miles = miles ?? current.miles;
+  discount = discount ?? current.discount;
+  tax_rate = tax_rate ?? current.tax_rate;
+  expires_date = expires_date ?? current.expires_date;
+  approved_by = approved_by ?? current.approved_by;
+  approval_notes = approval_notes ?? current.approval_notes;
   const totalItems = items === undefined
     ? db.prepare('SELECT type, amount FROM estimate_items WHERE estimate_id = ?').all(req.params.id)
     : items;
@@ -266,9 +276,9 @@ router.post('/:id/convert', (req, res) => {
     const repairOrderNumber = `RO-${String(highestRepairOrder + 1).padStart(4, '0')}`;
 
     const result = db.prepare(`
-      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, repair_order_number, date, miles, labor, parts, tax_rate, status, notes, estimate_id, complaint)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
-    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, repairOrderNumber, est.date, est.miles || 0, labor, parts, est.tax_rate || 0, est.notes, est.id, est.customer_complaint);
+      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, repair_order_number, date, miles, labor, parts, discount, tax_rate, status, notes, estimate_id, complaint)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
+    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, repairOrderNumber, est.date, est.miles || 0, labor, parts, est.discount || 0, est.tax_rate || 0, est.notes, est.id, est.customer_complaint);
     const jobId = result.lastInsertRowid;
 
     db.prepare(`UPDATE estimates SET status='Approved', approved_at=? WHERE id=? AND approved_at IS NULL`)

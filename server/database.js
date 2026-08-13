@@ -53,6 +53,7 @@ db.exec(`
     miles INTEGER,
     labor REAL DEFAULT 0,
     parts REAL DEFAULT 0,
+    discount REAL DEFAULT 0,
     tax_rate REAL,
     status TEXT DEFAULT 'Pending',
     parts_deposit_required REAL DEFAULT 0,
@@ -475,6 +476,7 @@ if (!jobCols.includes('notify_en_route'))  db.prepare(`ALTER TABLE jobs ADD COLU
 if (!jobCols.includes('repair_order_number')) db.prepare(`ALTER TABLE jobs ADD COLUMN repair_order_number TEXT DEFAULT ''`).run();
 if (!jobCols.includes('parts_deposit_required')) db.prepare(`ALTER TABLE jobs ADD COLUMN parts_deposit_required REAL DEFAULT 0`).run();
 if (!jobCols.includes('tax_rate'))              db.prepare(`ALTER TABLE jobs ADD COLUMN tax_rate REAL`).run();
+if (!jobCols.includes('discount'))              db.prepare(`ALTER TABLE jobs ADD COLUMN discount REAL DEFAULT 0`).run();
 
 // Migrate: vehicles
 const vehCols = db.prepare(`PRAGMA table_info(vehicles)`).all().map(c => c.name);

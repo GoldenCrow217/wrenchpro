@@ -954,6 +954,7 @@ tr:hover td{background:var(--bg-subtle);}
         <div style="min-width:260px;font-size:13px;">
           <div class="report-line"><span>Subtotal — Labor</span><span id="job-labor-val">$0.00</span></div>
           <div class="report-line"><span>Subtotal — Parts</span><span id="job-parts-val">$0.00</span></div>
+          <div class="report-line" style="align-items:center;"><label for="jf-discount">Discount</label><span><input type="number" id="jf-discount" aria-label="Repair order discount" placeholder="0.00" step="0.01" min="0" style="width:76px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" oninput="_calcJob()"> <span id="job-discount-val">-$0.00</span></span></div>
           <div class="report-line" id="job-tax-line"><span id="job-tax-label">Sales Tax (0%)</span><span id="job-tax-val">$0.00</span></div>
           <div class="report-line" style="align-items:center;"><label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" id="jf-apply-trip-fee" onchange="toggleJobTripFee()"> Apply trip fee</label><span><input type="number" id="jf-travel-fee" aria-label="Travel or trip fee amount" placeholder="0.00" step="10" min="0" style="width:76px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" oninput="_calcJob()"> <span id="job-travel-val">$0.00</span></span></div>
           <div class="report-total"><span>Total</span><span id="job-total-val">$0.00</span></div>
@@ -1697,6 +1698,8 @@ tr:hover td{background:var(--bg-subtle);}
 
 <script>
 const API = '';
+const SHOP_CONTEXT_STORAGE_KEY = 'wrenchpro.shopContext.v1';
+let shopContext = loadShopContext();
 let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[], estimates:[], inventory:[], catalog:[], inspections:[], warranties:[], timeLogs:[], leads:[] };
 let currentPage = 'dashboard';
 let editJobId = null, editCustId = null, editVehCustId = null, editVehId = null;
@@ -1750,6 +1753,28 @@ function statusBadge(s){
 }
 
 function navEl(page){ return document.querySelector(`.nav-item[onclick="sp('${page}',this)"]`); }
+
+function loadShopContext(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(SHOP_CONTEXT_STORAGE_KEY)||'{}');
+    const shopId=Number(parsed.shopId);
+    const email=String(parsed.email||'').trim().toLowerCase();
+    return { shopId:Number.isSafeInteger(shopId)&&shopId>0?shopId:null, email };
+  }catch(_){ return { shopId:null, email:'' }; }
+}
+function saveShopContext(next){
+  shopContext={ shopId:Number.isSafeInteger(Number(next.shopId))&&Number(next.shopId)>0?Number(next.shopId):null, email:String(next.email||'').trim().toLowerCase() };
+  localStorage.setItem(SHOP_CONTEXT_STORAGE_KEY,JSON.stringify(shopContext));
+}
+function shopContextHeaders(){
+  if(!shopContext.shopId)return {};
+  const headers={'X-WrenchPro-Shop-Id':String(shopContext.shopId)};
+  if(shopContext.email)headers['X-WrenchPro-User-Email']=shopContext.email;
+  return headers;
+}
+function shopContextLabel(){
+  return shopContext.shopId?`Shop #${shopContext.shopId}${shopContext.email?` · ${shopContext.email}`:''}`:'Local desktop mode';
+}
 
 function oilBadge(v){
   if(!v.oil_change_miles||!v.miles) return '';
@@ -1850,13 +1875,14 @@ async function refreshResource(path,key){
 }
 
 function addDays(d, n){
-  const dt = new Date(d); dt.setDate(dt.getDate()+n);
+  const [year,month,day]=String(d||'').split('-').map(Number);
+  const dt = new Date(Date.UTC(year,month-1,day)); dt.setUTCDate(dt.getUTCDate()+n);
   return dt.toISOString().split('T')[0];
 }
 
 // ── API calls ──
 async function api(method, path, body, {silentError=false}={}){
-  const opts = { method, headers:{'Content-Type':'application/json'} };
+  const opts = { method, headers:{'Content-Type':'application/json',...shopContextHeaders()} };
   if(body !== undefined) opts.body = JSON.stringify(body);
   const r = await fetch(API+path, opts);
   if(!r.ok){
@@ -1973,7 +1999,7 @@ function updateSidebarFoot(){
   const role=document.getElementById('sidebar-role');
   if(el) el.textContent=name;
   if(av) av.textContent=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'W';
-  if(role) role.textContent=ownerName?'Owner / Tech':(businessName?'Business profile':'');
+  if(role) role.textContent=shopContextLabel();
 }
 
 // ── Navigation ──
@@ -2070,7 +2096,17 @@ function localDateKey(date=new Date()){
 function dashboardJobTotal(job,taxRate=0){
   const labor=Number(job.labor)||0,parts=Number(job.parts)||0,travel=Number(job.travel_fee)||0;
   const effectiveTaxRate=Number(job.tax_rate??taxRate)||0;
-  return Math.round((labor+parts+(parts*effectiveTaxRate/100)+travel+Number.EPSILON)*100)/100;
+  return jobPricingTotals(labor,parts,travel,job.discount,effectiveTaxRate).total;
+}
+
+function jobPricingTotals(labor=0,parts=0,travelFee=0,discount=0,taxRate=0){
+  const round=value=>Math.round((Number(value)+Number.EPSILON)*100)/100;
+  const laborSubtotal=round(Math.max(0,Number(labor)||0)),partsSubtotal=round(Math.max(0,Number(parts)||0));
+  const subtotal=round(laborSubtotal+partsSubtotal),safeDiscount=Math.max(0,Number(discount)||0);
+  const afterDiscount=round(Math.max(0,subtotal-safeDiscount)),discountFactor=subtotal>0?afterDiscount/subtotal:0;
+  const netLabor=round(laborSubtotal*discountFactor),netParts=round(partsSubtotal*discountFactor);
+  const tax=round(netParts*Math.max(0,Number(taxRate)||0)/100),travel=round(Math.max(0,Number(travelFee)||0));
+  return{labor:laborSubtotal,parts:partsSubtotal,subtotal,discount:safeDiscount,netLabor,netParts,tax,travelFee:travel,total:round(afterDiscount+tax+travel)};
 }
 
 function dashboardJobBalance(job,payments,taxRate=0){
@@ -2296,7 +2332,7 @@ function jobSortValue(job, key){
   if(key==='employee')return `${job.emp_first||''} ${job.emp_last||''}`.trim();
   if(key==='labor')return Number(job.labor||0);
   if(key==='parts')return Number(job.parts||0);
-  if(key==='total')return Number(job.labor||0)+Number(job.parts||0);
+  if(key==='total')return dashboardJobTotal(job,state.settings.tax_rate);
   if(key==='status')return job.status||'';
   return '';
 }
@@ -2346,7 +2382,7 @@ function renderJobs(){
     <td style="font-size:12px;color:#555;">${j.emp_first?esc(j.emp_first+' '+j.emp_last):'<span style="color:#ccc;">—</span>'}</td>
     <td style="color:#3B6D11;">${fmt$(j.labor)}${j.labor_hours?`<br><span style="font-size:10px;color:#888;">${j.labor_hours} hrs</span>`:''}</td>
     <td style="color:#888;">${fmt$(j.parts)}</td>
-    <td style="font-weight:600;">${fmt$((j.labor||0)+(j.parts||0))}</td>
+    <td style="font-weight:600;">${fmt$(dashboardJobTotal(j,state.settings.tax_rate))}</td>
     <td>${statusBadge(j.status)}</td>
     <td style="display:flex;gap:4px;"><button class="btn btn-sm" onclick="openJobModal(${safeId(j.id)})">Edit</button><button class="btn btn-sm" onclick="openInvoice(${safeId(j.id)})">Invoice</button></td>
   </tr>`).join('');
@@ -2518,7 +2554,7 @@ function renderCustDetail(){
         return `<div class="job-row">
           <div class="job-date">${esc(j.date)}<br><span style="font-size:10px;">${j.miles?Number(j.miles).toLocaleString()+' mi':''}</span></div>
           <div style="flex:1;"><div style="font-weight:500;">${esc(j.service||'')}</div><div style="font-size:11px;color:#888;">${vLabel(v)}${j.emp_first?' · '+esc(j.emp_first+' '+j.emp_last):''}${j.notes?' · '+esc(j.notes):''}</div></div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">${statusBadge(j.status)}<div style="font-weight:600;">${fmt$((j.labor||0)+(j.parts||0))}</div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">${statusBadge(j.status)}<div style="font-weight:600;">${fmt$(dashboardJobTotal(j,state.settings.tax_rate))}</div></div>
         </div>`;
       }).join(''):'<div class="empty">No jobs on record</div>'}
     </div>
@@ -2653,7 +2689,7 @@ function planAdditionalPayments(p){
   return state.payments.filter(payment=>payment.plan_id===p.id&&!payment.installment_id&&String(payment.note||'').trim().toLowerCase()!=='down payment'&&!String(payment.description||'').toLowerCase().endsWith('— down payment'));
 }
 function planBalance(p){ return Math.max(0,Number(p.total||0)-planPaid(p)); }
-function planPaid(p){ return Number(p.down_payment||0)+(p.installments||[]).reduce((sum,inst)=>sum+Math.min(Number(inst.amount||0),Number(inst.amount_paid??(inst.paid?inst.amount:0))),0); }
+function planPaid(p){ const ledger=state.payments.filter(payment=>Number(payment.plan_id)===Number(p.id));return ledger.length?ledger.reduce((sum,payment)=>sum+(Number(payment.amount)||0),0):Number(p.paid_total||0); }
 function planOverdue(p){ const t=today(); return (p.installments||[]).filter(i=>!i.paid&&addDays(i.due_date,Number(p.grace_days||state.settings.payment_grace_days||0))<t).length; }
 
 function renderPlans(){
@@ -2796,8 +2832,8 @@ function reportMetrics(snapshot,period='all'){
     const amount=Number(payment.amount)||0;
     const job=jobs.find(candidate=>Number(candidate.id)===Number(payment.job_id));
     if(!job){if(inPeriod(payment.date))income.unallocated+=amount;return;}
-    const components={labor:Math.max(0,Number(job.labor)||0),parts:Math.max(0,Number(job.parts)||0),fees:Math.max(0,Number(job.travel_fee)||0)};
-    components.tax=components.parts*(Number(job.tax_rate??taxRate)||0)/100;
+    const totals=jobPricingTotals(job.labor,job.parts,job.travel_fee,job.discount,job.tax_rate??taxRate);
+    const components={labor:totals.netLabor,parts:totals.netParts,fees:totals.travelFee,tax:totals.tax};
     const jobTotal=components.labor+components.parts+components.tax+components.fees;
     if(!(jobTotal>0)){if(inPeriod(payment.date))income.unallocated+=amount;return;}
     const previouslyAllocated=allocatedByJob.get(job.id)||0;
@@ -2976,7 +3012,7 @@ async function saveEmployee(){
 
 async function deleteEmployee(id){
   if(!confirm('Remove this employee? Their jobs will be unassigned.'))return;
-  await runMutation(`employee-delete-${id}`,{action:'Removing employee',request:()=>api('DELETE',`/api/employees/${id}`),apply:()=>{removeStateRecord('employees',id);state.jobs=state.jobs.map(j=>j.employee_id===id?{...j,employee_id:null,emp_first:null,emp_last:null}:j);},render:()=>{renderEmployees();renderJobs();},close:'m-emp',success:'Employee removed'});
+  await runMutation(`employee-delete-${id}`,{action:'Removing employee',request:()=>api('DELETE',`/api/employees/${id}`),apply:()=>{removeStateRecord('employees',id);state.jobs=state.jobs.map(j=>j.employee_id===id&&!j.closed_at?{...j,employee_id:null,emp_first:null,emp_last:null}:j);},render:()=>{renderEmployees();renderJobs();},close:'m-emp',success:'Employee removed'});
 }
 
 // ── Modals ──
@@ -3018,19 +3054,20 @@ function _calcJob(){
   const partsTotal = jobItems.filter(i=>i.taxable).reduce((a,i)=>a+(i.amount||0),0);
   const savedJob=editJobId?state.jobs.find(job=>job.id===editJobId):null;
   const taxRate = savedJob?.tax_rate??state.settings.tax_rate??0;
-  const tax = partsTotal * taxRate / 100;
+  const discount = parseFloat(document.getElementById('jf-discount')?.value)||0;
   const travel = document.getElementById('jf-apply-trip-fee')?.checked?(parseFloat(document.getElementById('jf-travel-fee')?.value)||0):0;
-  const total = laborTotal + partsTotal + tax + travel;
+  const totals=jobPricingTotals(laborTotal,partsTotal,travel,discount,taxRate);
   const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
   set('job-labor-val', fmt$(laborTotal));
   set('job-parts-val', fmt$(partsTotal));
   set('job-tax-label', `Sales Tax (${taxRate}%)`);
-  set('job-tax-val', fmt$(tax));
+  set('job-discount-val', `-${fmt$(Math.min(totals.discount,totals.subtotal))}`);
+  set('job-tax-val', fmt$(totals.tax));
   set('job-travel-val', fmt$(travel));
-  set('job-total-val', fmt$(total));
+  set('job-total-val', fmt$(totals.total));
   const depositEnabled=document.getElementById('jf-require-parts-deposit');
   const depositInput=document.getElementById('jf-parts-deposit');
-  if(depositEnabled&&depositInput){depositInput.disabled=!depositEnabled.checked;if(depositEnabled.checked&&!depositInput.dataset.manual)depositInput.value=(Math.round((partsTotal+tax)*(Number(state.settings.parts_deposit_percent??100)/100)*100)/100).toFixed(2);if(!depositEnabled.checked)depositInput.value='0.00';}
+  if(depositEnabled&&depositInput){depositInput.disabled=!depositEnabled.checked;if(depositEnabled.checked&&!depositInput.dataset.manual)depositInput.value=(Math.round((totals.netParts+totals.tax)*(Number(state.settings.parts_deposit_percent??100)/100)*100)/100).toFixed(2);if(!depositEnabled.checked)depositInput.value='0.00';}
   const depositStatus=document.getElementById('jf-parts-deposit-status');if(depositStatus){const required=depositEnabled?.checked?Number(depositInput.value||0):0;const received=editJobId?state.payments.filter(p=>p.job_id===editJobId).reduce((sum,p)=>sum+Number(p.amount||0),0):0;depositStatus.textContent=required>0?`${fmt$(Math.min(received,required))} received · ${fmt$(Math.max(0,required-received))} still due`:'';}
   const taxLine = document.getElementById('job-tax-line');
   if(taxLine) taxLine.style.display = taxRate > 0 ? '' : 'none';
@@ -3152,6 +3189,7 @@ async function openJobModal(id){
       document.getElementById('jf-service-addr').value=j.service_address||'';
       document.getElementById('jf-apply-trip-fee').checked=Number(j.travel_fee||0)>0;
       document.getElementById('jf-travel-fee').value=Number(j.travel_fee||state.settings.service_fee||0).toFixed(2);
+      document.getElementById('jf-discount').value=Number(j.discount||0).toFixed(2);
       document.getElementById('jf-require-parts-deposit').checked=Number(j.parts_deposit_required||0)>0;
       document.getElementById('jf-parts-deposit').value=Number(j.parts_deposit_required||0).toFixed(2);
       document.getElementById('jf-parts-deposit').dataset.manual='1';
@@ -3166,6 +3204,7 @@ async function openJobModal(id){
       ['jf-complaint','jf-diagnosis','jf-service','jf-miles','jf-notes','jf-service-addr'].forEach(x=>document.getElementById(x).value='');
       document.getElementById('jf-apply-trip-fee').checked=false;
       document.getElementById('jf-travel-fee').value=Number(state.settings.service_fee||0).toFixed(2);
+      document.getElementById('jf-discount').value='0.00';
       document.getElementById('jf-ro').value=nextRepairOrderNumber();
       document.getElementById('jf-status').value='Pending';
       document.getElementById('jf-inv-status').value='Unpaid';
@@ -3217,7 +3256,7 @@ async function saveJob(){
   if(!repairOrderNumber){toast('Repair order number must use the format RO-#### (for example, RO-1001).',8000);return;}
   repairOrderInput.value=repairOrderNumber;
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
-  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,repair_order_number:repairOrderNumber,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,travel_fee:document.getElementById('jf-apply-trip-fee').checked?(parseFloat(document.getElementById('jf-travel-fee').value)||0):0,parts_deposit_required:document.getElementById('jf-require-parts-deposit').checked?(parseFloat(document.getElementById('jf-parts-deposit').value)||0):0,items:jobItems};
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,repair_order_number:repairOrderNumber,date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,discount:parseFloat(document.getElementById('jf-discount').value)||0,travel_fee:document.getElementById('jf-apply-trip-fee').checked?(parseFloat(document.getElementById('jf-travel-fee').value)||0):0,parts_deposit_required:document.getElementById('jf-require-parts-deposit').checked?(parseFloat(document.getElementById('jf-parts-deposit').value)||0):0,items:jobItems};
   const id=editJobId, existing=id?state.jobs.find(j=>j.id===id):null;
   await runMutation(`job-save-${id||'new'}`,{
     buttonId:'save-job-btn',action:'Saving job',request:()=>id?api('PUT',`/api/jobs/${id}`,body):api('POST','/api/jobs',body),
@@ -3357,7 +3396,7 @@ async function saveCustomer(){
 
 async function deleteCustomer(id){
   if(!confirm('Delete this customer? This will not delete their jobs or vehicles.'))return;
-  await runMutation(`customer-delete-${id}`,{action:'Deleting customer',request:()=>api('DELETE',`/api/customers/${id}`),apply:()=>removeStateRecord('customers',id),render:()=>{detailCustId=null;showCustList();renderCustomers();},close:'m-cust',success:'Customer deleted'});
+  await runMutation(`customer-delete-${id}`,{action:'Deleting customer',request:()=>api('DELETE',`/api/customers/${id}`),apply:()=>{removeStateRecord('customers',id);state.vehicles=state.vehicles.filter(vehicle=>vehicle.customer_id!==id);},render:()=>{detailCustId=null;showCustList();renderCustomers();renderVehicles();},close:'m-cust',success:'Customer deleted'});
 }
 
 async function openVehModal(custId, vehId){
@@ -3971,8 +4010,8 @@ function openInvoice(jobId){
   const travelFee = j.travel_fee || 0;
   if(travelFee) lineRows+=`<tr><td style="padding:7px 0;border-bottom:1px solid #f0f0ec;">Travel / trip fee</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(travelFee)}</td></tr>`;
 
-  const tax = partsTotal * taxRate / 100;
-  const total = laborTotal + partsTotal + tax + travelFee;
+  const totals=jobPricingTotals(laborTotal,partsTotal,travelFee,j.discount,taxRate);
+  const tax=totals.tax,total=totals.total;
   const jobPaid=state.payments.filter(payment=>payment.job_id===jobId).reduce((sum,payment)=>sum+Number(payment.amount||0),0);
   const depositRequired=Number(j.parts_deposit_required||0);
   const depositRemaining=Math.max(0,depositRequired-jobPaid);
@@ -4034,6 +4073,7 @@ function openInvoice(jobId){
       <div style="min-width:260px;font-size:13px;">
         ${laborTotal>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#555;"><span>Subtotal — Labor</span><span>${fmt$(laborTotal)}</span></div>`:''}
         ${partsTotal>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#555;"><span>Subtotal — Parts</span><span>${fmt$(partsTotal)}</span></div>`:''}
+        ${totals.discount>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#888;"><span>Discount</span><span>-${fmt$(Math.min(totals.discount,totals.subtotal))}</span></div>`:''}
         ${tax>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#888;"><span>Sales Tax (${taxRate}%)</span><span>${fmt$(tax)}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;margin-top:4px;"><span>Total</span><span>${fmt$(total)}</span></div>
       </div>
@@ -4153,77 +4193,29 @@ async function saveQuickEntry(){
   const date  = document.getElementById('qf-date').value;
 
   if(!first||!last){ toast('Please enter customer first and last name.'); return; }
+  if(!make||!model){toast('Please enter the vehicle make and model.');return;}
   if(!service){ toast('Please enter a service description.'); return; }
   if(!date){ toast('Please enter a date.'); return; }
 
   activeMutations.add('quick-entry');setProcessing('save-quick-btn',true,'Saving...');statusEl.textContent = 'Saving...';
   try{
-
-  // 1. Find or create customer
-  let cust = state.customers.find(c=>
-    c.first.toLowerCase()===first.toLowerCase() &&
-    c.last.toLowerCase()===last.toLowerCase()
-  );
-  if(!cust){
-    cust = await api('POST','/api/customers',{
-      first, last,
-      phone: document.getElementById('qf-phone').value,
-      email: document.getElementById('qf-email').value,
-    });
-    upsertStateRecord('customers',cust);
-  }
-
-  // 2. Find or create vehicle
-  let veh = null;
-  if(make||model){
-    const year = parseInt(document.getElementById('qf-year').value)||0;
-    const plate = document.getElementById('qf-plate').value.trim();
-    veh = state.vehicles.find(v=>
-      v.customer_id===cust.id &&
-      v.make.toLowerCase()===(make.toLowerCase()) &&
-      v.model.toLowerCase()===(model.toLowerCase())
-    );
-    if(!veh){
-      veh = await api('POST','/api/vehicles',{
-        customer_id: cust.id, year, make, model,
-        plate, miles: parseInt(document.getElementById('qf-miles').value)||0,
-      });
-      upsertStateRecord('vehicles',veh);
-    }
-  }
-
-  if(!veh){ toast('Please enter at least a make and model for the vehicle.'); statusEl.textContent=''; return; }
-
-  // 3. Create job
-  const labor       = parseFloat(document.getElementById('qf-labor').value)||0;
-  const labor_hours = parseFloat(document.getElementById('qf-labor-hrs').value)||0;
-  const labor_rate  = parseFloat(document.getElementById('qf-labor-rate').value)||0;
-  const parts       = parseFloat(document.getElementById('qf-parts').value)||0;
-  const job = await api('POST','/api/jobs',{
-    customer_id: cust.id,
-    vehicle_id:  veh.id,
-    service,
-    date,
-    miles: parseInt(document.getElementById('qf-miles').value)||0,
-    labor, labor_hours, labor_rate, parts,
-    status: 'Complete',
-    notes: document.getElementById('qf-notes').value,
+  const result=await api('POST','/api/quick-entry',{
+    first,last,phone:document.getElementById('qf-phone').value,email:document.getElementById('qf-email').value,
+    year:parseInt(document.getElementById('qf-year').value)||0,make,model,plate:document.getElementById('qf-plate').value.trim(),
+    miles:parseInt(document.getElementById('qf-miles').value)||0,service,date,
+    labor:parseFloat(document.getElementById('qf-labor').value)||0,
+    labor_hours:parseFloat(document.getElementById('qf-labor-hrs').value)||0,
+    labor_rate:parseFloat(document.getElementById('qf-labor-rate').value)||0,
+    parts:parseFloat(document.getElementById('qf-parts').value)||0,
+    notes:document.getElementById('qf-notes').value,
+    amount_paid:parseFloat(document.getElementById('qf-paid').value)||0,
+    payment_method:document.getElementById('qf-method').value,
+    payment_date:document.getElementById('qf-pay-date').value,
   });
-  upsertStateRecord('jobs',job);
-
-  // 4. Optionally log payment
-  const paid = parseFloat(document.getElementById('qf-paid').value)||0;
-  if(paid>0){
-    const payment=await api('POST','/api/payments',{
-      customer_id: cust.id,
-      job_id: job.id,
-      description: service.slice(0,60),
-      amount: paid,
-      method: document.getElementById('qf-method').value,
-      date: document.getElementById('qf-pay-date').value,
-    });
-    upsertStateRecord('payments',payment);
-  }
+  upsertStateRecord('customers',result.customer);
+  upsertStateRecord('vehicles',result.vehicle);
+  upsertStateRecord('jobs',result.job);
+  if(result.payment)upsertStateRecord('payments',result.payment);
 
   renderSafely(renderJobs,renderDashboard,renderFinance);
   closeM('m-quick');

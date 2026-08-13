@@ -280,6 +280,18 @@ async function waitForServer() {
     assert(secondEstimateConversion.repair_order_number === firstEstimateConversion.repair_order_number, 'Repeat estimate conversion changed the repair-order number');
     const convertedEstimateJob = (await request('GET', '/api/jobs')).find(job => job.id === firstEstimateConversion.job_id);
     assert(convertedEstimateJob.miles === 14000, 'Estimate mileage was not carried into the converted repair order');
+    await request('PUT', `/api/estimates/${taxedEstimate.id}`, { status: 'Approved', discount: 30 });
+    const discountedConversion = await request('POST', `/api/estimates/${taxedEstimate.id}/convert`);
+    const discountedJob = (await request('GET', '/api/jobs')).find(job => job.id === discountedConversion.job_id);
+    assert(discountedJob.discount === 30, 'Estimate discount was not carried into the converted repair order');
+    assert(discountedJob.tax_rate === 10, 'Partial estimate update discarded the saved tax rate before conversion');
+    const discountedBalance = await request('GET', `/api/jobs/${discountedJob.id}/balance`);
+    assert(discountedBalance.total === 124 && discountedBalance.tax === 4, `Converted discount pricing changed from the approved $124 total: ${JSON.stringify(discountedBalance)}`);
+    const paidDiscountedJob = await request('PUT', `/api/jobs/${discountedJob.id}`, {
+      service: discountedJob.service, repair_order_number: discountedJob.repair_order_number, date: discountedJob.date,
+      status: 'Complete', invoice_status: 'Paid', discount: 30, items: discountedJob.items,
+    });
+    assert(paidDiscountedJob.payment?.amount === 124, `Paid conversion recorded ${paidDiscountedJob.payment?.amount} instead of the discounted $124 balance`);
     inventoryRows = await request('GET', '/api/inventory');
     assert(inventoryRows.find(row => row.id === inventory.id).quantity === 0, 'Successful conversion did not deduct inventory exactly once');
 

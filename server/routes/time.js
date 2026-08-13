@@ -31,7 +31,6 @@ router.get('/', (req, res) => {
      AND EXISTS (
        SELECT 1 FROM customers c
        WHERE c.id = j.customer_id
-         AND c.deleted_at IS NULL
          AND ((e.shop_id IS NULL AND c.shop_id IS NULL) OR e.shop_id = c.shop_id)
      )
     WHERE ${tenant.clause}

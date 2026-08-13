@@ -96,6 +96,7 @@ app.use('/api/inspections',  require('./routes/inspections'));
 app.use('/api/warranties',   require('./routes/warranties'));
 app.use('/api/time',         require('./routes/time'));
 app.use('/api/leads',        require('./routes/leads'));
+app.use('/api/quick-entry',  require('./routes/quick-entry'));
 
 app.get('/api/dashboard', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -151,7 +152,7 @@ app.get('/api/dashboard', (req, res) => {
   const recentPayments = db.prepare(`
     SELECT p.*, c.first, c.last FROM payments p
     JOIN customers c ON p.customer_id = c.id
-    WHERE c.deleted_at IS NULL AND ${tenant.clause}
+    WHERE ${tenant.clause}
     ORDER BY p.date DESC LIMIT 5
   `).all(...tenant.values);
   res.json({

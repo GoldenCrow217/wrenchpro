@@ -12,11 +12,17 @@ const context = {
   fmt$: value => `$${Number(value || 0).toFixed(2)}`,
   planBalance: plan => Number(plan.balance || 0),
 };
-vm.runInNewContext(`${html.slice(helperStart, helperEnd)};globalThis.qa={localDateKey,dashboardJobTotal,dashboardJobBalance,dashboardMetrics};`, context);
+vm.runInNewContext(`${html.slice(helperStart, helperEnd)};globalThis.qa={localDateKey,jobPricingTotals,dashboardJobTotal,dashboardJobBalance,dashboardMetrics};`, context);
 
 const qa = context.qa;
 assert.strictEqual(qa.localDateKey(new Date(2026, 7, 12, 23, 30)), '2026-08-12', 'dashboard dates must use the local calendar date');
+const addDaysStart = html.indexOf('function addDays(');
+const addDaysEnd = html.indexOf('async function api(', addDaysStart);
+const dateContext = {};
+vm.runInNewContext(`${html.slice(addDaysStart, addDaysEnd)};globalThis.addDays=addDays;`, dateContext);
+assert.strictEqual(dateContext.addDays('2026-03-08', 1), '2026-03-09', 'date-only arithmetic must remain stable across daylight-saving boundaries');
 assert.strictEqual(qa.dashboardJobTotal({ labor: 100, parts: 50, travel_fee: 25 }, 10), 180, 'job totals must include labor, parts-only tax, and trip fees');
+assert.strictEqual(qa.dashboardJobTotal({ labor: 100, parts: 50, discount: 30, travel_fee: 25 }, 10), 149, 'job totals must preserve discounts and proportionally reduce parts-only tax');
 assert.strictEqual(qa.dashboardJobBalance({ id: 1, labor: 100, parts: 50, travel_fee: 25 }, [{ job_id: 1, amount: 55 }], 10), 125, 'job balances must subtract linked payments');
 
 const now = new Date(2026, 7, 12, 12, 0);
@@ -51,7 +57,7 @@ assert.strictEqual(metrics.activity[0].id, 2, 'activity must select the newest r
 const reportStart = html.indexOf('function reportMetrics(');
 const reportEnd = html.indexOf('\nfunction renderReport()', reportStart);
 assert.ok(reportStart >= 0 && reportEnd > reportStart, 'P&L calculation helper must be extractable');
-const reportContext = { dashboardJobBalance: qa.dashboardJobBalance, planBalance: context.planBalance };
+const reportContext = { dashboardJobBalance: qa.dashboardJobBalance, jobPricingTotals: qa.jobPricingTotals, planBalance: context.planBalance };
 vm.runInNewContext(`${html.slice(reportStart, reportEnd)};globalThis.reportMetrics=reportMetrics;`, reportContext);
 const overpaymentReport = reportContext.reportMetrics({
   settings: { tax_rate: 10 },
@@ -65,6 +71,14 @@ assert.strictEqual(overpaymentReport.income.tax, 5, 'Overpayment must not inflat
 assert.strictEqual(overpaymentReport.income.credits, 45, 'Excess receipts must be classified as customer-credit liability');
 assert.strictEqual(overpaymentReport.totalIncome, 150, 'Customer credits must not count as operating income');
 assert.strictEqual(overpaymentReport.totalReceived, 200, 'Cash received must still include the overpayment');
+const discountedReport = reportContext.reportMetrics({
+  settings: { tax_rate: 10 },
+  jobs: [{ id: 10, status: 'Complete', invoice_status: 'Paid', labor: 100, parts: 50, discount: 30, travel_fee: 0 }],
+  payments: [{ id: 3, job_id: 10, date: '2026-08-03', amount: 124 }], expenses: [], plans: [],
+});
+assert.strictEqual(discountedReport.income.labor, 80, 'Discounted labor revenue must use the proportional net amount');
+assert.strictEqual(discountedReport.income.parts, 40, 'Discounted parts revenue must use the proportional net amount');
+assert.strictEqual(discountedReport.income.tax, 4, 'Discounted parts tax must use the proportional net parts amount');
 
 assert.match(html, /const netProfit = Number\(data\.monthNetProfit\)\|\|0/, 'dashboard monthly profit must use monthly server totals');
 assert.match(html, /Revenue · last 7 days/, 'revenue period label must match its calculation');

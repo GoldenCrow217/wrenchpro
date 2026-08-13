@@ -55,7 +55,8 @@ router.get('/', (req, res) => {
   const settings = paymentSettings(req);
   const tenant = customerTenantWhere(req, 'c');
   const plans = db.prepare(`
-    SELECT pp.*, c.first, c.last, j.repair_order_number
+    SELECT pp.*, c.first, c.last, j.repair_order_number,
+           COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.plan_id=pp.id),0) AS paid_total
     FROM payment_plans pp
     JOIN customers c ON pp.customer_id = c.id
     LEFT JOIN jobs j ON pp.job_id = j.id AND j.deleted_at IS NULL
@@ -110,6 +111,7 @@ router.post('/', (req, res) => {
   const plan = db.prepare('SELECT * FROM payment_plans WHERE id = ?').get(saved.planId);
   plan.repair_order_number = job.repair_order_number;
   plan.installments = db.prepare('SELECT * FROM installments WHERE plan_id = ? ORDER BY due_date').all(saved.planId);
+  plan.paid_total = Number(saved.payment?.amount) || 0;
   if (saved.payment) Object.assign(saved.payment, { first: customer.first, last: customer.last, repair_order_number: job.repair_order_number });
   res.json({ ...plan, payment: saved.payment });
 });

@@ -57,6 +57,25 @@ async function stopServer() {
     const vehicle = await request('POST', '/api/vehicles', { customer_id: customer.id, year: 2022, make: 'Ford', model: 'Transit' });
     const employee = await request('POST', '/api/employees', { first: 'Time', last: 'Keeper', hourly_rate: 25 });
 
+    const quickDb = new Database(path.join(dataDir, 'wrenchpro.db'));
+    quickDb.exec(`CREATE TRIGGER qa_fail_quick_payment BEFORE INSERT ON payments WHEN NEW.note='Quick Entry payment' BEGIN SELECT RAISE(ABORT, 'injected quick-entry failure'); END`);
+    const failedQuick = await requestRaw('POST', '/api/quick-entry', {
+      first: 'Atomic', last: 'Quick', make: 'Toyota', model: 'Camry', service: 'Historical service', date: '2026-08-12',
+      labor: 100, parts: 25, amount_paid: 50, payment_date: '2026-08-12',
+    });
+    quickDb.exec('DROP TRIGGER qa_fail_quick_payment');
+    assert.strictEqual(failedQuick.status, 500, 'Injected Quick Entry payment failure must fail the whole request');
+    assert.strictEqual(quickDb.prepare("SELECT COUNT(*) count FROM customers WHERE first='Atomic' AND last='Quick'").get().count, 0, 'Failed Quick Entry left an orphan customer');
+    assert.strictEqual(quickDb.prepare("SELECT COUNT(*) count FROM vehicles WHERE make='Toyota' AND model='Camry'").get().count, 0, 'Failed Quick Entry left an orphan vehicle');
+    assert.strictEqual(quickDb.prepare("SELECT COUNT(*) count FROM jobs WHERE service='Historical service'").get().count, 0, 'Failed Quick Entry left an orphan repair order');
+    const quick = await request('POST', '/api/quick-entry', {
+      first: 'Atomic', last: 'Quick', make: 'Toyota', model: 'Camry', service: 'Historical service', date: '2026-08-12',
+      labor: 100, parts: 25, amount_paid: 50, payment_date: '2026-08-12', payment_method: 'Card',
+    });
+    assert.ok(quick.customer.id && quick.vehicle.id && quick.job.id && quick.payment.id, 'Successful Quick Entry did not return every saved record');
+    assert.strictEqual(quick.job.invoice_status, 'Partial', 'Quick Entry payment did not reconcile the repair-order status');
+    quickDb.close();
+
     const invalidItems = await requestRaw('POST', '/api/jobs', { customer_id: customer.id, vehicle_id: vehicle.id, date: '2026-08-12', items: [null] });
     assert.strictEqual(invalidItems.status, 400, 'Null job items must return HTTP 400');
     const job = await request('POST', '/api/jobs', {
@@ -87,6 +106,7 @@ async function stopServer() {
     const validTime = await request('POST', '/api/time', { employee_id: employee.id, job_id: job.id, clock_in: '2026-08-12T09:00', clock_out: '2026-08-12T10:00' });
     assert.ok(validTime.id, 'Valid time log was not created');
     assert.strictEqual((await requestRaw('POST', '/api/time', { employee_id: employee.id, clock_in: 'bad-date' })).status, 400, 'Malformed time must return HTTP 400');
+    assert.strictEqual((await requestRaw('POST', '/api/time', { employee_id: employee.id, clock_in: '2026-02-30T10:00' })).status, 400, 'Impossible calendar datetime must return HTTP 400');
     assert.strictEqual((await requestRaw('POST', '/api/time', { employee_id: employee.id, clock_in: '2026-08-12T10:00', clock_out: '2026-08-12T09:00' })).status, 400, 'Clock-out before clock-in must return HTTP 400');
     await request('DELETE', `/api/employees/${employee.id}`);
     assert.ok(!(await request('GET', '/api/employees')).some(row => row.id === employee.id), 'Archived employee remained selectable');
@@ -122,7 +142,9 @@ async function stopServer() {
     assert.ok((await request('GET', '/api/estimates')).some(row => row.id === estimate.id), 'Archived customer hid historical estimates');
     assert.ok((await request('GET', '/api/payments')).some(row => row.id === plan.payment.id), 'Archived customer hid historical payments');
     assert.ok((await request('GET', '/api/plans')).some(row => row.id === plan.id), 'Archived customer hid historical plans');
-    assert.strictEqual((await request('GET', '/api/dashboard')).totalRevenue, revenueBeforeArchive, 'Archiving a customer changed historical revenue');
+    const dashboardAfterArchive = await request('GET', '/api/dashboard');
+    assert.strictEqual(dashboardAfterArchive.totalRevenue, revenueBeforeArchive, 'Archiving a customer changed historical revenue');
+    assert.ok(dashboardAfterArchive.recentPayments.some(row => row.id === plan.payment.id), 'Archiving a customer hid recent payment history');
 
     db.prepare('UPDATE jobs SET tax_rate=NULL WHERE id=?').run(job.id);
     db.close();

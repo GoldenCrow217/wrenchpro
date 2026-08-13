@@ -23,6 +23,7 @@ const context = {
   state,
   fetch: (...args) => fetchImpl(...args),
   toast: (message, duration) => warnings.push({ message, duration }),
+  shopContextHeaders: () => ({}),
   console: { error: (...args) => errors.push(args) },
   window: { addEventListener: () => {} },
   clearTimeout,

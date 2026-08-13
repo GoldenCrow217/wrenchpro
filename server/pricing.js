@@ -75,6 +75,30 @@ function calculateEstimateTotals(items = [], discount = 0, taxRate = 0) {
   return { subtotal, discount: safeDiscount, taxableParts, taxableAfterDiscount, tax, total: roundCurrency(afterDiscount + tax) };
 }
 
+function calculateJobTotals(labor = 0, parts = 0, travelFee = 0, discount = 0, taxRate = 0) {
+  const laborSubtotal = roundCurrency(Math.max(0, Number(labor) || 0));
+  const partsSubtotal = roundCurrency(Math.max(0, Number(parts) || 0));
+  const subtotal = roundCurrency(laborSubtotal + partsSubtotal);
+  const safeDiscount = Math.max(0, Number(discount) || 0);
+  const afterDiscount = roundCurrency(Math.max(0, subtotal - safeDiscount));
+  const discountFactor = subtotal > 0 ? afterDiscount / subtotal : 0;
+  const netLabor = roundCurrency(laborSubtotal * discountFactor);
+  const netParts = roundCurrency(partsSubtotal * discountFactor);
+  const tax = roundCurrency(netParts * Math.max(0, Number(taxRate) || 0) / 100);
+  const travel = roundCurrency(Math.max(0, Number(travelFee) || 0));
+  return {
+    labor: laborSubtotal,
+    parts: partsSubtotal,
+    subtotal,
+    discount: safeDiscount,
+    netLabor,
+    netParts,
+    tax,
+    travelFee: travel,
+    total: roundCurrency(afterDiscount + tax + travel),
+  };
+}
+
 module.exports = {
   DEFAULT_PARTS_MARKUP_TIERS,
   roundCurrency,
@@ -82,4 +106,5 @@ module.exports = {
   markupForCost,
   isTaxablePart,
   calculateEstimateTotals,
+  calculateJobTotals,
 };

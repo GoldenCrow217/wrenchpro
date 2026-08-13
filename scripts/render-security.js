@@ -28,6 +28,7 @@ app.whenReady().then(async () => {
     await window.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><div id="host"></div><div id="sidebar-name"></div><div id="sidebar-avatar"></div><div id="sidebar-role"></div>'));
     const results = await window.webContents.executeJavaScript(`
       ${helperMatch[0]}
+      function shopContextLabel(){ return 'Local desktop mode'; }
       ${sidebarMatch[0]}
       const state={settings:{owner_name:'Jane Doe',business_name:'Example Auto'}};
       updateSidebarFoot();
@@ -71,8 +72,8 @@ app.whenReady().then(async () => {
     assert(!results.executed, 'A payload event handler executed');
     assert(results.unsafeUrl === '', 'javascript: URL was not rejected');
     assert(results.unsafeSvg === '', 'SVG data URL was not rejected');
-    assert(JSON.stringify(results.ownerIdentity) === JSON.stringify({ name: 'Jane Doe', avatar: 'JD', role: 'Owner / Tech' }), 'Configured owner identity did not render');
-    assert(JSON.stringify(results.businessIdentity) === JSON.stringify({ name: 'Example Auto', avatar: 'EA', role: 'Business profile' }), 'Business identity fallback did not render');
+    assert(JSON.stringify(results.ownerIdentity) === JSON.stringify({ name: 'Jane Doe', avatar: 'JD', role: 'Local desktop mode' }), 'Configured owner identity did not render');
+    assert(JSON.stringify(results.businessIdentity) === JSON.stringify({ name: 'Example Auto', avatar: 'EA', role: 'Local desktop mode' }), 'Business identity fallback did not render');
     assert(!source.includes('${greeting}, Brandon'), 'Dashboard still contains the hardcoded sample greeting');
     assert(source.includes("String((state.settings&&state.settings.owner_name)||'')"), 'Dashboard owner-name fallback is missing');
 
