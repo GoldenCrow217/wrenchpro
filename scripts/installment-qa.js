@@ -105,6 +105,15 @@ async function createPlan(customerId, jobId, amount = 50) {
     const repeated = await successful('PUT', `/api/plans/installment/${installment.id}/pay`, { method: 'Cash' });
     assert(repeated.already_paid === true && repeated.payment.id === paid.payment.id, 'repeat request was not idempotent');
 
+    const reversedInstallment = await successful('DELETE', `/api/payments/${paid.payment.id}`);
+    const reversedState = reversedInstallment.plan_installments.find(candidate => candidate.id === installment.id);
+    assert(reversedInstallment.plan_id === plan.id && reversedState, 'installment payment deletion did not return the refreshed plan');
+    assert(reversedState.paid === 0 && reversedState.amount_paid === 1 && reversedState.paid_date === null, 'installment payment deletion did not reopen the installment while preserving its earlier partial payment');
+    assert(db.prepare('SELECT count(*) AS n FROM payments WHERE installment_id=?').get(installment.id).n === 0, 'installment payment deletion left the ledger entry behind');
+    const repaid = await successful('PUT', `/api/plans/installment/${installment.id}/pay`, { method: 'Cash', date: '2026-08-04' });
+    assert(repaid.payment.id !== paid.payment.id && repaid.installment.paid === 1, 'a reversed installment could not be paid again');
+    assert(db.prepare('SELECT count(*) AS n FROM payments WHERE installment_id=?').get(installment.id).n === 1, 'repaying a reversed installment did not create exactly one payment');
+
     const doublePlan = await createPlan(customer.id, job.id, 60);
     const doubleId = doublePlan.installments[0].id;
     const doubleResults = await Promise.all([

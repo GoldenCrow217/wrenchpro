@@ -21,6 +21,22 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.34 - 2026-08-13
+
+### Added
+
+- Payment-ledger Delete actions with confirmation, duplicate-action protection, and focused state refreshes.
+
+### Changed
+
+- Deleting allocated or installment-linked payments now recalculates the associated installment and repair-order balance while preserving other recorded payments.
+- Plan down payments remain protected until their payment plan is deleted, with clear guidance for the safe correction workflow.
+
+### Fixed
+
+- Payments for archived customers can be removed when correcting historical records.
+- Payment deletion immediately refreshes Payments, Dashboard, Profit and Loss, customer history, repair-order status, and linked payment-plan state.
+
 ## v1.0.33 - 2026-08-13
 
 ### Added

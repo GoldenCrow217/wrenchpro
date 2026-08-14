@@ -165,6 +165,11 @@ assert.match(jobsRoute, /db\.transaction\(\(\) => \{[\s\S]*insertAutomaticJobPay
 const paymentsRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'payments.js'), 'utf8');
 assert.match(paymentsRoute, /LEFT JOIN jobs j ON p\.job_id = j\.id/, 'payment API must join the stable job relationship');
 assert.match(paymentsRoute, /j\.repair_order_number/, 'payment API must return the linked repair-order number');
+assert.match(paymentsRoute, /affectedInstallments = new Set/, 'payment deletion must identify linked installments for reversal');
+assert.match(paymentsRoute, /UPDATE installments SET amount_paid=\?, late_fee=\?, paid=\?, paid_date=\?/, 'payment deletion must recompute linked installment state');
+assert.match(html, /onclick="deletePayment\(\$\{safeId\(p\.id\)\}\)"/, 'payment ledger must expose a safe delete action');
+assert.match(html, /async function deletePayment\(id\)[\s\S]*api\('DELETE',`\/api\/payments\/\$\{id\}`\)/, 'payment delete action must call the existing endpoint');
+assert.match(html, /removeStateRecord\('payments',id\)[\s\S]*result\.plan_installments/, 'payment delete action must refresh payment and plan state locally');
 const quickEntryRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'quick-entry.js'), 'utf8');
 assert.match(quickEntryRoute, /const save = db\.transaction/, 'Quick Entry must save all related records in one database transaction');
 assert.match(html, /api\('POST','\/api\/quick-entry'/, 'Quick Entry must use the atomic server workflow');

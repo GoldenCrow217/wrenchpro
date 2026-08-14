@@ -129,12 +129,15 @@ async function stopServer() {
       installments: [{ due_date: '2026-09-01', amount: 40 }, { due_date: '2026-10-01', amount: 40 }],
     });
     assert.ok(plan.payment?.id && plan.payment.amount === 20, 'Plan response must include its atomic down payment');
-    assert.strictEqual((await requestRaw('DELETE', `/api/payments/${plan.payment.id}`)).status, 409, 'Plan down payments must not be separately deleted');
+    const blockedDownPaymentDelete = await requestRaw('DELETE', `/api/payments/${plan.payment.id}`);
+    assert.strictEqual(blockedDownPaymentDelete.status, 409, 'Plan down payments must not be separately deleted');
+    assert.match(blockedDownPaymentDelete.body.error, /delete the payment plan first/i, 'Blocked down-payment deletion must explain the safe correction path');
     const paidPlan = await request('POST', '/api/plans', {
       customer_id: customer.id, job_id: planJob.id, total: 25, down_payment: 25, down_payment_date: '2026-08-12', installment_count: 0, installments: [],
     });
     assert.strictEqual(paidPlan.installments.length, 0, 'A fully paid plan must not create zero-dollar installments');
 
+    const archivedCorrection = await request('POST', '/api/payments', { customer_id: customer.id, description: 'Archived customer correction', amount: 7, date: '2026-08-12' });
     const revenueBeforeArchive = (await request('GET', '/api/dashboard')).totalRevenue;
     await request('DELETE', `/api/customers/${customer.id}`);
     assert.ok(!(await request('GET', '/api/customers')).some(row => row.id === customer.id), 'Archived customer remained selectable');
@@ -145,6 +148,9 @@ async function stopServer() {
     const dashboardAfterArchive = await request('GET', '/api/dashboard');
     assert.strictEqual(dashboardAfterArchive.totalRevenue, revenueBeforeArchive, 'Archiving a customer changed historical revenue');
     assert.ok(dashboardAfterArchive.recentPayments.some(row => row.id === plan.payment.id), 'Archiving a customer hid recent payment history');
+    const deletedArchivedPayment = await request('DELETE', `/api/payments/${archivedCorrection.id}`);
+    assert.strictEqual(deletedArchivedPayment.success, true, 'A visible payment for an archived customer could not be deleted');
+    assert.ok(!(await request('GET', '/api/payments')).some(row => row.id === archivedCorrection.id), 'Deleted archived-customer payment remained in the ledger');
 
     db.prepare('UPDATE jobs SET tax_rate=NULL WHERE id=?').run(job.id);
     db.close();
