@@ -21,6 +21,28 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.35 - 2026-08-14
+
+### Added
+
+- Focused finance-corrections QA covering operating revenue, late fees, repair-order ledger protection, weighted inventory cost, direct-job stock movement, estimate preservation, invoice balances, wage cost, and calendar-month schedules.
+- Separate late-fee payment tracking with automatic migration and historical installment-payment backfill.
+
+### Changed
+
+- Dashboard and Profit and Loss now distinguish operating income from sales-tax liability, customer credits, canceled or voided receipts, and late fees.
+- Expense restocks use weighted-average inventory cost, while inventory-linked repair-order creation, editing, and deletion adjust stock transactionally.
+- Invoices show paid amounts, balance due, customer credit, payment history, and separate service/fee subtotals.
+- Payment plans calculate remaining obligations without applying late-fee receipts against principal and schedule monthly payments by calendar month.
+- Time Tracking estimates wage cost from employee hourly rates rather than customer billing rates.
+
+### Fixed
+
+- Installment-generated payments can no longer be edited independently from their installment state.
+- Repair orders with payments or payment plans can no longer be deleted in ways that orphan or reclassify financial history.
+- Editing an estimate preserves intentional zero-percent tax and inventory-item links.
+- Direct repair orders now reject insufficient inventory without partial writes and restore reserved stock when an unpaid order is deleted.
+
 ## v1.0.34 - 2026-08-13
 
 ### Added
