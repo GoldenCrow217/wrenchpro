@@ -28,6 +28,7 @@
     "qa:tenant": "node scripts/tenant-qa.js",
     "qa:reliability-corrections": "node scripts/reliability-corrections-qa.js",
     "qa:accounting-integrity": "node scripts/accounting-integrity-qa.js",
+    "qa:finance-corrections": "node scripts/finance-corrections-qa.js",
     "test:render-security": "node scripts/run-render-security.js",
     "rebuild-node": "npm rebuild better-sqlite3"
   },

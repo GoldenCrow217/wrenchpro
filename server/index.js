@@ -6,6 +6,8 @@ const db = require('./database');
 const pkg = require('../package.json');
 const { customerTenantWhere, shopTenantWhere, validateRequestedShopContext } = require('./tenant');
 const { positiveId } = require('./validation');
+const { paymentIncomeMetrics } = require('./financial-report');
+const { roundCurrency } = require('./pricing');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -102,20 +104,32 @@ app.get('/api/dashboard', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const totalRevenue = db.prepare(`
-    SELECT COALESCE(SUM(p.amount),0) as total
+  const financePayments = db.prepare(`
+    SELECT p.*
     FROM payments p
     JOIN customers c ON p.customer_id = c.id
     WHERE ${tenant.clause}
-  `).get(...tenant.values).total;
+  `).all(...tenant.values);
+  const financeJobs = db.prepare(`
+    SELECT j.* FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    WHERE ${tenant.clause}
+  `).all(...tenant.values);
+  if (financeJobs.length) {
+    const ids = financeJobs.map(job => job.id);
+    const items = db.prepare(`SELECT * FROM job_items WHERE job_id IN (${ids.map(() => '?').join(',')})`).all(...ids);
+    const byJob = new Map();
+    items.forEach(item => { if (!byJob.has(item.job_id)) byJob.set(item.job_id, []); byJob.get(item.job_id).push(item); });
+    financeJobs.forEach(job => { job.items = byJob.get(job.id) || []; });
+  }
+  const allIncome = paymentIncomeMetrics(financePayments, financeJobs);
+  const monthIncome = paymentIncomeMetrics(financePayments, financeJobs, currentMonth);
+  const totalRevenue = roundCurrency(allIncome.labor + allIncome.parts + allIncome.fees + allIncome.unallocated);
+  const monthRevenue = roundCurrency(monthIncome.labor + monthIncome.parts + monthIncome.fees + monthIncome.unallocated);
+  const totalReceived = roundCurrency(financePayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+  const monthReceived = roundCurrency(financePayments.filter(payment => String(payment.date || '').startsWith(currentMonth)).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
   const expenseTenant = shopTenantWhere(req);
   const totalExpenses  = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE ${expenseTenant.clause}`).get(...expenseTenant.values).total;
-  const monthRevenue = db.prepare(`
-    SELECT COALESCE(SUM(p.amount),0) AS total
-    FROM payments p
-    JOIN customers c ON p.customer_id = c.id
-    WHERE substr(p.date,1,7) = ? AND ${tenant.clause}
-  `).get(currentMonth, ...tenant.values).total;
   const monthExpenses = db.prepare(`
     SELECT COALESCE(SUM(amount),0) AS total
     FROM expenses
@@ -156,8 +170,8 @@ app.get('/api/dashboard', (req, res) => {
     ORDER BY p.date DESC LIMIT 5
   `).all(...tenant.values);
   res.json({
-    totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses,
-    monthRevenue, monthExpenses, monthNetProfit: monthRevenue - monthExpenses, profitMonth: currentMonth,
+    totalRevenue, totalReceived, totalExpenses, netProfit: roundCurrency(totalRevenue - totalExpenses),
+    monthRevenue, monthReceived, monthExpenses, monthNetProfit: roundCurrency(monthRevenue - monthExpenses), profitMonth: currentMonth,
     activeJobs, totalCustomers, totalVehicles, recentJobs, recentPayments,
   });
 });

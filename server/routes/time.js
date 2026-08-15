@@ -22,7 +22,7 @@ function jobInTenant(req, jobId) {
 router.get('/', (req, res) => {
   const tenant = shopTenantWhere(req, 'e');
   res.json(db.prepare(`
-    SELECT t.*, e.first, e.last, j.service AS job_service
+    SELECT t.*, e.first, e.last, e.hourly_rate, j.service AS job_service
     FROM time_logs t
     JOIN employees e ON t.employee_id = e.id
     LEFT JOIN jobs j

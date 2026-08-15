@@ -58,9 +58,10 @@ router.post('/', (req, res) => {
   }
 
   const savePayment = db.transaction(() => {
-    const result = db.prepare(`INSERT INTO payments (customer_id, plan_id, job_id, description, amount, method, date, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    const result = db.prepare(`INSERT INTO payments (customer_id, plan_id, job_id, late_fee_amount, description, amount, method, date, note) VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)`)
       .run(customer_id, plan_id || null, resolvedJobId, description || '', amount, method || 'Cash', date, note || '');
     const allocations = [];
+    let lateFeeAmount = 0;
     const isDownPayment = String(note || '').trim().toLowerCase() === 'down payment';
     if (plan && !isDownPayment) {
       const shopId = resolveShopId(req);
@@ -78,18 +79,22 @@ router.post('/', (req, res) => {
         if (!(applied > 0)) continue;
         db.prepare('INSERT INTO payment_allocations (payment_id,installment_id,amount) VALUES (?,?,?)').run(result.lastInsertRowid, inst.id, applied);
         const newPaid = Number(inst.amount_paid || 0) + applied;
+        const previousFeePaid = Math.max(0, Number(inst.amount_paid || 0) - Number(inst.amount || 0));
+        const newFeePaid = Math.max(0, newPaid - Number(inst.amount || 0));
+        lateFeeAmount += Math.max(0, newFeePaid - previousFeePaid);
         const complete = newPaid + .005 >= Number(inst.amount) + lateFee;
         db.prepare('UPDATE installments SET amount_paid=?, late_fee=?, paid=?, paid_date=? WHERE id=?').run(newPaid, lateFee, complete ? 1 : 0, complete ? date : null, inst.id);
         allocations.push({ installment_id: inst.id, amount: applied });
         remaining = Math.round((remaining - applied) * 100) / 100;
       }
+      if (lateFeeAmount > 0) db.prepare('UPDATE payments SET late_fee_amount=? WHERE id=?').run(Math.round(lateFeeAmount * 100) / 100, result.lastInsertRowid);
     }
     const jobInvoiceStatus = reconcileJobInvoiceStatus(db, resolvedJobId, currentTaxRate(req));
-    return { id: result.lastInsertRowid, allocations, jobInvoiceStatus };
+    return { id: result.lastInsertRowid, allocations, lateFeeAmount: Math.round(lateFeeAmount * 100) / 100, jobInvoiceStatus };
   });
   const saved = savePayment();
   const planInstallments = plan ? db.prepare('SELECT * FROM installments WHERE plan_id=? ORDER BY due_date').all(plan.id) : undefined;
-  res.json({ id: saved.id, ...req.body, job_id: resolvedJobId, repair_order_number: job?.repair_order_number || null, allocations: saved.allocations, plan_installments: planInstallments, job_invoice_status: saved.jobInvoiceStatus });
+  res.json({ id: saved.id, ...req.body, job_id: resolvedJobId, repair_order_number: job?.repair_order_number || null, late_fee_amount: saved.lateFeeAmount, allocations: saved.allocations, plan_installments: planInstallments, job_invoice_status: saved.jobInvoiceStatus });
 });
 
 router.put('/:id', (req, res) => {
@@ -99,6 +104,7 @@ router.put('/:id', (req, res) => {
   const payment = db.prepare(`SELECT p.* FROM payments p JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
   if (!payment) return res.status(404).json({ error: 'Payment not found' });
   if (payment.plan_id && String(payment.note || '').trim().toLowerCase() === 'down payment') return res.status(409).json({ error: 'Plan down payments cannot be edited separately from their payment plan' });
+  if (payment.installment_id) return res.status(409).json({ error: 'Installment payments cannot be edited; delete and re-record the payment instead' });
   const allocated = db.prepare(`SELECT pa.id FROM payment_allocations pa JOIN payments p ON pa.payment_id=p.id JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND c.deleted_at IS NULL AND ${tenant.clause} LIMIT 1`).get(req.params.id, ...tenant.values);
   if (allocated) return res.status(409).json({ error: 'Allocated plan payments cannot be edited; delete and re-record the payment instead' });
   const result = db.transaction(() => {

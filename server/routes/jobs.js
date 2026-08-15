@@ -159,6 +159,41 @@ const saveJobItems = db.transaction((jobId, items) => {
   items.forEach(i => ins.run(jobId, i.type || 'labor', i.description || '', i.qty ?? 1, i.rate ?? 0, i.amount ?? 0, i.taxable ? 1 : 0, i.inventory_id || null));
 });
 
+function inventoryQuantities(items = []) {
+  const quantities = new Map();
+  items.filter(item => item.inventory_id).forEach(item => {
+    const id = Number(item.inventory_id);
+    quantities.set(id, (quantities.get(id) || 0) + Number(item.qty || 0));
+  });
+  return quantities;
+}
+
+function applyInventoryItemChanges(req, previousItems = [], nextItems = []) {
+  const previous = inventoryQuantities(previousItems);
+  const next = inventoryQuantities(nextItems);
+  const tenant = shopTenantWhere(req, 'pi');
+  const lookup = db.prepare(`SELECT pi.id, pi.name, pi.quantity FROM parts_inventory pi WHERE pi.id=? AND ${tenant.clause}`);
+  const update = db.prepare(`UPDATE parts_inventory AS pi SET quantity=quantity-? WHERE pi.id=? AND ${tenant.clause}`);
+  for (const id of new Set([...previous.keys(), ...next.keys()])) {
+    const change = (next.get(id) || 0) - (previous.get(id) || 0);
+    if (Math.abs(change) < 1e-9) continue;
+    const inventory = lookup.get(id, ...tenant.values);
+    if (!inventory) {
+      const error = new Error('An item references inventory that no longer exists');
+      error.status = 400;
+      error.field = 'inventory_id';
+      throw error;
+    }
+    if (change > 0 && Number(inventory.quantity) + 1e-9 < change) {
+      const error = new Error(`Insufficient inventory for ${inventory.name || 'repair-order item'}: ${inventory.quantity} available, ${change} required`);
+      error.status = 409;
+      error.field = 'inventory_id';
+      throw error;
+    }
+    update.run(change, id, ...tenant.values);
+  }
+}
+
 function advanceVehicleMileage(vehicleId, mileage) {
   const nextMileage = Number(mileage);
   if (!Number.isFinite(nextMileage) || nextMileage < 0) return;
@@ -169,7 +204,7 @@ function advanceVehicleMileage(vehicleId, mileage) {
   `).run(nextMileage, vehicleId, nextMileage);
 }
 
-const createJob = db.transaction((values, items, automaticPayment, vehicleMileage) => {
+const createJob = db.transaction((req, values, items, automaticPayment, vehicleMileage) => {
   const result = db.prepare(`
     INSERT INTO jobs
       (customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
@@ -178,7 +213,10 @@ const createJob = db.transaction((values, items, automaticPayment, vehicleMileag
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(...values);
   const jobId = result.lastInsertRowid;
-  if (items && items.length) saveJobItems(jobId, items);
+  if (items && items.length) {
+    applyInventoryItemChanges(req, [], items);
+    saveJobItems(jobId, items);
+  }
   advanceVehicleMileage(vehicleMileage.vehicleId, vehicleMileage.miles);
   const payment = automaticPayment ? insertAutomaticJobPayment(jobId, automaticPayment.customer, automaticPayment.amount, automaticPayment.method, automaticPayment.date, automaticPayment.repairOrderNumber, automaticPayment.service) : null;
   reconcileJobInvoiceStatus(db, jobId);
@@ -239,7 +277,7 @@ router.post('/', (req, res) => {
     repairOrderNumber: repair_order_number || '',
     service: service || '',
   } : null;
-  const created = createJob([
+  const created = createJob(req, [
     customer_id, vehicle_id, service, repair_order_number || '', date, miles || 0,
     laborVal, parseFloat(labor_hours) || 0, parseFloat(labor_rate) || 0,
     partsVal, discount || 0, jobTaxRate, status || 'Pending', notes || '', employee_id || null,
@@ -309,6 +347,7 @@ router.put('/:id', (req, res) => {
     return fail(res, 'parts_deposit_required', `Required parts deposit has ${Math.max(0, Number(parts_deposit_required) - depositPaid).toFixed(2)} remaining`, 409);
   }
   let automaticPayment = null;
+  const previousItems = items === undefined ? null : db.prepare('SELECT * FROM job_items WHERE job_id=?').all(req.params.id);
 
   db.transaction(() => {
     db.prepare(`
@@ -325,7 +364,10 @@ router.put('/:id', (req, res) => {
       service_address || '', travel_fee || 0, parts_deposit_required || 0, closedAt,
       req.params.id
     );
-    if (items !== undefined) saveJobItems(req.params.id, items || []);
+    if (items !== undefined) {
+      applyInventoryItemChanges(req, previousItems, items || []);
+      saveJobItems(req.params.id, items || []);
+    }
     advanceVehicleMileage(current.vehicle_id, miles || 0);
     if (shouldRecordPayment && remainingBalance > 0) {
       automaticPayment = insertAutomaticJobPayment(
@@ -346,14 +388,21 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
-  const result = db.prepare(`
-    UPDATE jobs SET deleted_at = datetime('now')
-    WHERE id IN (
-      SELECT j.id FROM jobs j
-      JOIN customers c ON j.customer_id = c.id
-      WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
-    )
-  `).run(req.params.id, ...tenant.values);
+  const job = db.prepare(`
+    SELECT j.id FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    WHERE j.id = ? AND j.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+  `).get(req.params.id, ...tenant.values);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  const payment = db.prepare('SELECT id FROM payments WHERE job_id=? LIMIT 1').get(job.id);
+  if (payment) return res.status(409).json({ error: 'This repair order has payment history and cannot be deleted. Cancel or void it to preserve the financial record.' });
+  const plan = db.prepare('SELECT id FROM payment_plans WHERE job_id=? LIMIT 1').get(job.id);
+  if (plan) return res.status(409).json({ error: 'This repair order has a payment plan and cannot be deleted. Remove the payment plan first.' });
+  const result = db.transaction(() => {
+    const existingItems = db.prepare('SELECT * FROM job_items WHERE job_id=?').all(job.id);
+    applyInventoryItemChanges(req, existingItems, []);
+    return db.prepare('UPDATE jobs SET deleted_at = datetime(\'now\') WHERE id = ? AND deleted_at IS NULL').run(job.id);
+  })();
   if (!result.changes) return res.status(404).json({ error: 'Job not found' });
   res.json({ success: true });
 });

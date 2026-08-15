@@ -1879,6 +1879,14 @@ function addDays(d, n){
   const dt = new Date(Date.UTC(year,month-1,day)); dt.setUTCDate(dt.getUTCDate()+n);
   return dt.toISOString().split('T')[0];
 }
+function addCalendarMonths(d,n){
+  const [year,month,day]=String(d||'').split('-').map(Number);
+  const targetMonth=month-1+n;
+  const targetYear=year+Math.floor(targetMonth/12);
+  const normalizedMonth=((targetMonth%12)+12)%12;
+  const lastDay=new Date(Date.UTC(targetYear,normalizedMonth+1,0)).getUTCDate();
+  return new Date(Date.UTC(targetYear,normalizedMonth,Math.min(day,lastDay))).toISOString().split('T')[0];
+}
 
 // ── API calls ──
 async function api(method, path, body, {silentError=false}={}){
@@ -2708,7 +2716,11 @@ async function deletePayment(id){
 function planAdditionalPayments(p){
   return state.payments.filter(payment=>payment.plan_id===p.id&&!payment.installment_id&&String(payment.note||'').trim().toLowerCase()!=='down payment'&&!String(payment.description||'').toLowerCase().endsWith('— down payment'));
 }
-function planBalance(p){ return Math.max(0,Number(p.total||0)-planPaid(p)); }
+function planBalance(p){
+  const installments=Array.isArray(p.installments)?p.installments:[];
+  if(!installments.length)return Math.max(0,Number(p.total||0)-planPaid(p));
+  return Math.round(installments.reduce((sum,inst)=>sum+Math.max(0,Number(inst.amount||0)+Number(inst.late_fee_due??inst.late_fee??0)-Number(inst.amount_paid||0)),0)*100)/100;
+}
 function planPaid(p){ const ledger=state.payments.filter(payment=>Number(payment.plan_id)===Number(p.id));return ledger.length?ledger.reduce((sum,payment)=>sum+(Number(payment.amount)||0),0):Number(p.paid_total||0); }
 function planOverdue(p){ const t=today(); return (p.installments||[]).filter(i=>!i.paid&&addDays(i.due_date,Number(p.grace_days||state.settings.payment_grace_days||0))<t).length; }
 
@@ -2850,18 +2862,27 @@ function reportMetrics(snapshot,period='all'){
   const allocatedByJob=new Map();
   allPayments.forEach(payment=>{
     const amount=Number(payment.amount)||0;
+    const lateFee=Math.min(amount,Math.max(0,Number(payment.late_fee_amount)||0));
+    const invoicePayment=amount-lateFee;
     const job=jobs.find(candidate=>Number(candidate.id)===Number(payment.job_id));
-    if(!job){if(inPeriod(payment.date))income.unallocated+=amount;return;}
-    const totals=jobPricingTotals(job.labor,job.parts,job.travel_fee,job.discount,job.tax_rate??taxRate);
-    const components={labor:totals.netLabor,parts:totals.netParts,fees:totals.travelFee,tax:totals.tax};
+    if(!job){if(inPeriod(payment.date)){income.unallocated+=invoicePayment;income.fees+=lateFee;}return;}
+    if(job.deleted_at||job.status==='Canceled'||job.invoice_status==='Voided'){if(inPeriod(payment.date))income.credits+=amount;return;}
+    const items=Array.isArray(job.items)?job.items:[];
+    const rawLabor=items.length?items.filter(item=>String(item.type||'').toLowerCase()==='labor').reduce((sum,item)=>sum+(Number(item.amount)||0),0):Number(job.labor)||0;
+    const rawParts=items.length?items.filter(item=>['part','parts','shop_supply'].includes(String(item.type||'').toLowerCase())).reduce((sum,item)=>sum+(Number(item.amount)||0),0):Number(job.parts)||0;
+    const rawFees=items.length?items.filter(item=>!['labor','part','parts','shop_supply'].includes(String(item.type||'').toLowerCase())).reduce((sum,item)=>sum+(Number(item.amount)||0),0):0;
+    const totals=jobPricingTotals(rawLabor+rawFees,rawParts,job.travel_fee,job.discount,job.tax_rate??taxRate);
+    const discountFactor=totals.subtotal>0?Math.max(0,totals.subtotal-Math.min(totals.discount,totals.subtotal))/totals.subtotal:0;
+    const components={labor:rawLabor*discountFactor,parts:totals.netParts,fees:rawFees*discountFactor+totals.travelFee,tax:totals.tax};
     const jobTotal=components.labor+components.parts+components.tax+components.fees;
-    if(!(jobTotal>0)){if(inPeriod(payment.date))income.unallocated+=amount;return;}
+    if(!(jobTotal>0)){if(inPeriod(payment.date)){income.unallocated+=invoicePayment;income.fees+=lateFee;}return;}
     const previouslyAllocated=allocatedByJob.get(job.id)||0;
-    const invoiceAmount=Math.min(amount,Math.max(0,jobTotal-previouslyAllocated));
+    const invoiceAmount=Math.min(invoicePayment,Math.max(0,jobTotal-previouslyAllocated));
     allocatedByJob.set(job.id,previouslyAllocated+invoiceAmount);
     if(!inPeriod(payment.date))return;
     Object.keys(components).forEach(key=>{income[key]+=invoiceAmount*components[key]/jobTotal;});
-    income.credits+=amount-invoiceAmount;
+    income.fees+=lateFee;
+    income.credits+=invoicePayment-invoiceAmount;
   });
   const totalReceived=payments.reduce((sum,payment)=>sum+(Number(payment.amount)||0),0);
   const totalIncome=income.labor+income.parts+income.fees+income.unallocated;
@@ -2885,7 +2906,7 @@ function renderReport(){
       <div class="report-sect"><h3>Income</h3>
         <div class="report-line"><span>Labor revenue</span><span style="color:#3B6D11;">${fmt$(income.labor)}</span></div>
         <div class="report-line"><span>Parts / materials</span><span style="color:#3B6D11;">${fmt$(income.parts)}</span></div>
-        <div class="report-line"><span>Trip / service fees</span><span style="color:#3B6D11;">${fmt$(income.fees)}</span></div>
+        <div class="report-line"><span>Service / trip / late fees</span><span style="color:#3B6D11;">${fmt$(income.fees)}</span></div>
         <div class="report-line"><span>Sales tax collected (liability)</span><span>${fmt$(income.tax)}</span></div>
         ${Math.abs(income.unallocated)>=.005?`<div class="report-line"><span>Unallocated payments</span><span style="color:#3B6D11;">${fmt$(income.unallocated)}</span></div>`:''}
         ${income.credits>=.005?`<div class="report-line"><span>Customer credits / overpayments (liability)</span><span>${fmt$(income.credits)}</span></div>`:''}
@@ -2933,9 +2954,10 @@ function exportReport(){
     `INCOME`,
     `  Labor revenue: ${fmt$(income.labor)}`,
     `  Parts / materials: ${fmt$(income.parts)}`,
-    `  Trip / service fees: ${fmt$(income.fees)}`,
+    `  Service / trip / late fees: ${fmt$(income.fees)}`,
     `  Sales tax collected (liability): ${fmt$(income.tax)}`,
     `  Unallocated payments: ${fmt$(income.unallocated)}`,
+    `  Customer credits / overpayments (liability): ${fmt$(income.credits)}`,
     `  Total cash received: ${fmt$(totalReceived)}`,
     `  Total operating income: ${fmt$(totalIncome)}`,
     ``,
@@ -3650,8 +3672,8 @@ async function savePlan(){
   const freq=document.getElementById('pl-freq').value;
   const start=document.getElementById('pl-start').value||today();
   const rem=total-down;
-  const freqDays={weekly:7,biweekly:14,monthly:30};
-  const days=freqDays[freq]||30;
+  const freqDays={weekly:7,biweekly:14};
+  const days=freqDays[freq]||0;
   let installments=[];
   if(rem>0&&document.getElementById('pl-type').value==='custom'){
     installments=customPlanInstallments();
@@ -3660,7 +3682,7 @@ async function savePlan(){
     if(customTotal!==Math.round(rem*100)){toast(`Custom payment amounts must total ${fmt$(rem)}.`,8000);return;}
   }else if(rem>0){
     const remainingCents=Math.round(rem*100),baseCents=Math.floor(remainingCents/count);
-    for(let i=0;i<count;i++)installments.push({due_date:addDays(start,i*days),amount:(i===count-1?remainingCents-baseCents*(count-1):baseCents)/100});
+    for(let i=0;i<count;i++)installments.push({due_date:freq==='monthly'?addCalendarMonths(start,i):addDays(start,i*days),amount:(i===count-1?remainingCents-baseCents*(count-1):baseCents)/100});
   }
   const body={customer_id:custId,job_id:jobId,description:document.getElementById('pl-desc').value,total,down_payment:down,down_payment_method:state.settings.default_pay_method||'Cash',down_payment_date:today(),plan_type:document.getElementById('pl-type').value,installment_count:rem>0?count:0,frequency:freq,start_date:start,notes:document.getElementById('pl-notes').value,installments};
   await runMutation('plan-save-new',{buttonId:'save-plan-btn',action:'Creating payment plan',request:()=>api('POST','/api/plans',body),apply:plan=>{const payment=plan.payment;upsertStateRecord('plans',plan);if(payment){upsertStateRecord('payments',payment);applyJobInvoiceStatus(payment.job_id,payment.job_invoice_status);}},render:()=>renderSafely(renderPlans,renderFinance,renderDashboard),close:'m-plan',success:'Payment plan created'});
@@ -4005,7 +4027,7 @@ function openInvoice(jobId){
 
   // Build line rows and compute breakdowns from items when available
   let lineRows = '';
-  let laborTotal = 0, partsTotal = 0;
+  let laborTotal = 0, partsTotal = 0, otherFeesTotal = 0;
   const items = j.items || [];
   if(items.length){
     items.forEach(i=>{
@@ -4018,7 +4040,8 @@ function openInvoice(jobId){
         <td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(i.amount||0)}</td>
       </tr>`;
       if(i.taxable) partsTotal += i.amount||0;
-      else laborTotal += i.amount||0;
+      else if(String(i.type||'').toLowerCase()==='labor') laborTotal += i.amount||0;
+      else otherFeesTotal += i.amount||0;
     });
   } else {
     laborTotal = j.labor || 0;
@@ -4030,9 +4053,11 @@ function openInvoice(jobId){
   const travelFee = j.travel_fee || 0;
   if(travelFee) lineRows+=`<tr><td style="padding:7px 0;border-bottom:1px solid #f0f0ec;">Travel / trip fee</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #f0f0ec;">${fmt$(travelFee)}</td></tr>`;
 
-  const totals=jobPricingTotals(laborTotal,partsTotal,travelFee,j.discount,taxRate);
+  const totals=jobPricingTotals(laborTotal+otherFeesTotal,partsTotal,travelFee,j.discount,taxRate);
   const tax=totals.tax,total=totals.total;
-  const jobPaid=state.payments.filter(payment=>payment.job_id===jobId).reduce((sum,payment)=>sum+Number(payment.amount||0),0);
+  const jobPayments=state.payments.filter(payment=>payment.job_id===jobId).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+  const jobPaid=jobPayments.reduce((sum,payment)=>sum+Number(payment.amount||0),0);
+  const invoicePaid=Math.min(jobPaid,total),balanceDue=Math.max(0,total-jobPaid),customerCredit=Math.max(0,jobPaid-total);
   const depositRequired=Number(j.parts_deposit_required||0);
   const depositRemaining=Math.max(0,depositRequired-jobPaid);
   const linkedPlans=state.plans.filter(p=>p.job_id===jobId);
@@ -4092,12 +4117,17 @@ function openInvoice(jobId){
     <div style="display:flex;justify-content:flex-end;">
       <div style="min-width:260px;font-size:13px;">
         ${laborTotal>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#555;"><span>Subtotal — Labor</span><span>${fmt$(laborTotal)}</span></div>`:''}
+        ${otherFeesTotal>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#555;"><span>Subtotal — Services / fees</span><span>${fmt$(otherFeesTotal)}</span></div>`:''}
         ${partsTotal>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#555;"><span>Subtotal — Parts</span><span>${fmt$(partsTotal)}</span></div>`:''}
         ${totals.discount>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#888;"><span>Discount</span><span>-${fmt$(Math.min(totals.discount,totals.subtotal))}</span></div>`:''}
         ${tax>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#888;"><span>Sales Tax (${taxRate}%)</span><span>${fmt$(tax)}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #1a1a1a;margin-top:4px;"><span>Total</span><span>${fmt$(total)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;color:#3B6D11;"><span>Paid</span><span>-${fmt$(invoicePaid)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:1px solid #aaa;"><span>Balance due</span><span>${fmt$(balanceDue)}</span></div>
+        ${customerCredit>0?`<div style="display:flex;justify-content:space-between;padding:4px 0;color:#555;"><span>Customer credit</span><span>${fmt$(customerCredit)}</span></div>`:''}
       </div>
     </div>
+    ${jobPayments.length?`<div style="margin-top:1rem;padding:10px;border:1px solid #deded8;border-radius:6px;break-inside:avoid;"><div style="font-weight:600;font-size:12px;margin-bottom:5px;">Payment history</div>${jobPayments.map(payment=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:#555;padding:2px 0;"><span>${esc(payment.date||'—')} · ${esc(payment.method||'Payment')}</span><span>${fmt$(payment.amount)}</span></div>`).join('')}</div>`:''}
     ${depositRequired>0?`<div style="margin-top:1rem;padding:10px;border:1px solid ${depositRemaining>0?'#E6A23C':'#74A84A'};border-radius:6px;font-size:12px;"><strong>Parts deposit:</strong> Required ${fmt$(depositRequired)} · Received ${fmt$(Math.min(jobPaid,depositRequired))} · <strong>${depositRemaining>0?`Still due ${fmt$(depositRemaining)}`:'Paid'}</strong></div>`:''}
     ${paymentPlanHtml}
     ${j.notes?`<div style="margin-top:1rem;padding:10px;background:#f5f5f0;border-radius:6px;font-size:12px;color:#666;"><strong>Notes:</strong> ${esc(j.notes)}</div>`:''}
@@ -4537,8 +4567,8 @@ async function openEstimateModal(id){
     document.getElementById('estf-complaint').value=e.customer_complaint||'';
     document.getElementById('estf-notes').value=e.notes||'';
     document.getElementById('est-discount').value=e.discount||'';
-    document.getElementById('est-taxrate').value=e.tax_rate||state.settings.tax_rate||'';
-    estItems=(e.items||[]).map(i=>({type:i.type||'labor',description:i.description||'',qty:i.qty||1,rate:i.rate||0,amount:i.amount||0}));
+    document.getElementById('est-taxrate').value=e.tax_rate??state.settings.tax_rate??'';
+    estItems=(e.items||[]).map(i=>({type:i.type||'labor',description:i.description||'',qty:i.qty||1,rate:i.rate||0,amount:i.amount||0,inventory_id:i.inventory_id||null}));
     document.getElementById('estf-convert-btn').style.display=e.status==='Approved'?'':'none';
     document.getElementById('estf-del').innerHTML=`<button class="btn btn-sm btn-danger" onclick="deleteEstimate(${safeId(id)})">Delete</button>`;
   } else {
@@ -5175,10 +5205,16 @@ function renderTime(){
     return a+Math.round((new Date(t.clock_out)-new Date(t.clock_in))/60000);
   },0);
   const totalHrs=(totalMins/60).toFixed(1);
+  const employeeRates=new Map(state.employees.map(employee=>[Number(employee.id),Number(employee.hourly_rate)||0]));
+  const laborCost=filtered.reduce((sum,entry)=>{
+    if(!entry.clock_in||!entry.clock_out)return sum;
+    const hours=(new Date(entry.clock_out)-new Date(entry.clock_in))/3600000;
+    return sum+Math.max(0,hours)*(Number(entry.hourly_rate??employeeRates.get(Number(entry.employee_id)))||0);
+  },0);
   document.getElementById('time-stats').innerHTML=`
     <div class="stat"><div class="stat-label">Entries</div><div class="stat-value">${filtered.length}</div></div>
     <div class="stat"><div class="stat-label">Total hours (w/ clock-out)</div><div class="stat-value blue">${totalHrs} hrs</div></div>
-    <div class="stat"><div class="stat-label">Est. labor cost</div><div class="stat-value green">${fmt$(parseFloat(totalHrs)*(state.settings.default_labor_rate||0))}</div></div>
+    <div class="stat"><div class="stat-label">Est. wage cost</div><div class="stat-value green">${fmt$(laborCost)}</div></div>
   `;
   const tbody=document.getElementById('time-tbody');
   if(!filtered.length){tbody.innerHTML=`<tr><td colspan="8" class="empty">No time entries found</td></tr>`;return;}

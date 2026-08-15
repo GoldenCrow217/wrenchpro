@@ -51,8 +51,14 @@ router.post('/', (req, res) => {
     ).run(shopId, date, description, category, amount, note || '');
     let inventoryItem = null;
     if (inventory && existingInventory) {
+      const existingQuantity = Number(existingInventory.quantity) || 0;
+      const addedQuantity = Number(inventory.quantity);
+      const combinedQuantity = existingQuantity + addedQuantity;
+      const weightedCost = combinedQuantity > 0
+        ? (existingQuantity * Number(existingInventory.cost || 0) + addedQuantity * Number(inventory.cost)) / combinedQuantity
+        : Number(inventory.cost);
       db.prepare('UPDATE parts_inventory SET cost=?, retail_price=?, quantity=quantity+? WHERE id=?')
-        .run(Number(inventory.cost), Number(inventory.retail_price), Number(inventory.quantity), existingInventory.id);
+        .run(weightedCost, Number(inventory.retail_price), addedQuantity, existingInventory.id);
       inventoryItem = db.prepare('SELECT * FROM parts_inventory WHERE id = ?').get(existingInventory.id);
     } else if (inventory) {
       const inventoryResult = db.prepare(`

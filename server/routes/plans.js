@@ -177,9 +177,9 @@ router.put('/installment/:id/pay', (req, res) => {
     }
 
     const paymentResult = db.prepare(`
-      INSERT INTO payments (customer_id, plan_id, installment_id, job_id, description, amount, method, date, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(plan.customer_id, plan.id, installmentId, plan.job_id || null, description, amount, method, paidDate, 'Auto-logged from payment plan installment');
+      INSERT INTO payments (customer_id, plan_id, installment_id, job_id, late_fee_amount, description, amount, method, date, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(plan.customer_id, plan.id, installmentId, plan.job_id || null, assessedLateFee, description, amount, method, paidDate, 'Auto-logged from payment plan installment');
 
     const updateResult = db.prepare('UPDATE installments SET paid=1, paid_date=?, amount_paid=amount+?, late_fee=? WHERE id=? AND paid=0').run(paidDate, assessedLateFee, assessedLateFee, installmentId);
     if (updateResult.changes !== 1) {

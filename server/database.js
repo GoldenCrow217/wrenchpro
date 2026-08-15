@@ -97,6 +97,7 @@ db.exec(`
     plan_id INTEGER,
     installment_id INTEGER,
     job_id INTEGER,
+    late_fee_amount REAL DEFAULT 0,
     description TEXT,
     amount REAL NOT NULL,
     method TEXT DEFAULT 'Cash',
@@ -493,6 +494,8 @@ db.prepare(`CREATE INDEX IF NOT EXISTS idx_expenses_shop ON expenses(shop_id)`).
 // Migrate: stable installment-payment relationship for atomic/idempotent plan payments
 const paymentCols = db.prepare(`PRAGMA table_info(payments)`).all().map(c => c.name);
 if (!paymentCols.includes('installment_id')) db.prepare(`ALTER TABLE payments ADD COLUMN installment_id INTEGER REFERENCES installments(id)`).run();
+const addedLateFeeAmount = !paymentCols.includes('late_fee_amount');
+if (addedLateFeeAmount) db.prepare(`ALTER TABLE payments ADD COLUMN late_fee_amount REAL DEFAULT 0`).run();
 db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_installment_unique ON payments(installment_id) WHERE installment_id IS NOT NULL`).run();
 
 const installmentCols = db.prepare(`PRAGMA table_info(installments)`).all().map(c => c.name);
@@ -510,6 +513,34 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_payment_allocations_payment ON payment_allocations(payment_id);
   CREATE INDEX IF NOT EXISTS idx_payment_allocations_installment ON payment_allocations(installment_id);
 `);
+if (addedLateFeeAmount) {
+  db.prepare(`
+    UPDATE payments
+    SET late_fee_amount = COALESCE((SELECT late_fee FROM installments WHERE installments.id=payments.installment_id),0)
+    WHERE installment_id IS NOT NULL
+  `).run();
+  const allocationRows = db.prepare(`
+    SELECT pa.payment_id, pa.installment_id, pa.amount AS allocated_amount, i.amount AS principal_amount, i.late_fee
+    FROM payment_allocations pa
+    JOIN installments i ON i.id=pa.installment_id
+    JOIN payments p ON p.id=pa.payment_id
+    WHERE COALESCE(i.late_fee,0)>0
+    ORDER BY pa.installment_id, p.date, p.id, pa.id
+  `).all();
+  const allocatedByInstallment = new Map();
+  const feeByPayment = new Map();
+  allocationRows.forEach(row => {
+    const previouslyAllocated = allocatedByInstallment.get(row.installment_id) || 0;
+    const newlyAllocated = previouslyAllocated + Number(row.allocated_amount || 0);
+    const previousFee = Math.max(0, previouslyAllocated - Number(row.principal_amount || 0));
+    const newFee = Math.min(Number(row.late_fee || 0), Math.max(0, newlyAllocated - Number(row.principal_amount || 0)));
+    const feeAmount = Math.max(0, newFee - previousFee);
+    allocatedByInstallment.set(row.installment_id, newlyAllocated);
+    if (feeAmount > 0) feeByPayment.set(row.payment_id, (feeByPayment.get(row.payment_id) || 0) + feeAmount);
+  });
+  const updateLateFee = db.prepare('UPDATE payments SET late_fee_amount=? WHERE id=?');
+  feeByPayment.forEach((amount, paymentId) => updateLateFee.run(Math.round(amount * 100) / 100, paymentId));
+}
 
 // Migrate: settings (new columns)
 const settCols = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);
