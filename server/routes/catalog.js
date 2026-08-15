@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, shopTenantWhere } = require('../tenant');
-const { requiredText, finiteNumber, positiveId } = require('../validation');
+const { requiredText, nonNegativeNumber, positiveId } = require('../validation');
 
 function validateCatalogItem(res, body) {
   return requiredText(res, body, 'name', 'Service name')
-    && finiteNumber(res, body, 'default_hours', { label: 'Default hours' })
-    && finiteNumber(res, body, 'default_price', { label: 'Default price' });
+    && nonNegativeNumber(res, body, 'default_hours', { label: 'Default hours' })
+    && nonNegativeNumber(res, body, 'default_price', { label: 'Default price' });
 }
 
 router.get('/', (req, res) => {

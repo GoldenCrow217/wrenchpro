@@ -23,6 +23,7 @@ const context = {
   state,
   fetch: (...args) => fetchImpl(...args),
   toast: (message, duration) => warnings.push({ message, duration }),
+  shopContextHeaders: () => ({}),
   console: { error: (...args) => errors.push(args) },
   window: { addEventListener: () => {} },
   clearTimeout,
@@ -30,7 +31,7 @@ const context = {
   updateSidebarFoot: () => {},
   renderPage: () => {},
 };
-vm.runInNewContext(`const API='';let currentPage='dashboard';${html.slice(apiStart, apiEnd)}${html.slice(loadStart, loadEnd)};globalThis.qa={refreshOnFocus};`, context);
+vm.runInNewContext(`const API='';let currentPage='dashboard';${html.slice(apiStart, apiEnd)}${html.slice(loadStart, loadEnd)};globalThis.qa={refreshOnFocus,loadAll};`, context);
 
 const ok = value => ({ ok: true, json: async () => value });
 const failed = message => ({ ok: false, json: async () => ({ error: message }) });
@@ -73,6 +74,15 @@ async function main() {
   await context.qa.refreshOnFocus();
   assert.strictEqual(state.settings.later, true, 'a later successful refresh must run normally');
   assert.strictEqual(state.customers[0].later, '/api/customers');
+
+  const existingJobs = JSON.stringify(state.jobs);
+  fetchImpl = async url => url === '/api/jobs' ? failed('jobs unavailable') : ok(url === '/api/settings' ? { partial: true } : [{ partial: url }]);
+  const failures = await context.qa.loadAll({ silentErrors: true, allowPartial: true });
+  assert.strictEqual(failures.length, 1, 'partial startup must report one failed resource');
+  assert.strictEqual(failures[0].resource, 'jobs');
+  assert.strictEqual(JSON.stringify(state.jobs), existingJobs, 'partial startup must preserve the failed resource state');
+  assert.strictEqual(state.customers[0].partial, '/api/customers', 'partial startup must apply successful resources');
+  assert.strictEqual(state.settings.partial, true);
   console.log('Focus refresh reliability QA passed');
 }
 

@@ -2,13 +2,16 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere } = require('../tenant');
-const { fail, finiteNumber, positiveId } = require('../validation');
+const { fail, nonNegativeNumber, positiveId } = require('../validation');
 
 function validateVehicle(res, body, requireCustomer) {
   if (!positiveId(res, body.customer_id, 'customer_id', { required: requireCustomer })) return false;
   for (const [field, label] of [['year','Year'],['miles','Mileage'],['oil_change_miles','Oil-change mileage']]) {
-    if (!finiteNumber(res, body, field, { label })) return false;
+    if (!nonNegativeNumber(res, body, field, { label })) return false;
   }
+  if (body.year !== undefined && body.year !== '' && !Number.isInteger(Number(body.year))) return fail(res, 'year', 'Year must be a whole number');
+  if (body.miles !== undefined && body.miles !== '' && !Number.isInteger(Number(body.miles))) return fail(res, 'miles', 'Mileage must be a whole number');
+  if (body.oil_change_miles !== undefined && body.oil_change_miles !== '' && !Number.isInteger(Number(body.oil_change_miles))) return fail(res, 'oil_change_miles', 'Oil-change mileage must be a whole number');
   return true;
 }
 
@@ -33,7 +36,7 @@ router.post('/', (req, res) => {
   const result = db.prepare(`
     INSERT INTO vehicles (customer_id, year, make, model, trim, color, plate, state, vin, miles, oil_change_miles, fuel_type, transmission, engine, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(customer_id, year, make, model, trim || '', color || '', plate || '', state || '', vin || '', miles || 0, oil_change_miles || 0, fuel_type || '', transmission || '', engine || '', notes || '');
+  `).run(customer_id, year === undefined || year === null || year === '' ? null : year, make, model, trim || '', color || '', plate || '', state || '', vin || '', miles === undefined || miles === null || miles === '' ? 0 : miles, oil_change_miles === undefined || oil_change_miles === null || oil_change_miles === '' ? 0 : oil_change_miles, fuel_type || '', transmission || '', engine || '', notes || '');
   res.json({ id: result.lastInsertRowid, ...req.body });
 });
 
@@ -48,7 +51,7 @@ router.put('/:id', (req, res) => {
       JOIN customers c ON v.customer_id = c.id
       WHERE v.id = ? AND v.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
     )
-  `).run(year, make, model, trim || '', color || '', plate || '', state || '', vin || '', miles || 0, oil_change_miles || 0, fuel_type || '', transmission || '', engine || '', notes || '', req.params.id, ...tenant.values);
+  `).run(year === undefined || year === null || year === '' ? null : year, make, model, trim || '', color || '', plate || '', state || '', vin || '', miles === undefined || miles === null || miles === '' ? 0 : miles, oil_change_miles === undefined || oil_change_miles === null || oil_change_miles === '' ? 0 : oil_change_miles, fuel_type || '', transmission || '', engine || '', notes || '', req.params.id, ...tenant.values);
   if (!result.changes) return res.status(404).json({ error: 'Vehicle not found' });
   res.json({ success: true });
 });

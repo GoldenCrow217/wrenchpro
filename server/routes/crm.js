@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, getTenantCustomer, shopTenantWhere } = require('../tenant');
 const { fail, requiredText, positiveId, isoDate } = require('../validation');
+const { localDateKey } = require('../business-date');
 
 function tenantCustomerOr400(req, customerId) {
   const { customer } = getTenantCustomer(req, customerId, 'c');
@@ -12,7 +13,7 @@ function tenantCustomerOr400(req, customerId) {
 function employeeInTenant(req, employeeId) {
   if (!employeeId) return true;
   const tenant = shopTenantWhere(req, 'e');
-  return Boolean(db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
+  return Boolean(db.prepare(`SELECT e.id FROM employees e WHERE e.id = ? AND e.deleted_at IS NULL AND ${tenant.clause}`).get(employeeId, ...tenant.values));
 }
 
 function vehicleBelongsToTenantCustomer(req, vehicleId, customerId) {
@@ -76,7 +77,7 @@ router.post('/interactions', (req, res) => {
     type || 'Note',
     summary || '',
     employee_id || null,
-    created_at || new Date().toISOString().split('T')[0]
+    created_at || localDateKey()
   );
   res.json({ id: result.lastInsertRowid });
 });

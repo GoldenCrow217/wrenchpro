@@ -43,8 +43,17 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   const tenant = shopTenantWhere(req);
+  const part = db.prepare(`SELECT id FROM parts_inventory WHERE id = ? AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
+  if (!part) return res.status(404).json({ error: 'Inventory item not found' });
+  const jobReferences = db.prepare('SELECT COUNT(*) AS count FROM job_items WHERE inventory_id = ?').get(part.id).count;
+  const estimateReferences = db.prepare('SELECT COUNT(*) AS count FROM estimate_items WHERE inventory_id = ?').get(part.id).count;
+  if (jobReferences || estimateReferences) {
+    return res.status(409).json({
+      error: 'This part is used on an existing repair order or estimate and cannot be permanently deleted.',
+      field: 'id',
+    });
+  }
   const result = db.prepare(`DELETE FROM parts_inventory WHERE id = ? AND ${tenant.clause}`).run(req.params.id, ...tenant.values);
-  if (!result.changes) return res.status(404).json({ error: 'Inventory item not found' });
   res.json({ success: true });
 });
 

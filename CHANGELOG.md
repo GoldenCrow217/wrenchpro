@@ -21,6 +21,70 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.34 - 2026-08-13
+
+### Added
+
+- Payment-ledger Delete actions with confirmation, duplicate-action protection, and focused state refreshes.
+
+### Changed
+
+- Deleting allocated or installment-linked payments now recalculates the associated installment and repair-order balance while preserving other recorded payments.
+- Plan down payments remain protected until their payment plan is deleted, with clear guidance for the safe correction workflow.
+
+### Fixed
+
+- Payments for archived customers can be removed when correcting historical records.
+- Payment deletion immediately refreshes Payments, Dashboard, Profit and Loss, customer history, repair-order status, and linked payment-plan state.
+
+## v1.0.33 - 2026-08-13
+
+### Added
+
+- Atomic Quick Entry API workflow that creates or reuses the customer and vehicle, creates the repair order, and records an optional payment in one database transaction.
+- Persisted repair-order discounts so approved estimate pricing, parts-only tax, invoices, balances, dashboards, reports, and automatic payments remain consistent after conversion.
+- Optional request-scoped shop membership enforcement and a narrow saved shop-context header bridge while retaining local desktop mode by default.
+
+### Changed
+
+- Payment-plan paid totals now come from the payment ledger, including additional payments, instead of assuming a configured down payment was successfully recorded.
+- Profit and Loss proportionally allocates repair-order discounts between labor and parts and calculates sales-tax liability from discounted parts.
+- Customer and employee archive updates now keep active frontend lists consistent while preserving closed-job and payment history.
+
+### Fixed
+
+- Estimate partial updates preserve saved discount, tax, notes, approval, mileage, and expiration values instead of resetting omitted fields.
+- Quick Entry validation can no longer leave the save action permanently locked, and a failed transaction no longer leaves partial customer or vehicle records.
+- Focus-refresh QA supports the shop-context request headers and continues to verify state preservation without unhandled rejections.
+- Local date arithmetic remains stable across daylight-saving boundaries, impossible local date-times are rejected, and interaction defaults use the local business date.
+- Archived-customer payments and time history remain available in dashboard and reporting queries.
+- SQLite WAL and SHM runtime files are excluded from source control.
+
+## v1.0.32 - 2026-08-12
+
+### Added
+
+- Focused accounting and historical-integrity QA covering archived records, payment reconciliation, atomic plan down payments, authoritative line pricing, tax snapshots, employee history, and time validation.
+- Shared local business-date, line-item normalization, and repair-order finance helpers.
+
+### Changed
+
+- Repair-order and estimate line amounts are calculated on the server from quantity and rate, and parts taxability is derived from the controlled item type.
+- Customer and vehicle archival removes records from active selection lists while retaining repair orders, estimates, payments, plans, inspections, warranties, and revenue history.
+- Employees are archived instead of hard-deleted; open jobs are unassigned while closed-job assignments and time history remain intact.
+- Payment-plan creation records any down payment in the same database transaction, and fully paid plans no longer create zero-dollar installments.
+- Profit and Loss caps invoice allocation at the invoice total and reports excess receipts as customer-credit liabilities rather than operating income or sales tax.
+
+### Fixed
+
+- Repair-order invoice status now reconciles with actual payments after payment creation, editing, deletion, installment payment, and repair-order total changes.
+- Existing closed and paid repair orders receive a frozen tax-rate snapshot so later Settings changes do not rewrite historical totals.
+- Automatic payment and overdue-plan dates use the desktop's local business date rather than UTC.
+- Invalid or reversed time-log timestamps return clear validation errors instead of corrupting calculated hours.
+- Malformed line-item payloads return HTTP 400 instead of an internal server error.
+- Startup loading tolerates unavailable optional endpoints while preserving successfully loaded state, and desktop startup uses one IPv4-consistent, single-instance server lifecycle.
+- Unexpected external-link protocols are blocked, numeric API inputs receive consistent validation, and referenced inventory deletion returns a clear conflict response.
+
 ## v1.0.31 - 2026-08-12
 
 ### Added

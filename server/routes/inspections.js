@@ -15,7 +15,7 @@ function validateInspection(res, body, create) {
 function employeeInTenant(req, employeeId) {
   if (!employeeId) return true;
   const tenant = shopTenantWhere(req);
-  return Boolean(db.prepare(`SELECT id FROM employees WHERE id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
+  return Boolean(db.prepare(`SELECT id FROM employees WHERE id = ? AND deleted_at IS NULL AND ${tenant.clause}`).get(employeeId, ...tenant.values));
 }
 
 router.get('/', (req, res) => {
@@ -27,7 +27,7 @@ router.get('/', (req, res) => {
     JOIN customers c ON i.customer_id = c.id
     LEFT JOIN vehicles v ON i.vehicle_id = v.id
     LEFT JOIN employees e ON i.employee_id = e.id
-    WHERE c.deleted_at IS NULL AND (v.id IS NULL OR v.deleted_at IS NULL) AND ${tenant.clause}
+    WHERE ${tenant.clause}
     ORDER BY i.date DESC
   `).all(...tenant.values);
   rows.forEach(r => { r.items = db.prepare('SELECT * FROM inspection_items WHERE inspection_id = ? ORDER BY id').all(r.id); });
@@ -85,6 +85,7 @@ router.put('/:id', (req, res) => {
     `).run(notes || '', status || 'Draft', req.params.id, ...tenant.values);
     if (!result.changes) return 0;
     if (items !== undefined) {
+      db.prepare('DELETE FROM inspection_photos WHERE inspection_item_id IN (SELECT id FROM inspection_items WHERE inspection_id = ?)').run(req.params.id);
       db.prepare('DELETE FROM inspection_items WHERE inspection_id = ?').run(req.params.id);
       const ins = db.prepare('INSERT INTO inspection_items (inspection_id, category, item_name, condition, notes) VALUES (?, ?, ?, ?, ?)');
       (items || []).forEach(it => ins.run(req.params.id, it.category || '', it.item_name || '', it.condition || 'pass', it.notes || ''));
@@ -103,8 +104,11 @@ router.delete('/:id', (req, res) => {
     WHERE i.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}
   `).get(req.params.id, ...tenant.values);
   if (!current) return res.status(404).json({ error: 'Inspection not found' });
-  db.prepare('DELETE FROM inspection_items WHERE inspection_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM inspections WHERE id = ?').run(req.params.id);
+  db.transaction(() => {
+    db.prepare('DELETE FROM inspection_photos WHERE inspection_item_id IN (SELECT id FROM inspection_items WHERE inspection_id = ?)').run(req.params.id);
+    db.prepare('DELETE FROM inspection_items WHERE inspection_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM inspections WHERE id = ?').run(req.params.id);
+  })();
   res.json({ success: true });
 });
 

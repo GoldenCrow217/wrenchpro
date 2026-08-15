@@ -10,6 +10,8 @@ const db = require('./database');
 // auth layer a safe enforcement point without exposing Supabase secrets here.
 const SHOP_HEADER = 'x-wrenchpro-shop-id';
 const EMAIL_HEADER = 'x-wrenchpro-user-email';
+const REQUIRE_MEMBERSHIP = String(process.env.WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP || '').toLowerCase() === 'true';
+const ACTIVE_ROLES = new Set(['owner', 'admin', 'mechanic', 'service_writer']);
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -45,10 +47,13 @@ function shopExists(shopId) {
 
 function membershipFor(shopId, email) {
   if (!shopId || !email) return null;
-  return db.prepare(`
+  const membership = db.prepare(`
     SELECT * FROM shop_memberships
     WHERE shop_id = ? AND lower(email) = lower(?)
   `).get(shopId, email);
+  if (!membership) return null;
+  const role = String(membership.role || '').toLowerCase();
+  return ACTIVE_ROLES.has(role) ? membership : null;
 }
 
 function validateRequestedShopContext(req, res, next) {
@@ -62,12 +67,17 @@ function validateRequestedShopContext(req, res, next) {
   if (!shopExists(shopId)) return res.status(404).json({ error: 'Shop context not found', field: 'shop_id' });
 
   const email = requestedUserEmail(req);
-  if (email && !membershipFor(shopId, email)) {
-    return res.status(403).json({ error: 'User is not a member of the selected shop' });
+  if (REQUIRE_MEMBERSHIP && !email) {
+    return res.status(401).json({ error: 'Shop membership identity is required' });
+  }
+
+  const membership = email ? membershipFor(shopId, email) : null;
+  if (email && !membership) {
+    return res.status(403).json({ error: 'User is not an active member of the selected shop' });
   }
 
   req.shopId = shopId;
-  req.shopMembership = email ? membershipFor(shopId, email) : null;
+  req.shopMembership = membership;
   return next();
 }
 
@@ -108,7 +118,7 @@ function getTenantCustomer(req, customerId, alias = '') {
 function employeeInTenant(req, employeeId) {
   if (!employeeId) return true;
   const tenant = shopTenantWhere(req);
-  return Boolean(db.prepare(`SELECT id FROM employees WHERE id = ? AND ${tenant.clause}`).get(employeeId, ...tenant.values));
+  return Boolean(db.prepare(`SELECT id FROM employees WHERE id = ? AND deleted_at IS NULL AND ${tenant.clause}`).get(employeeId, ...tenant.values));
 }
 
 function inventoryItemsInTenant(req, items) {

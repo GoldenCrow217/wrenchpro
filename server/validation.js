@@ -61,4 +61,24 @@ function clockTime(res, body, field) {
   return true;
 }
 
-module.exports = { fail, requiredText, finiteNumber, nonNegativeNumber, positiveId, isoDate, clockTime };
+function localDateTime(res, body, field, { required = false, label = field } = {}) {
+  const value = body?.[field];
+  if (value === undefined || value === null || value === '') {
+    return required ? fail(res, field, `${label} is required`) : true;
+  }
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value)) {
+    return fail(res, field, `${label} must use YYYY-MM-DDTHH:MM format`);
+  }
+  const [datePart, timePart] = value.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute, second = 0] = timePart.split(':').map(Number);
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())
+      || parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day
+      || parsed.getHours() !== hour || parsed.getMinutes() !== minute || parsed.getSeconds() !== second) {
+    return fail(res, field, `${label} is not a valid date and time`);
+  }
+  return true;
+}
+
+module.exports = { fail, requiredText, finiteNumber, nonNegativeNumber, positiveId, isoDate, clockTime, localDateTime };

@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { customerTenantWhere, shopTenantWhere, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
-const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
+const { fail, nonNegativeNumber, positiveId, isoDate } = require('../validation');
 const { calculateEstimateTotals } = require('../pricing');
+const { normalizedItemType, normalizeLineItems, lineItemTotals } = require('../line-items');
 
 function validateEstimate(res, body, create) {
   if (create && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
@@ -11,11 +12,14 @@ function validateEstimate(res, body, create) {
   if (!positiveId(res, body.employee_id, 'employee_id')) return false;
   if (create && !isoDate(res, body, 'date', { required: true, label: 'Estimate date' })) return false;
   if (!isoDate(res, body, 'expires_date', { label: 'Expiration date' })) return false;
-  for (const field of ['miles','discount','tax_rate','total']) if (!finiteNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
-  if (body.miles !== undefined && Number(body.miles) < 0) return fail(res, 'miles', 'Mileage cannot be negative');
+  for (const field of ['miles','discount','tax_rate','total']) if (!nonNegativeNumber(res, body, field, { label: field.replaceAll('_', ' ') })) return false;
+  if (body.tax_rate !== undefined && Number(body.tax_rate) > 100) return fail(res, 'tax_rate', 'Tax rate cannot exceed 100 percent');
   if (body.items !== undefined && !Array.isArray(body.items)) return fail(res, 'items', 'Items must be an array');
   for (const item of body.items || []) {
-    for (const field of ['qty','rate','amount']) if (!finiteNumber(res, item, field, { label: `Item ${field}` })) return false;
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return fail(res, 'items', 'Each item must be an object');
+    if (!normalizedItemType(item.type)) return fail(res, 'type', 'Item type is not supported');
+    for (const field of ['qty','rate','amount']) if (!nonNegativeNumber(res, item, field, { label: `Item ${field}` })) return false;
+    if (item.qty !== undefined && Number(item.qty) <= 0) return fail(res, 'qty', 'Item quantity must be greater than zero');
     if (!positiveId(res, item.inventory_id, 'inventory_id')) return false;
   }
   return true;
@@ -30,7 +34,7 @@ router.get('/', (req, res) => {
     JOIN customers c ON e.customer_id = c.id
     LEFT JOIN vehicles  v   ON e.vehicle_id  = v.id
     LEFT JOIN employees emp ON e.employee_id = emp.id
-    WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
+    WHERE e.deleted_at IS NULL AND ${tenant.clause}
     ORDER BY e.date DESC, e.id DESC
   `).all(...tenant.values);
   if (estimates.length) {
@@ -93,7 +97,7 @@ const createEstimate = db.transaction((req, values) => {
       INSERT INTO estimate_items (estimate_id, type, description, qty, rate, amount, inventory_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    values.items.forEach(i => ins.run(estId, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.inventory_id || null));
+    values.items.forEach(i => ins.run(estId, i.type || 'labor', i.description || '', i.qty ?? 1, i.rate ?? 0, i.amount ?? 0, i.inventory_id || null));
   }
   advanceEstimateVehicleMileage(values.vehicle_id, values.miles || 0);
   const vehicleMileage = values.vehicle_id ? db.prepare('SELECT miles FROM vehicles WHERE id=?').get(values.vehicle_id)?.miles : null;
@@ -102,11 +106,12 @@ const createEstimate = db.transaction((req, values) => {
 
 router.post('/', (req, res) => {
   if (!validateEstimate(res, req.body, true)) return;
-  const {
+  let {
     customer_id, vehicle_id, employee_id, date, miles, status, notes,
     customer_complaint, discount, tax_rate, expires_date, items,
     approved_by, approval_notes
   } = req.body;
+  items = items === undefined ? undefined : normalizeLineItems(items);
   const tenant = customerTenantWhere(req, 'c');
   const cust = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
   if (!cust) return fail(res, 'customer_id', 'Customer not found', 404);
@@ -126,19 +131,21 @@ router.post('/', (req, res) => {
     customer_complaint, discount, tax_rate, expires_date, items,
     approved_by, approval_notes,
   });
-  res.json({ ...req.body, ...created });
+  res.json({ ...req.body, items, ...created });
 });
 
 router.put('/:id', (req, res) => {
   if (!validateEstimate(res, req.body, false)) return;
-  const {
+  let {
     status, notes, customer_complaint, miles, discount, tax_rate, expires_date, items,
     approved_by, approval_notes
   } = req.body;
+  items = items === undefined ? undefined : normalizeLineItems(items);
 
   const tenant = customerTenantWhere(req, 'c');
   const current = db.prepare(`
-    SELECT e.approved_at, e.vehicle_id
+    SELECT e.approved_at, e.vehicle_id, e.status, e.notes, e.customer_complaint, e.miles,
+           e.discount, e.tax_rate, e.expires_date, e.approved_by, e.approval_notes
     FROM estimates e
     JOIN customers c ON e.customer_id = c.id
     WHERE e.id = ? AND e.deleted_at IS NULL AND c.deleted_at IS NULL AND ${tenant.clause}
@@ -147,6 +154,15 @@ router.put('/:id', (req, res) => {
   if (!inventoryItemsInTenant(req, items)) {
     return res.status(400).json({ error: 'Estimate item inventory is outside the active shop context' });
   }
+  status = status ?? current.status;
+  notes = notes ?? current.notes;
+  customer_complaint = customer_complaint ?? current.customer_complaint;
+  miles = miles ?? current.miles;
+  discount = discount ?? current.discount;
+  tax_rate = tax_rate ?? current.tax_rate;
+  expires_date = expires_date ?? current.expires_date;
+  approved_by = approved_by ?? current.approved_by;
+  approval_notes = approval_notes ?? current.approval_notes;
   const totalItems = items === undefined
     ? db.prepare('SELECT type, amount FROM estimate_items WHERE estimate_id = ?').all(req.params.id)
     : items;
@@ -175,7 +191,7 @@ router.put('/:id', (req, res) => {
         INSERT INTO estimate_items (estimate_id, type, description, qty, rate, amount, inventory_id)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
-      (items || []).forEach(i => ins.run(req.params.id, i.type || 'labor', i.description || '', i.qty || 1, i.rate || 0, i.amount || 0, i.inventory_id || null));
+      (items || []).forEach(i => ins.run(req.params.id, i.type || 'labor', i.description || '', i.qty ?? 1, i.rate ?? 0, i.amount ?? 0, i.inventory_id || null));
     }
     advanceEstimateVehicleMileage(current.vehicle_id, miles || 0);
   })();
@@ -214,8 +230,7 @@ router.post('/:id/convert', (req, res) => {
     return res.json({ job_id: existingJob.id, repair_order_number: existingJob.repair_order_number, already_converted: true });
   }
   const items = db.prepare('SELECT * FROM estimate_items WHERE estimate_id = ?').all(est.id);
-  const labor = items.filter(i => i.type === 'labor').reduce((a, i) => a + i.amount, 0);
-  const parts = items.filter(i => i.type !== 'labor').reduce((a, i) => a + i.amount, 0);
+  const { labor, parts } = lineItemTotals(items);
   const service = items.map(i => i.description).filter(Boolean).join(', ').slice(0, 255) || est.customer_complaint || 'Service';
   const inventoryTenant = shopTenantWhere(req, 'pi');
 
@@ -227,7 +242,7 @@ router.post('/:id/convert', (req, res) => {
     }
 
     const requestedInventory = new Map();
-    items.filter(i => i.inventory_id && i.type !== 'labor').forEach(i => {
+    items.filter(i => i.inventory_id).forEach(i => {
       const qty = Number(i.qty) || 0;
       if (qty > 0) requestedInventory.set(i.inventory_id, (requestedInventory.get(i.inventory_id) || 0) + qty);
     });
@@ -261,9 +276,9 @@ router.post('/:id/convert', (req, res) => {
     const repairOrderNumber = `RO-${String(highestRepairOrder + 1).padStart(4, '0')}`;
 
     const result = db.prepare(`
-      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, repair_order_number, date, miles, labor, parts, status, notes, estimate_id, complaint)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
-    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, repairOrderNumber, est.date, est.miles || 0, labor, parts, est.notes, est.id, est.customer_complaint);
+      INSERT INTO jobs (customer_id, vehicle_id, employee_id, service, repair_order_number, date, miles, labor, parts, discount, tax_rate, status, notes, estimate_id, complaint)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
+    `).run(est.customer_id, est.vehicle_id, est.employee_id, service, repairOrderNumber, est.date, est.miles || 0, labor, parts, est.discount || 0, est.tax_rate || 0, est.notes, est.id, est.customer_complaint);
     const jobId = result.lastInsertRowid;
 
     db.prepare(`UPDATE estimates SET status='Approved', approved_at=? WHERE id=? AND approved_at IS NULL`)

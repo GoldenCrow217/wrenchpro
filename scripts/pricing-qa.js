@@ -7,6 +7,7 @@ const {
   markupForCost,
   roundCurrency,
   calculateEstimateTotals,
+  calculateJobTotals,
 } = require('../server/pricing');
 
 function testMarkupSchedule() {
@@ -57,6 +58,10 @@ function testPartsOnlyTax() {
   });
   assert.strictEqual(calculateEstimateTotals([{ type: 'labor', amount: 100 }], 0, 8.25).tax, 0);
   assert.strictEqual(calculateEstimateTotals([{ type: 'parts', amount: 30.6 }], 0, 8.25).total, 33.12);
+  assert.deepStrictEqual(calculateJobTotals(100, 50, 25, 30, 10), {
+    labor: 100, parts: 50, subtotal: 150, discount: 30, netLabor: 80, netParts: 40, tax: 4, travelFee: 25, total: 149,
+  });
+  assert.strictEqual(calculateJobTotals(100, 50, 0, 999, 10).total, 0, 'discounts above the subtotal must not create negative totals or tax');
 }
 
 testMarkupSchedule();

@@ -105,7 +105,7 @@ assert.match(html, /setAttribute\('aria-sort'/, 'Jobs sort controls must expose 
 const jobSortStart = html.indexOf('function jobSortValue(');
 const jobSortEnd = html.indexOf('\nfunction setJobSort(', jobSortStart);
 assert.ok(jobSortStart >= 0 && jobSortEnd > jobSortStart, 'job sort helpers must be extractable');
-const jobSortContext = {};
+const jobSortContext = { state:{settings:{tax_rate:0}}, dashboardJobTotal:job=>Number(job.labor||0)+Number(job.parts||0)-Number(job.discount||0) };
 vm.runInNewContext(`${html.slice(jobSortStart, jobSortEnd)};globalThis.compareJobsForSort=compareJobsForSort;`, jobSortContext);
 const sortJobs = [{ repair_order_number:'RO-10', first:'Zoe', labor:5, parts:20 },{ repair_order_number:'RO-2', first:'Amy', labor:10, parts:5 }];
 assert.deepStrictEqual(sortJobs.slice().sort((a,b)=>jobSortContext.compareJobsForSort(a,b,'ro','asc')).map(job=>job.repair_order_number), ['RO-2','RO-10'], 'repair-order sorting must use natural numeric order');
@@ -148,7 +148,7 @@ assert.match(estimatesRoute, /ORDER BY e\.date DESC, e\.id DESC/, 'same-day esti
 assert.match(html, /function fillEstimateMileageFromVehicle\(\)/, 'new estimates must prefill mileage from the selected vehicle');
 assert.match(estimatesRoute, /function advanceEstimateVehicleMileage\(vehicleId, mileage\)/, 'estimate saves must share a vehicle-mileage advancement helper');
 assert.match(estimatesRoute, /advanceEstimateVehicleMileage\(current\.vehicle_id, miles \|\| 0\)/, 'estimate edits must advance vehicle mileage atomically');
-assert.match(estimatesRoute, /date, miles, labor, parts, status/, 'estimate conversion must carry mileage into the repair order');
+assert.match(estimatesRoute, /date, miles, labor, parts, discount, tax_rate, status/, 'estimate conversion must carry mileage, discount, and its saved tax rate into the repair order');
 assert.match(html, /const wantsConversion=body\.status==='Approved'/, 'saving an approved estimate must trigger repair-order conversion');
 assert.match(html, /The estimate was saved as Draft, but no repair order was created/, 'failed automatic conversion must remain retryable without an approved orphan estimate');
 assert.match(html, /function openConvertedRepairOrder\(/, 'automatic and manual estimate conversion must share the repair-order opening path');
@@ -159,11 +159,21 @@ assert.match(jobsRoute, /function advanceVehicleMileage\(vehicleId, mileage\)/, 
 assert.match(jobsRoute, /\? > COALESCE\(miles, 0\)/, 'R/O mileage must never reduce stored vehicle mileage');
 assert.match(jobsRoute, /advanceVehicleMileage\(current\.vehicle_id, miles \|\| 0\)/, 'R/O edits must update vehicle mileage inside the job transaction');
 assert.match(jobsRoute, /function insertAutomaticJobPayment\(/, 'job Paid transitions must create a payment through the server');
-assert.match(jobsRoute, /invoice_status === 'Paid' && current\.invoice_status !== 'Paid'/, 'automatic job payments must be limited to a Paid status transition');
+assert.match(jobsRoute, /const shouldRecordPayment = invoice_status === 'Paid'/, 'Paid repair orders must reconcile a newly introduced balance');
+assert.match(jobsRoute, /remainingBalance > 0/, 'automatic job payments must remain idempotent when the repair order is already fully paid');
 assert.match(jobsRoute, /db\.transaction\(\(\) => \{[\s\S]*insertAutomaticJobPayment/, 'job status and automatic payment must share one transaction');
 const paymentsRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'payments.js'), 'utf8');
 assert.match(paymentsRoute, /LEFT JOIN jobs j ON p\.job_id = j\.id/, 'payment API must join the stable job relationship');
 assert.match(paymentsRoute, /j\.repair_order_number/, 'payment API must return the linked repair-order number');
+assert.match(paymentsRoute, /affectedInstallments = new Set/, 'payment deletion must identify linked installments for reversal');
+assert.match(paymentsRoute, /UPDATE installments SET amount_paid=\?, late_fee=\?, paid=\?, paid_date=\?/, 'payment deletion must recompute linked installment state');
+assert.match(html, /onclick="deletePayment\(\$\{safeId\(p\.id\)\}\)"/, 'payment ledger must expose a safe delete action');
+assert.match(html, /async function deletePayment\(id\)[\s\S]*api\('DELETE',`\/api\/payments\/\$\{id\}`\)/, 'payment delete action must call the existing endpoint');
+assert.match(html, /removeStateRecord\('payments',id\)[\s\S]*result\.plan_installments/, 'payment delete action must refresh payment and plan state locally');
+const quickEntryRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'quick-entry.js'), 'utf8');
+assert.match(quickEntryRoute, /const save = db\.transaction/, 'Quick Entry must save all related records in one database transaction');
+assert.match(html, /api\('POST','\/api\/quick-entry'/, 'Quick Entry must use the atomic server workflow');
+assert.ok(html.indexOf("if(!make||!model){toast('Please enter the vehicle make and model.');return;}") < html.indexOf("activeMutations.add('quick-entry')"), 'Quick Entry validation must not leave the mutation lock active');
 
 const handlers = [
   'saveVehicle', 'saveJob', 'saveAppt', 'saveLead', 'savePart', 'saveEstimate',
@@ -185,7 +195,8 @@ for (const id of ['save-job-btn','save-vehicle-btn','save-payment-btn','save-pla
 
 const plansRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'plans.js'), 'utf8');
 assert.match(plansRoute, /plan\.installments\s*=\s*db\.prepare/);
-assert.match(plansRoute, /res\.json\(plan\)/);
+assert.match(plansRoute, /INSERT INTO payments[\s\S]*return \{ planId: result\.lastInsertRowid, payment \}/, 'plan and down payment must be saved in one transaction');
+assert.match(plansRoute, /res\.json\(\{ \.\.\.plan, payment: saved\.payment \}\)/, 'plan creation must return its recorded down payment');
 
 const helperStart = html.indexOf('function upsertStateRecord(');
 const helperEnd = html.indexOf('\nfunction addDays(', helperStart);

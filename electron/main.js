@@ -29,7 +29,10 @@ const MENU_COMMANDS = new Set([
 function waitForServer(port, attempts = 30) {
   return new Promise((resolve, reject) => {
     const try_ = (n) => {
-      http.get(`http://localhost:${port}`, () => resolve())
+      http.get(`http://127.0.0.1:${port}/api/health`, (response) => {
+        response.resume();
+        resolve();
+      })
         .on('error', () => {
           if (n <= 0) return reject(new Error('Express server did not start in time.'));
           setTimeout(() => try_(n - 1), 300);
@@ -235,11 +238,17 @@ function createWindow(port) {
     show: false,
   });
 
-  mainWindow.loadURL(`http://localhost:${port}`);
+  mainWindow.loadURL(`http://127.0.0.1:${port}`);
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const protocol = new URL(url).protocol;
+      if (protocol === 'https:' || protocol === 'mailto:') shell.openExternal(url);
+      else console.warn('Blocked unsupported external URL protocol:', protocol);
+    } catch {
+      console.warn('Blocked invalid external URL');
+    }
     return { action: 'deny' };
   });
 
@@ -249,33 +258,44 @@ function createWindow(port) {
 }
 
 // ── App lifecycle ────────────────────────────────────────────────────────────
-app.whenReady().then(async () => {
-  try {
-    process.env.WRENCHPRO_DATA = app.getPath('userData');
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
 
-    appPort = await findFreePort(3000);
-    process.env.PORT = String(appPort);
+  app.whenReady().then(async () => {
+    try {
+      process.env.WRENCHPRO_DATA = app.getPath('userData');
 
-    require('../server/index');
-    await waitForServer(appPort);
+      appPort = await findFreePort(3000);
+      process.env.PORT = String(appPort);
 
-    createWindow(appPort);
+      require('../server/index');
+      await waitForServer(appPort);
 
-    // Silent background check 8 s after launch
-    if (app.isPackaged) {
-      setTimeout(() => {
-        initAutoUpdater();
-        _autoUpdater.checkForUpdates().catch(() => {});
-      }, 8000);
+      createWindow(appPort);
+
+      // Silent background check 8 s after launch
+      if (app.isPackaged) {
+        setTimeout(() => {
+          initAutoUpdater();
+          _autoUpdater.checkForUpdates().catch(() => {});
+        }, 8000);
+      }
+    } catch (err) {
+      dialog.showErrorBox('WrenchPro — Startup Error', err.message);
+      app.quit();
     }
-  } catch (err) {
-    dialog.showErrorBox('WrenchPro — Startup Error', err.message);
-    app.quit();
-  }
-});
+  });
 
-app.on('window-all-closed', () => app.quit());
-app.on('activate', () => { if (mainWindow === null) createWindow(appPort); });
+  app.on('window-all-closed', () => app.quit());
+  app.on('activate', () => { if (mainWindow === null) createWindow(appPort); });
+}
 
 // ── Auto-updater ─────────────────────────────────────────────────────────────
 function initAutoUpdater() {
