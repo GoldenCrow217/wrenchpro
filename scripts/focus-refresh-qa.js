@@ -15,6 +15,7 @@ const state = {
   expenses: [{ id: 99 }], settings: { existing: true }, appts: [{ id: 99 }], employees: [{ id: 99 }], interactions: [{ id: 99 }],
   followups: [{ id: 99 }], serviceReminders: [{ id: 99 }], estimates: [{ id: 99 }], inventory: [{ id: 99 }], catalog: [{ id: 99 }],
   inspections: [{ id: 99 }], warranties: [{ id: 99 }], timeLogs: [{ id: 99 }], leads: [{ id: 99 }],
+  operations: { workflow_columns: [{ id: 99 }] },
 };
 const warnings = [];
 const errors = [];
@@ -66,7 +67,7 @@ async function main() {
   const first = context.qa.refreshOnFocus();
   const overlap = context.qa.refreshOnFocus();
   await overlap;
-  assert.strictEqual(requests, 19, 'overlapping focus refresh must not start another request batch');
+  assert.strictEqual(requests, 20, 'overlapping focus refresh must not start another request batch');
   releases.forEach(release => release());
   await first;
 

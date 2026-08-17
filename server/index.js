@@ -99,6 +99,7 @@ app.use('/api/warranties',   require('./routes/warranties'));
 app.use('/api/time',         require('./routes/time'));
 app.use('/api/leads',        require('./routes/leads'));
 app.use('/api/quick-entry',  require('./routes/quick-entry'));
+app.use('/api/operations',   require('./routes/operations'));
 
 app.get('/api/dashboard', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
@@ -188,7 +189,9 @@ app.get(/^(?!\/api).*$/, (req, res) => {
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   const status = Number(err.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
   console.error(err.message || err);
-  res.status(status).json({ error: status >= 500 ? 'Internal server error' : (err.message || 'Request failed') });
+  const payload={ error: status >= 500 ? 'Internal server error' : (err.message || 'Request failed') };
+  if(status<500&&err.field)payload.field=err.field;
+  res.status(status).json(payload);
 });
 
 app.listen(PORT, '127.0.0.1', () => {

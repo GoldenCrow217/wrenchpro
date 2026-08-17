@@ -21,6 +21,27 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.36 - 2026-08-16
+
+### Added
+
+- Connected shop workflow board with customizable columns, drag-and-drop repair orders, promised times, priorities, and assignable bays or mobile service units.
+- Custom inspection templates, per-corner brake/rotor/tire measurements, quick notes, photos, recommendations, deferred-service follow-up, and printable inspection reports.
+- Service-line authorization history with typed signatures, technician task queues and labor-line time tracking, vehicle check-in/quality-control records, parts reservations, vendors, and purchase orders with receiving.
+- Recurring appointments with resource conflict detection, expanded vehicle/customer service history, customer statements, and partial job-payment refunds.
+
+### Changed
+
+- Repair-order and estimate line items retain stable IDs so authorization, tasks, inventory reservations, and deferred work remain attached through edits and conversion.
+- Mutation completion waits for local state application and distinguishes a confirmed save from a follow-up view-refresh failure.
+- Local SQLite migrations add the new operational records without requiring a hosted service or external database.
+
+### Fixed
+
+- Inspection and estimate saves return canonical records with stable item IDs, allowing immediate authorization, editing, and reporting without a broad refresh.
+- Workflow, purchasing, task, resource, authorization, and refund APIs validate linked records before changing local data.
+- Focus refresh and renderer QA account for the connected operations data source without overlapping requests or stale-state replacement.
+
 ## v1.0.35 - 2026-08-14
 
 ### Added

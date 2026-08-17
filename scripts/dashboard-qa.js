@@ -80,7 +80,8 @@ assert.strictEqual(discountedReport.income.labor, 80, 'Discounted labor revenue 
 assert.strictEqual(discountedReport.income.parts, 40, 'Discounted parts revenue must use the proportional net amount');
 assert.strictEqual(discountedReport.income.tax, 4, 'Discounted parts tax must use the proportional net parts amount');
 
-assert.match(html, /const netProfit = Number\(data\.monthNetProfit\)\|\|0/, 'dashboard monthly profit must use monthly server totals');
+assert.match(html, /const netProfit = data\?Number\(data\.monthNetProfit\)\|\|0:null/, 'dashboard monthly profit must use monthly server totals and remain explicitly unavailable after a summary failure');
+assert.match(html, /netProfit===null\?'—':fmt\$\(netProfit\)/, 'dashboard must not display a misleading zero when the summary request fails');
 assert.match(html, /Revenue · last 7 days/, 'revenue period label must match its calculation');
 assert.match(html, /class="kpi-value">\$\{fmt\$\(weekTotal\)\}/, 'dashboard revenue must display cents without whole-dollar rounding');
 assert.match(html, /class="kpi-value">\$\{fmt\$\(outstanding\)\}/, 'dashboard outstanding balance must display cents');

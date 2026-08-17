@@ -105,16 +105,27 @@ async function waitForServer() {
       model: 'Express',
       miles: 12000,
     });
+    const firstAutomaticJob = await request('POST', '/api/jobs', {
+      customer_id: customer.id, vehicle_id: vehicle.id, service: 'Automatic RO sequence one', date: '2026-07-28',
+    });
+    assert(firstAutomaticJob.repair_order_number === 'RO-1001', `First server-assigned repair order was not RO-1001: ${firstAutomaticJob.repair_order_number}`);
+    await request('DELETE', `/api/jobs/${firstAutomaticJob.id}`);
+    const secondAutomaticJob = await request('POST', '/api/jobs', {
+      customer_id: customer.id, vehicle_id: vehicle.id, service: 'Automatic RO sequence two', date: '2026-07-28',
+    });
+    assert(secondAutomaticJob.repair_order_number === 'RO-1002', `Server reused a deleted repair-order sequence: ${secondAutomaticJob.repair_order_number}`);
+    await request('DELETE', `/api/jobs/${secondAutomaticJob.id}`);
     const manualJob = await request('POST', '/api/jobs', {
       customer_id: customer.id,
       vehicle_id: vehicle.id,
-      repair_order_number: '  RO-00042  ',
+      repair_order_number: '  ro-00042  ',
       service: 'Diagnostic check',
       date: '2026-07-29',
       miles: 12500,
       items: [{ type: 'labor', description: 'Diagnostic labor', qty: 1, rate: 75, amount: 75, taxable: 0 }],
     });
     assert(manualJob.labor === 75 && manualJob.parts === 0, 'Created job response did not return its calculated column totals');
+    assert(manualJob.labor_hours === 1 && manualJob.labor_rate === 75, 'Created job did not derive labor hours and rate from its line items');
     assert(manualJob.first === customer.first && manualJob.year === vehicle.year, 'Created job response was not hydrated for immediate table rendering');
     assert(manualJob.items.length === 1 && manualJob.items[0].amount === 75, 'Created job response did not return its saved line items');
     assert(manualJob.vehicle_mileage === 12500, 'Created R/O did not return the advanced vehicle mileage');
@@ -132,6 +143,14 @@ async function waitForServer() {
     });
     assert(updatedManualJob.labor === 75 && updatedManualJob.parts === 0, 'Updated job response did not return recalculated column totals');
     assert(updatedManualJob.repair_order_number === 'RO-00043' && updatedManualJob.first === customer.first, 'Updated job response was not ready for immediate table rendering');
+    const partialManualJob = await request('PUT', `/api/jobs/${manualJob.id}`, { notes: 'Partial API correction' });
+    assert(partialManualJob.repair_order_number === 'RO-00043' && partialManualJob.labor === 75 && partialManualJob.items.length === 1, 'Partial job update erased existing repair-order fields or line totals');
+    assert(partialManualJob.notes === 'Partial API correction', 'Partial job update did not save its supplied field');
+    const rejectedRelink = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { customer_id: customer.id + 999 });
+    assert(rejectedRelink.status === 409 && rejectedRelink.body.field === 'customer_id', 'Unsupported repair-order customer relink should be rejected explicitly');
+    const rejectedBlankRepairOrder = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { repair_order_number: '   ' });
+    assert(rejectedBlankRepairOrder.status === 400 && rejectedBlankRepairOrder.body.field === 'repair_order_number', 'An existing repair order number must not be cleared');
+    assert((await request('GET', '/api/jobs')).find(job => job.id === manualJob.id).repair_order_number === 'RO-00043', 'Rejected blank repair order number changed the saved job');
     const advancedMileageJob = await request('PUT', `/api/jobs/${manualJob.id}`, {
       repair_order_number: 'RO-00043', service: manualJobRecord.service, date: manualJobRecord.date, status: manualJobRecord.status, miles: 13000, items: manualJobRecord.items,
     });
@@ -143,11 +162,14 @@ async function waitForServer() {
     assert(mileageVehicle.miles === 13000, 'Editing an older R/O reduced the vehicle mileage');
     const negativeMileage = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { date: manualJobRecord.date, miles: -1 });
     assert(negativeMileage.status === 400 && negativeMileage.body.field === 'miles', 'Negative R/O mileage should return field-specific HTTP 400');
+    const fractionalMileage = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { miles: 13000.5 });
+    assert(fractionalMileage.status === 400 && fractionalMileage.body.field === 'miles', 'Fractional R/O mileage should return field-specific HTTP 400');
     const recalculatedManualJob = await request('PUT', `/api/jobs/${manualJob.id}`, {
       repair_order_number: 'RO-00043', service: manualJobRecord.service, date: manualJobRecord.date, status: manualJobRecord.status,
       items: [{ type: 'labor', description: 'Diagnostic labor', qty: 2, rate: 75, amount: 150, taxable: 0 }, { type: 'part', description: 'Test part', qty: 1, rate: 25, amount: 25, taxable: 1 }],
     });
     assert(recalculatedManualJob.labor === 150 && recalculatedManualJob.parts === 25, 'Changed line items were not reflected immediately in the updated job response');
+    assert(recalculatedManualJob.labor_hours === 2 && recalculatedManualJob.labor_rate === 75, 'Updated job did not derive labor hours and rate from its line items');
     await request('PUT', `/api/jobs/${manualJob.id}`, {
       repair_order_number: 'RO-00043', service: manualJobRecord.service, date: manualJobRecord.date, status: manualJobRecord.status,
       items: manualJobRecord.items,
@@ -178,6 +200,8 @@ async function waitForServer() {
       items: paidJobItems,
     });
     assert(paidAgain.payment === null, 'Repeated Paid job save created another automatic payment');
+    const paidNoteCorrection = await request('PUT', `/api/jobs/${manualJob.id}`, { notes: 'Receipt note corrected' });
+    assert(paidNoteCorrection.payment === null && paidNoteCorrection.invoice_status === 'Paid', 'Partial correction of a paid job created a duplicate payment or changed invoice status');
     const manualJobPayments = (await request('GET', '/api/payments')).filter(payment => payment.job_id === manualJob.id);
     assert(manualJobPayments.length === 2 && manualJobPayments.reduce((sum, payment) => sum + payment.amount, 0) === 155, 'Job payments do not equal the paid job total with parts-only tax');
     assert(manualJobPayments.every(payment => payment.repair_order_number === 'RO-00043'), 'Job-linked payments did not return their repair-order number');
@@ -201,6 +225,14 @@ async function waitForServer() {
     assert(!(await request('GET', '/api/payments')).some(payment => payment.job_id === rollbackJob.id), 'Payment failure left a partial payment');
     const invalidRepairOrder = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { date: manualJobRecord.date, repair_order_number: { invalid: true } });
     assert(invalidRepairOrder.status === 400 && invalidRepairOrder.body.field === 'repair_order_number', 'Invalid repair order input should return field-specific HTTP 400');
+    const invalidJobStatus = await requestRaw('POST', '/api/jobs', { customer_id: customer.id, vehicle_id: vehicle.id, date: '2026-07-29', status: 'Almost done' });
+    assert(invalidJobStatus.status === 400 && invalidJobStatus.body.field === 'status', 'Invalid work-order status should return field-specific HTTP 400');
+    const invalidInvoiceStatus = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { date: manualJobRecord.date, invoice_status: 'Maybe paid' });
+    assert(invalidInvoiceStatus.status === 400 && invalidInvoiceStatus.body.field === 'invoice_status', 'Invalid invoice status should return field-specific HTTP 400');
+    const invalidItemDescription = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { date: manualJobRecord.date, items: [{ type: 'labor', description: { invalid: true }, qty: 1, rate: 10 }] });
+    assert(invalidItemDescription.status === 400 && invalidItemDescription.body.field === 'description', 'Invalid line-item description should return field-specific HTTP 400');
+    const jobAfterRejectedUpdates = (await request('GET', '/api/jobs')).find(job => job.id === manualJob.id);
+    assert(jobAfterRejectedUpdates.repair_order_number === manualJobRecord.repair_order_number && jobAfterRejectedUpdates.invoice_status === 'Paid', 'Rejected job updates changed the saved repair order');
     const inventory = await request('POST', '/api/inventory', {
       name: 'Brake Pad Set',
       quantity: 1,
@@ -242,10 +274,15 @@ async function waitForServer() {
     assert(Number.isSafeInteger(firstEstimateSequence), `First estimate did not receive an EST-#### number: ${estimate.estimate_number}`);
     assert(secondEstimateSequence === firstEstimateSequence + 1, `Estimate numbers were not sequential: ${estimate.estimate_number}, ${taxedEstimate.estimate_number}`);
     assert(taxedEstimate.estimate_number !== 'EST-9999', 'Client input overrode the server-assigned estimate number');
+    const legacyEstimateDb = new Database(path.join(dataDir, 'wrenchpro.db'));
+    legacyEstimateDb.prepare("UPDATE estimate_items SET inventory_id=? WHERE estimate_id=? AND type='labor'").run(inventory.id, taxedEstimate.id);
+    legacyEstimateDb.close();
     let estimateMileageVehicle = (await request('GET', '/api/vehicles')).find(row => row.id === vehicle.id);
     assert(estimateMileageVehicle.miles === 13500, 'Estimate creation did not advance vehicle mileage or allowed a lower estimate to reduce it');
     const negativeEstimateMileage = await requestRaw('PUT', `/api/estimates/${estimate.id}`, { miles: -1 });
     assert(negativeEstimateMileage.status === 400 && negativeEstimateMileage.body.field === 'miles', 'Negative estimate mileage should return field-specific HTTP 400');
+    const fractionalEstimateMileage = await requestRaw('PUT', `/api/estimates/${estimate.id}`, { miles: 13500.5 });
+    assert(fractionalEstimateMileage.status === 400 && fractionalEstimateMileage.body.field === 'miles', 'Fractional estimate mileage should return field-specific HTTP 400');
     const orderedEstimates = await request('GET', '/api/estimates');
     assert(orderedEstimates[0].id === taxedEstimate.id && orderedEstimates[1].id === estimate.id, 'Same-day estimates were not returned newest first');
 
@@ -279,10 +316,13 @@ async function waitForServer() {
     assert(/^RO-\d{4,}$/.test(firstEstimateConversion.repair_order_number), `Converted estimate did not receive an RO-#### number: ${firstEstimateConversion.repair_order_number}`);
     assert(secondEstimateConversion.repair_order_number === firstEstimateConversion.repair_order_number, 'Repeat estimate conversion changed the repair-order number');
     const convertedEstimateJob = (await request('GET', '/api/jobs')).find(job => job.id === firstEstimateConversion.job_id);
+    assert(convertedEstimateJob.labor_hours === 0 && convertedEstimateJob.labor_rate === 0, 'Parts-only estimate conversion created phantom labor hours');
     assert(convertedEstimateJob.miles === 14000, 'Estimate mileage was not carried into the converted repair order');
     await request('PUT', `/api/estimates/${taxedEstimate.id}`, { status: 'Approved', discount: 30 });
     const discountedConversion = await request('POST', `/api/estimates/${taxedEstimate.id}/convert`);
     const discountedJob = (await request('GET', '/api/jobs')).find(job => job.id === discountedConversion.job_id);
+    assert(discountedJob.items.find(item => item.type === 'labor').inventory_id === null, 'Estimate conversion retained a legacy inventory link on labor');
+    assert(discountedJob.labor_hours === 1 && discountedJob.labor_rate === 100, 'Converted estimate did not preserve derived labor hours and rate');
     assert(discountedJob.discount === 30, 'Estimate discount was not carried into the converted repair order');
     assert(discountedJob.tax_rate === 10, 'Partial estimate update discarded the saved tax rate before conversion');
     const discountedBalance = await request('GET', `/api/jobs/${discountedJob.id}/balance`);

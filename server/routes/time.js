@@ -22,7 +22,7 @@ function jobInTenant(req, jobId) {
 router.get('/', (req, res) => {
   const tenant = shopTenantWhere(req, 'e');
   res.json(db.prepare(`
-    SELECT t.*, e.first, e.last, e.hourly_rate, j.service AS job_service
+    SELECT t.*, e.first, e.last, e.hourly_rate, j.service AS job_service, ji.description AS job_item_description
     FROM time_logs t
     JOIN employees e ON t.employee_id = e.id
     LEFT JOIN jobs j
@@ -33,24 +33,27 @@ router.get('/', (req, res) => {
        WHERE c.id = j.customer_id
          AND ((e.shop_id IS NULL AND c.shop_id IS NULL) OR e.shop_id = c.shop_id)
      )
+    LEFT JOIN job_items ji ON ji.id=t.job_item_id AND ji.job_id=t.job_id
     WHERE ${tenant.clause}
     ORDER BY t.clock_in DESC
   `).all(...tenant.values));
 });
 
 router.post('/', (req, res) => {
-  const { employee_id, job_id, type, clock_in, clock_out, notes } = req.body;
+  const { employee_id, job_id, job_item_id, type, clock_in, clock_out, notes } = req.body;
   if (!positiveId(res, employee_id, 'employee_id', { required: true })) return;
   if (!positiveId(res, job_id, 'job_id')) return;
+  if (!positiveId(res, job_item_id, 'job_item_id')) return;
   if (!localDateTime(res, req.body, 'clock_in', { required: true, label: 'Clock-in time' })) return;
   if (!localDateTime(res, req.body, 'clock_out', { label: 'Clock-out time' })) return;
   if (clock_out && new Date(clock_out) < new Date(clock_in)) return fail(res, 'clock_out', 'Clock-out time cannot be before clock-in time');
   if (!employeeInTenant(req, employee_id)) return fail(res, 'employee_id', 'Employee not found', 404);
   if (!jobInTenant(req, job_id)) return fail(res, 'job_id', 'Job not found', 404);
+  if (job_item_id && (!job_id || !db.prepare('SELECT id FROM job_items WHERE id=? AND job_id=?').get(job_item_id, job_id))) return fail(res, 'job_item_id', 'Labor operation not found on this job', 404);
   const result = db.prepare(`
-    INSERT INTO time_logs (employee_id, job_id, type, clock_in, clock_out, notes)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(employee_id, job_id || null, type || 'general', clock_in, clock_out || null, notes || '');
+    INSERT INTO time_logs (employee_id, job_id, job_item_id, type, clock_in, clock_out, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(employee_id, job_id || null, job_item_id || null, type || 'general', clock_in, clock_out || null, notes || '');
   res.json({ id: result.lastInsertRowid, ...req.body });
 });
 

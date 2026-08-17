@@ -303,6 +303,8 @@ db.exec(`
     category TEXT DEFAULT '',
     item_name TEXT DEFAULT '',
     condition TEXT DEFAULT 'pass',
+    measurement_value REAL,
+    measurement_unit TEXT DEFAULT '',
     notes TEXT DEFAULT '',
     FOREIGN KEY (inspection_id) REFERENCES inspections(id)
   );
@@ -486,6 +488,11 @@ if (!vehCols.includes('transmission'))  db.prepare(`ALTER TABLE vehicles ADD COL
 if (!vehCols.includes('engine'))        db.prepare(`ALTER TABLE vehicles ADD COLUMN engine TEXT DEFAULT ''`).run();
 if (!vehCols.includes('deleted_at'))    db.prepare(`ALTER TABLE vehicles ADD COLUMN deleted_at TEXT`).run();
 
+// Migrate: inspection measurements
+const inspectionItemCols = db.prepare(`PRAGMA table_info(inspection_items)`).all().map(c => c.name);
+if (!inspectionItemCols.includes('measurement_value')) db.prepare(`ALTER TABLE inspection_items ADD COLUMN measurement_value REAL`).run();
+if (!inspectionItemCols.includes('measurement_unit'))  db.prepare(`ALTER TABLE inspection_items ADD COLUMN measurement_unit TEXT DEFAULT ''`).run();
+
 // Migrate: expenses
 const expCols = db.prepare(`PRAGMA table_info(expenses)`).all().map(c => c.name);
 if (!expCols.includes('shop_id')) db.prepare(`ALTER TABLE expenses ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
@@ -496,7 +503,10 @@ const paymentCols = db.prepare(`PRAGMA table_info(payments)`).all().map(c => c.n
 if (!paymentCols.includes('installment_id')) db.prepare(`ALTER TABLE payments ADD COLUMN installment_id INTEGER REFERENCES installments(id)`).run();
 const addedLateFeeAmount = !paymentCols.includes('late_fee_amount');
 if (addedLateFeeAmount) db.prepare(`ALTER TABLE payments ADD COLUMN late_fee_amount REAL DEFAULT 0`).run();
+if (!paymentCols.includes('payment_type')) db.prepare(`ALTER TABLE payments ADD COLUMN payment_type TEXT DEFAULT 'payment'`).run();
+if (!paymentCols.includes('parent_payment_id')) db.prepare(`ALTER TABLE payments ADD COLUMN parent_payment_id INTEGER REFERENCES payments(id)`).run();
 db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_installment_unique ON payments(installment_id) WHERE installment_id IS NOT NULL`).run();
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_payments_parent ON payments(parent_payment_id)`).run();
 
 const installmentCols = db.prepare(`PRAGMA table_info(installments)`).all().map(c => c.name);
 if (!installmentCols.includes('amount_paid')) db.prepare(`ALTER TABLE installments ADD COLUMN amount_paid REAL DEFAULT 0`).run();
@@ -617,9 +627,261 @@ if (!leadCols.includes('shop_id')) db.prepare(`ALTER TABLE leads ADD COLUMN shop
 if (!leadCols.includes('vin'))     db.prepare(`ALTER TABLE leads ADD COLUMN vin TEXT DEFAULT ''`).run();
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_leads_shop ON leads(shop_id)`).run();
 
+// Migrate: connected shop operations. These tables keep the repair order as
+// the central record while remaining entirely inside the local SQLite file.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workflow_columns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    color TEXT DEFAULT '#6B7280',
+    is_active INTEGER DEFAULT 1,
+    is_closed INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS shop_resources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    name TEXT NOT NULL,
+    resource_type TEXT NOT NULL DEFAULT 'bay',
+    color TEXT DEFAULT '#6B7280',
+    position INTEGER NOT NULL DEFAULT 0,
+    active INTEGER DEFAULT 1,
+    notes TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS inspection_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS inspection_template_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_id INTEGER NOT NULL REFERENCES inspection_templates(id) ON DELETE CASCADE,
+    category TEXT DEFAULT '',
+    item_name TEXT NOT NULL,
+    input_type TEXT DEFAULT 'condition',
+    measurement_unit TEXT DEFAULT '',
+    position_label TEXT DEFAULT '',
+    quick_notes TEXT DEFAULT '[]',
+    sort_order INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS service_authorizations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    job_id INTEGER REFERENCES jobs(id),
+    estimate_id INTEGER REFERENCES estimates(id),
+    item_type TEXT NOT NULL,
+    item_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    authorization_method TEXT DEFAULT '',
+    customer_name TEXT DEFAULT '',
+    signature TEXT DEFAULT '',
+    authorized_price REAL DEFAULT 0,
+    notes TEXT DEFAULT '',
+    employee_id INTEGER REFERENCES employees(id),
+    authorized_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS deferred_services (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
+    vehicle_id INTEGER REFERENCES vehicles(id),
+    source_type TEXT DEFAULT '',
+    source_id INTEGER,
+    source_item_id INTEGER,
+    description TEXT NOT NULL,
+    qty REAL DEFAULT 1,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0,
+    status TEXT DEFAULT 'open',
+    deferred_reason TEXT DEFAULT '',
+    deferred_at TEXT DEFAULT (datetime('now')),
+    resolved_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS inventory_reservations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    inventory_id INTEGER NOT NULL REFERENCES parts_inventory(id),
+    job_id INTEGER REFERENCES jobs(id),
+    estimate_id INTEGER REFERENCES estimates(id),
+    quantity REAL NOT NULL,
+    status TEXT DEFAULT 'reserved',
+    created_at TEXT DEFAULT (datetime('now')),
+    released_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS vendors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    name TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    email TEXT DEFAULT '',
+    account_number TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    po_number TEXT NOT NULL,
+    vendor_id INTEGER REFERENCES vendors(id),
+    job_id INTEGER REFERENCES jobs(id),
+    status TEXT DEFAULT 'Draft',
+    vendor_invoice_number TEXT DEFAULT '',
+    ordered_at TEXT,
+    notes TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS purchase_order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    purchase_order_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    inventory_id INTEGER REFERENCES parts_inventory(id),
+    description TEXT NOT NULL,
+    part_number TEXT DEFAULT '',
+    quantity_ordered REAL NOT NULL DEFAULT 1,
+    quantity_received REAL NOT NULL DEFAULT 0,
+    unit_cost REAL NOT NULL DEFAULT 0,
+    add_to_inventory INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS job_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    job_item_id INTEGER REFERENCES job_items(id) ON DELETE SET NULL,
+    employee_id INTEGER REFERENCES employees(id),
+    description TEXT NOT NULL,
+    estimated_hours REAL DEFAULT 0,
+    status TEXT DEFAULT 'Not Started',
+    sort_order INTEGER DEFAULT 0,
+    completed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS vehicle_service_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER REFERENCES shops(id),
+    job_id INTEGER NOT NULL REFERENCES jobs(id),
+    event_type TEXT NOT NULL,
+    mileage INTEGER DEFAULT 0,
+    fuel_level TEXT DEFAULT '',
+    warning_lights TEXT DEFAULT '',
+    exterior_damage TEXT DEFAULT '',
+    keys_received TEXT DEFAULT '',
+    road_test_notes TEXT DEFAULT '',
+    checklist TEXT DEFAULT '{}',
+    photos TEXT DEFAULT '[]',
+    employee_id INTEGER REFERENCES employees(id),
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_workflow_columns_shop ON workflow_columns(shop_id, position);
+  CREATE INDEX IF NOT EXISTS idx_shop_resources_shop ON shop_resources(shop_id, position);
+  CREATE INDEX IF NOT EXISTS idx_inspection_templates_shop ON inspection_templates(shop_id, active);
+  CREATE INDEX IF NOT EXISTS idx_inspection_template_items_template ON inspection_template_items(template_id, sort_order);
+  CREATE INDEX IF NOT EXISTS idx_authorizations_job ON service_authorizations(job_id, item_type, item_id);
+  CREATE INDEX IF NOT EXISTS idx_authorizations_estimate ON service_authorizations(estimate_id, item_type, item_id);
+  CREATE INDEX IF NOT EXISTS idx_deferred_customer ON deferred_services(customer_id, status);
+  CREATE INDEX IF NOT EXISTS idx_reservations_inventory ON inventory_reservations(inventory_id, status);
+  CREATE INDEX IF NOT EXISTS idx_purchase_orders_shop ON purchase_orders(shop_id, status);
+  CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po ON purchase_order_items(purchase_order_id);
+  CREATE INDEX IF NOT EXISTS idx_job_tasks_job ON job_tasks(job_id, sort_order);
+  CREATE INDEX IF NOT EXISTS idx_vehicle_service_events_job ON vehicle_service_events(job_id, event_type);
+`);
+
+const connectedJobCols = db.prepare(`PRAGMA table_info(jobs)`).all().map(c => c.name);
+if (!connectedJobCols.includes('workflow_column_id')) db.prepare(`ALTER TABLE jobs ADD COLUMN workflow_column_id INTEGER REFERENCES workflow_columns(id)`).run();
+if (!connectedJobCols.includes('resource_id')) db.prepare(`ALTER TABLE jobs ADD COLUMN resource_id INTEGER REFERENCES shop_resources(id)`).run();
+if (!connectedJobCols.includes('promised_at')) db.prepare(`ALTER TABLE jobs ADD COLUMN promised_at TEXT`).run();
+if (!connectedJobCols.includes('priority')) db.prepare(`ALTER TABLE jobs ADD COLUMN priority TEXT DEFAULT 'Normal'`).run();
+
+const connectedApptCols = db.prepare(`PRAGMA table_info(appointments)`).all().map(c => c.name);
+if (!connectedApptCols.includes('resource_id')) db.prepare(`ALTER TABLE appointments ADD COLUMN resource_id INTEGER REFERENCES shop_resources(id)`).run();
+if (!connectedApptCols.includes('duration_minutes')) db.prepare(`ALTER TABLE appointments ADD COLUMN duration_minutes INTEGER DEFAULT 60`).run();
+if (!connectedApptCols.includes('recurrence_rule')) db.prepare(`ALTER TABLE appointments ADD COLUMN recurrence_rule TEXT DEFAULT ''`).run();
+
+const connectedInspectionCols = db.prepare(`PRAGMA table_info(inspections)`).all().map(c => c.name);
+if (!connectedInspectionCols.includes('template_id')) db.prepare(`ALTER TABLE inspections ADD COLUMN template_id INTEGER REFERENCES inspection_templates(id)`).run();
+if (!connectedInspectionCols.includes('completed_at')) db.prepare(`ALTER TABLE inspections ADD COLUMN completed_at TEXT`).run();
+if (!connectedInspectionCols.includes('completed_by')) db.prepare(`ALTER TABLE inspections ADD COLUMN completed_by INTEGER REFERENCES employees(id)`).run();
+
+const connectedInspectionItemCols = db.prepare(`PRAGMA table_info(inspection_items)`).all().map(c => c.name);
+if (!connectedInspectionItemCols.includes('position_label')) db.prepare(`ALTER TABLE inspection_items ADD COLUMN position_label TEXT DEFAULT ''`).run();
+if (!connectedInspectionItemCols.includes('input_type')) db.prepare(`ALTER TABLE inspection_items ADD COLUMN input_type TEXT DEFAULT 'condition'`).run();
+if (!connectedInspectionItemCols.includes('recommendation')) db.prepare(`ALTER TABLE inspection_items ADD COLUMN recommendation TEXT DEFAULT ''`).run();
+if (!connectedInspectionItemCols.includes('recommendation_status')) db.prepare(`ALTER TABLE inspection_items ADD COLUMN recommendation_status TEXT DEFAULT ''`).run();
+
+const connectedTimeCols = db.prepare(`PRAGMA table_info(time_logs)`).all().map(c => c.name);
+if (!connectedTimeCols.includes('job_item_id')) db.prepare(`ALTER TABLE time_logs ADD COLUMN job_item_id INTEGER REFERENCES job_items(id)`).run();
+
+// A practical local default. Shops can rename, reorder, add, deactivate, or
+// remove unused columns later through the Workflow screen.
+if (!db.prepare(`SELECT 1 FROM workflow_columns WHERE shop_id IS NULL LIMIT 1`).get()) {
+  const insertColumn = db.prepare(`INSERT INTO workflow_columns (shop_id,name,position,color,is_closed) VALUES (NULL,?,?,?,?)`);
+  [
+    ['Estimate', 10, '#64748B', 0], ['Awaiting Approval', 20, '#D97706', 0],
+    ['Scheduled', 30, '#2563EB', 0], ['Checked In', 40, '#7C3AED', 0],
+    ['Waiting for Parts', 50, '#EA580C', 0], ['In Progress', 60, '#0891B2', 0],
+    ['Quality Check', 70, '#4F46E5', 0], ['Ready for Pickup', 80, '#16A34A', 0],
+    ['Closed', 90, '#475569', 1],
+  ].forEach(column => insertColumn.run(...column));
+}
+
 // Data backfills — run after all schema migrations so columns are guaranteed to exist
 db.prepare(`UPDATE jobs SET status='Complete' WHERE status='Done'`).run();
 db.prepare(`UPDATE jobs SET closed_at=datetime('now') WHERE status IN ('Complete','Canceled') AND closed_at IS NULL`).run();
+db.transaction(() => {
+  const repairOrders = db.prepare(`SELECT id, repair_order_number FROM jobs ORDER BY id`).all();
+  let highest = repairOrders.reduce((max, job) => {
+    const match = String(job.repair_order_number || '').trim().match(/^RO-(\d{4,})$/i);
+    if (!match) return max;
+    const sequence = Number(match[1]);
+    return Number.isSafeInteger(sequence) ? Math.max(max, sequence) : max;
+  }, 1000);
+  const update = db.prepare(`UPDATE jobs SET repair_order_number=? WHERE id=?`);
+  repairOrders.forEach(job => {
+    const current = String(job.repair_order_number || '').trim();
+    if (!current) {
+      highest += 1;
+      update.run(`RO-${String(highest).padStart(4, '0')}`, job.id);
+    } else if (/^RO-\d{4,}$/i.test(current) && current !== current.toUpperCase()) {
+      update.run(current.toUpperCase(), job.id);
+    }
+  });
+})();
+db.transaction(() => {
+  const jobs = db.prepare(`SELECT id FROM jobs WHERE trim(COALESCE(service,''))='' ORDER BY id`).all();
+  const descriptions = db.prepare(`
+    SELECT description FROM job_items
+    WHERE job_id=? AND trim(COALESCE(description,''))<>''
+    ORDER BY id
+  `);
+  const update = db.prepare(`UPDATE jobs SET service=? WHERE id=?`);
+  jobs.forEach(job => {
+    const service = descriptions.all(job.id)
+      .map(item => String(item.description).trim())
+      .filter(Boolean)
+      .join(', ')
+      .slice(0, 255);
+    if (service) update.run(service, job.id);
+  });
+})();
 db.prepare(`
   UPDATE jobs
   SET tax_rate = COALESCE(
@@ -629,6 +891,22 @@ db.prepare(`
   )
   WHERE tax_rate IS NULL
     AND (closed_at IS NOT NULL OR status IN ('Complete','Canceled') OR invoice_status IN ('Paid','Voided'))
+`).run();
+db.prepare(`
+  UPDATE jobs
+  SET labor_hours = ROUND((
+        SELECT COALESCE(SUM(ji.qty),0) FROM job_items ji
+        WHERE ji.job_id=jobs.id AND lower(ji.type) IN ('labor','diagnostic')
+      ),3),
+      labor_rate = ROUND(COALESCE((
+        SELECT COALESCE(SUM(ji.amount),0) / NULLIF(SUM(ji.qty),0) FROM job_items ji
+        WHERE ji.job_id=jobs.id AND lower(ji.type) IN ('labor','diagnostic')
+      ),0),2)
+  WHERE EXISTS (
+    SELECT 1 FROM job_items ji
+    WHERE ji.job_id=jobs.id AND lower(ji.type) IN ('labor','diagnostic')
+  )
+    AND (COALESCE(labor_hours,0)=0 OR COALESCE(labor_rate,0)=0)
 `).run();
 
 module.exports = db;
