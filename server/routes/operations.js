@@ -143,7 +143,7 @@ router.get('/', (req, res) => {
     'purchase_order_items', 'purchase_order_id'
   );
   const jobs = db.prepare(`
-    SELECT j.id,j.repair_order_number,j.service,j.status,j.workflow_column_id,j.resource_id,j.promised_at,j.priority,
+    SELECT j.id,j.repair_order_number,j.service,j.status,j.invoice_status,j.workflow_column_id,j.resource_id,j.promised_at,j.priority,
       j.customer_id,j.vehicle_id,j.employee_id,c.first,c.last,v.year,v.make,v.model,e.first AS employee_first,e.last AS employee_last
     FROM jobs j JOIN customers c ON c.id=j.customer_id LEFT JOIN vehicles v ON v.id=j.vehicle_id
     LEFT JOIN employees e ON e.id=j.employee_id
@@ -155,7 +155,19 @@ router.get('/', (req, res) => {
     resources: db.prepare(`SELECT * FROM shop_resources WHERE ${shop.clause} ORDER BY active DESC,position,name`).all(...shop.values),
     templates,
     authorizations: db.prepare(`SELECT * FROM service_authorizations WHERE ${shop.clause} ORDER BY created_at DESC,id DESC`).all(...shop.values),
-    deferred_services: db.prepare(`SELECT d.*,c.first,c.last,v.year,v.make,v.model FROM deferred_services d JOIN customers c ON c.id=d.customer_id LEFT JOIN vehicles v ON v.id=d.vehicle_id WHERE ${shop.clause.replaceAll('shop_id','d.shop_id')} ORDER BY d.status,d.deferred_at DESC`).all(...shop.values),
+    deferred_services: db.prepare(`
+      SELECT d.*,c.first,c.last,v.year,v.make,v.model,
+        CASE
+          WHEN d.source_type='job_item' THEN (SELECT ji.type FROM job_items ji WHERE ji.id=d.source_item_id)
+          WHEN d.source_type='estimate_item' THEN (SELECT ei.type FROM estimate_items ei WHERE ei.id=d.source_item_id)
+          ELSE 'labor'
+        END AS item_type
+      FROM deferred_services d
+      JOIN customers c ON c.id=d.customer_id
+      LEFT JOIN vehicles v ON v.id=d.vehicle_id
+      WHERE ${shop.clause.replaceAll('shop_id','d.shop_id')}
+      ORDER BY d.status,d.deferred_at DESC
+    `).all(...shop.values),
     reservations: db.prepare(`SELECT r.*,p.name,p.part_number,p.quantity AS on_hand,j.repair_order_number FROM inventory_reservations r JOIN parts_inventory p ON p.id=r.inventory_id LEFT JOIN jobs j ON j.id=r.job_id WHERE ${shop.clause.replaceAll('shop_id','r.shop_id')} ORDER BY r.created_at DESC`).all(...shop.values),
     vendors: db.prepare(`SELECT * FROM vendors WHERE ${shop.clause} ORDER BY active DESC,name`).all(...shop.values),
     purchase_orders: purchaseOrders,
@@ -187,7 +199,13 @@ router.put('/workflow-columns/:id', (req, res) => {
 router.delete('/workflow-columns/:id', (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   const tenant = shopTenantWhere(req);
-  if (db.prepare('SELECT 1 FROM jobs WHERE workflow_column_id=? LIMIT 1').get(req.params.id)) return fail(res, 'id', 'Move jobs out of this workflow column before removing it', 409);
+  if (!db.prepare(`SELECT id FROM workflow_columns WHERE id=? AND ${tenant.clause}`).get(req.params.id, ...tenant.values)) return res.status(404).json({ error: 'Workflow column not found' });
+  if (db.prepare(`
+    SELECT 1 FROM jobs j
+    JOIN customers c ON c.id = j.customer_id
+    WHERE j.workflow_column_id = ? AND ${customerTenantWhere(req, 'c').clause}
+    LIMIT 1
+  `).get(req.params.id, ...customerTenantWhere(req, 'c').values)) return fail(res, 'id', 'Move jobs out of this workflow column before removing it', 409);
   const result = db.prepare(`DELETE FROM workflow_columns WHERE id=? AND ${tenant.clause}`).run(req.params.id, ...tenant.values);
   if (!result.changes) return res.status(404).json({ error: 'Workflow column not found' });
   res.json({ success: true });
@@ -214,7 +232,16 @@ router.put('/resources/:id', (req, res) => {
 router.delete('/resources/:id', (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   const tenant = shopTenantWhere(req);
-  if (db.prepare('SELECT 1 FROM jobs WHERE resource_id=? LIMIT 1').get(req.params.id) || db.prepare('SELECT 1 FROM appointments WHERE resource_id=? LIMIT 1').get(req.params.id)) {
+  if (!db.prepare(`SELECT id FROM shop_resources WHERE id=? AND ${tenant.clause}`).get(req.params.id, ...tenant.values)) return res.status(404).json({ error: 'Shop resource not found' });
+  const customerTenant = customerTenantWhere(req, 'c');
+  const hasTenantJob = db.prepare(`
+    SELECT 1 FROM jobs j
+    JOIN customers c ON c.id = j.customer_id
+    WHERE j.resource_id = ? AND ${customerTenant.clause}
+    LIMIT 1
+  `).get(req.params.id, ...customerTenant.values);
+  const hasTenantAppointment = db.prepare(`SELECT 1 FROM appointments WHERE resource_id=? AND ${tenant.clause} LIMIT 1`).get(req.params.id, ...tenant.values);
+  if (hasTenantJob || hasTenantAppointment) {
     return fail(res, 'id', 'This resource has scheduling history. Mark it inactive instead of deleting it.', 409);
   }
   const result = db.prepare(`DELETE FROM shop_resources WHERE id=? AND ${tenant.clause}`).run(req.params.id, ...tenant.values);
@@ -226,6 +253,7 @@ router.put('/jobs/:id/workflow', (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   const job = tenantJob(req, req.params.id);
   if (!job) return res.status(404).json({ error: 'Repair order not found' });
+  if (job.status === 'Complete' && job.invoice_status === 'Paid') return fail(res, 'id', 'This repair order is completed and paid, so it is locked', 409);
   const tenant = shopTenantWhere(req);
   if (req.body.workflow_column_id && !db.prepare(`SELECT id FROM workflow_columns WHERE id=? AND is_active=1 AND ${tenant.clause}`).get(req.body.workflow_column_id, ...tenant.values)) return fail(res, 'workflow_column_id', 'Workflow column not found', 404);
   if (req.body.resource_id && !db.prepare(`SELECT id FROM shop_resources WHERE id=? AND active=1 AND ${tenant.clause}`).get(req.body.resource_id, ...tenant.values)) return fail(res, 'resource_id', 'Bay or mobile unit not found', 404);

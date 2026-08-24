@@ -71,6 +71,10 @@ async function createPrintableWindow(document) {
   return printWindow;
 }
 
+ipcMain.on('app:get-version', (event) => {
+  event.returnValue = app.getVersion();
+});
+
 ipcMain.handle('document:print', async (event, payload) => {
   const document = validatePrintPayload(event, payload);
   const printWindow = await createPrintableWindow(document);

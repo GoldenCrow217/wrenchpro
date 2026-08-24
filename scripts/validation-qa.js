@@ -54,6 +54,7 @@ async function main() {
   await expect400('POST', '/api/leads', { first: '   ' }, 'first');
   await expect400('POST', '/api/leads', { first: 'A', estimated_value: 'NaN' }, 'estimated_value');
   await expect400('POST', '/api/leads', '{"first":"A","estimated_value":"Infinity"}', 'estimated_value', true);
+  await expect400('POST', '/api/customers', { first: 'Invalid', last: 'Type', customer_type: 'Wholesale' }, 'customer_type');
 
   await expect400('POST', '/api/inventory', {}, 'name');
   await expect400('POST', '/api/inventory', { name: '   ' }, 'name');
@@ -84,6 +85,12 @@ async function main() {
 
   const lead = await request('POST', '/api/leads', { first: '  Ada  ' });
   assert.strictEqual(lead.status, 200); assert.strictEqual(lead.body.first, 'Ada');
+  const regularCustomer = await request('POST', '/api/customers', { first: 'Regular', last: 'Customer' });
+  assert.strictEqual(regularCustomer.status, 200); assert.strictEqual(regularCustomer.body.customer_type, 'Regular');
+  const fleetCustomer = await request('POST', '/api/customers', { first: 'Fleet', last: 'Account', customer_type: 'Fleet' });
+  assert.strictEqual(fleetCustomer.status, 200); assert.strictEqual(fleetCustomer.body.customer_type, 'Fleet');
+  await expect400('PUT', `/api/customers/${fleetCustomer.body.id}`, { first: 'Fleet', last: 'Account', customer_type: 'Unknown' }, 'customer_type');
+  assert.strictEqual((await request('GET', `/api/customers/${fleetCustomer.body.id}`)).body.customer_type, 'Fleet');
   const part = await request('POST', '/api/inventory', { name: ' Filter ', cost: 1.25, retail_price: 2.5, quantity: 3, reorder_qty: 1 });
   assert.strictEqual(part.status, 200);
   const appt = await request('POST', '/api/appointments', { cust: 'Walk-in', date: '2026-08-03', time: '09:30', service: 'Check' });

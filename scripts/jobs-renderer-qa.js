@@ -183,17 +183,55 @@ app.whenReady().then(async () => {
           renderedRow:document.getElementById('jobs-tbody').textContent,
         };
 
-        state.payments=[{id:30,customer_id:1,job_id:7,amount:100,date:'2026-08-14',method:'Card',description:'RO payment'}];
+        state.payments=[{id:30,customer_id:1,job_id:'7',amount:100,date:'2026-08-14',method:'Card',description:'RO payment'}];
         state.plans=[{id:31,customer_id:1,job_id:7,repair_order_number:'RO-1007',description:'Brake payment plan',total:300,balance:200,frequency:'monthly',installments:[{due_date:'2026-09-01',amount:100,paid:1},{due_date:'2026-10-01',amount:200,paid:0}]}];
         openInvoice(7);
         const invoiceText=document.getElementById('invoice-content').textContent;
         const invoiceState={
           open:document.getElementById('m-invoice').classList.contains('open'),
           hasRepairOrder:invoiceText.includes('RO #: RO-1007'),
-          hasPaymentHistory:invoiceText.includes('Payment history')&&invoiceText.includes('Card'),
+          hasPaymentHistory:invoiceText.includes('Payment history')&&invoiceText.includes('Card')&&invoiceText.includes('RO payment'),
           hasPlan:invoiceText.includes('Brake payment plan')&&invoiceText.includes('2026-10-01'),
         };
         closeM('m-invoice');
+
+        renderFinance();
+        const financeBalanceText=document.getElementById('finance-ro-tbody').textContent;
+        await openJobModal(7);
+        const jobFinancialState={
+          financeRow:financeBalanceText.includes('RO-1007')&&financeBalanceText.includes('$100.00')&&financeBalanceText.includes('Partially paid'),
+          paid:document.getElementById('job-paid-val').textContent,
+          remaining:document.getElementById('job-balance-val').textContent,
+        };
+        closeM('m-job');
+
+        const lockedJob=state.jobs.find(job=>job.id===7);
+        lockedJob.status='Complete';
+        lockedJob.invoice_status='Paid';
+        renderJobs();
+        const lockedListText=document.getElementById('jobs-tbody').textContent;
+        await openJobModal(7);
+        const lockedJobState={
+          listLocked:lockedListText.includes('RO-1007')&&lockedListText.includes('Locked'),
+          editClosed:!document.getElementById('m-job').classList.contains('open'),
+          invoiceOpened:document.getElementById('m-invoice').classList.contains('open'),
+          guidance:document.getElementById('toast').textContent,
+        };
+        closeM('m-invoice');
+        lockedJob.status='In Progress';
+        lockedJob.invoice_status='Partial';
+
+        openCustDetail(1);
+        switchTab('history');
+        const historyInvoiceButton=document.querySelector('[data-history-invoice-id="7"]');
+        historyInvoiceButton?.click();
+        const historyInvoiceState={
+          buttonPresent:Boolean(historyInvoiceButton),
+          invoiceOpened:document.getElementById('m-invoice').classList.contains('open'),
+          text:document.getElementById('invoice-content').textContent,
+        };
+        closeM('m-invoice');
+        showCustList();
 
         state.customers=[];
         state.vehicles=[];
@@ -257,7 +295,7 @@ app.whenReady().then(async () => {
           netProfitUnavailable:document.getElementById('page-dashboard').textContent.includes('summary unavailable'),
         };
         closeM('m-job');
-        return {initialPrimaryDisplay,dashboardEntryOpened,jobsPrimary,jobsEntryOpened,menuEntryOpened,newOpen,newLinksEnabled,customerOptionCount,vehicleOptionCount,serviceAddress,switchedAutoAddress,preservedManualAddress,defaultRates,pickerOpened,pickerOptionCount,catalogLines,tripState,modalOpenWhileSaving,saveState,failureState,editState,editSaveState,invoiceState,archivedState,archivedInvoice,noCustomerState,noVehicleState,listState,degradedDashboardState};
+        return {initialPrimaryDisplay,dashboardEntryOpened,jobsPrimary,jobsEntryOpened,menuEntryOpened,newOpen,newLinksEnabled,customerOptionCount,vehicleOptionCount,serviceAddress,switchedAutoAddress,preservedManualAddress,defaultRates,pickerOpened,pickerOptionCount,catalogLines,tripState,modalOpenWhileSaving,saveState,failureState,editState,editSaveState,invoiceState,jobFinancialState,lockedJobState,historyInvoiceState,archivedState,archivedInvoice,noCustomerState,noVehicleState,listState,degradedDashboardState};
       })()
     `, true);
 
@@ -288,6 +326,9 @@ app.whenReady().then(async () => {
     assert(results.editSaveState.savedJob?.service === 'Updated brake service' && results.editSaveState.savedJob?.labor === 270 && results.editSaveState.savedJob?.parts === 40, 'Confirmed Job edit did not reconcile the returned record into local state');
     assert(results.editSaveState.renderedRow.includes('Updated brake service') && results.editSaveState.renderedRow.includes('$270.00') && results.editSaveState.renderedRow.includes('$40.00') && results.editSaveState.renderedRow.includes('$358.25'), 'Confirmed Job edit did not immediately update the visible Service, Labor, Parts, and Total columns');
     assert(results.invoiceState.open && results.invoiceState.hasRepairOrder && results.invoiceState.hasPaymentHistory && results.invoiceState.hasPlan, 'Job invoice did not render its RO, linked payment history, and payment plan schedule');
+    assert(results.jobFinancialState.financeRow && results.jobFinancialState.paid === '$100.00' && results.jobFinancialState.remaining === '$258.25', `Finance or Job did not show the R/O paid and remaining values: ${JSON.stringify(results.jobFinancialState)}`);
+    assert(results.lockedJobState.listLocked && results.lockedJobState.editClosed && results.lockedJobState.invoiceOpened && results.lockedJobState.guidance.includes('completed and paid'), `Completed and paid Job was not locked or redirected to its invoice: ${JSON.stringify(results.lockedJobState)}`);
+    assert(results.historyInvoiceState.buttonPresent && results.historyInvoiceState.invoiceOpened && results.historyInvoiceState.text.includes('RO #: RO-1007') && results.historyInvoiceState.text.includes('Updated brake service') && results.historyInvoiceState.text.includes('Payment history'), `Customer Service History did not open the complete saved R/O invoice: ${JSON.stringify(results.historyInvoiceState)}`);
     assert(results.archivedState.customerText.includes('(archived)') && results.archivedState.vehicleText.includes('(archived)') && results.archivedState.employeeText.includes('(archived)'), 'Archived linked records were not available in historical Job editing');
     assert(results.archivedState.deleteGuidance.includes('retained for history'), 'Archived-customer Job did not show history-retention guidance');
     assert(results.archivedInvoice.customer && results.archivedInvoice.vehicle, 'Archived customer or vehicle details disappeared from the Job invoice');

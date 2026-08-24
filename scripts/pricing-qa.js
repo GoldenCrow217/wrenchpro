@@ -9,6 +9,7 @@ const {
   calculateEstimateTotals,
   calculateJobTotals,
 } = require('../server/pricing');
+const { normalizedItemType, normalizeLineItems, lineItemTotals } = require('../server/line-items');
 
 function testMarkupSchedule() {
   const cases = [
@@ -64,8 +65,45 @@ function testPartsOnlyTax() {
   assert.strictEqual(calculateJobTotals(100, 50, 0, 999, 10).total, 0, 'discounts above the subtotal must not create negative totals or tax');
 }
 
+function testExplicitDiscountLines() {
+  const items = normalizeLineItems([
+    { type: 'labor', description: 'Brake service', qty: 1, rate: 100 },
+    { type: 'parts', description: 'Brake pads', qty: 1, rate: 50 },
+    { type: 'discount', description: 'Brake service coupon', qty: 1, rate: 20 },
+  ]);
+  assert.strictEqual(normalizedItemType('discount'), 'discount');
+  assert.deepStrictEqual(lineItemTotals(items), { labor: 100, parts: 50, discount: 20, laborHours: 1, laborRate: 100 });
+  assert.deepStrictEqual(calculateEstimateTotals(items, 999, 10), {
+    subtotal: 150, discount: 20, taxableParts: 50, taxableAfterDiscount: 43.33, tax: 4.33, total: 134.33,
+  }, 'an explicit discount line must replace, not stack with, the legacy order-wide discount');
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  assert.ok(!html.includes('id="jf-discount"'), 'repair orders must not expose the legacy order-wide discount input');
+  assert.ok(!html.includes('id="est-discount"'), 'estimates must not expose the legacy order-wide discount input');
+  assert.match(html, /'sublet','discount'/, 'line-item selectors must offer an explicit discount type');
+  assert.match(html, /Discount applies to/, 'discount lines must prompt the user to identify the eligible work');
+}
+
+function testSettingsPropagationWiring() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const settingsRoute = fs.readFileSync(path.join(__dirname, '..', 'server', 'routes', 'settings.js'), 'utf8');
+  assert.match(html, /function propagateSettingsChange\(previousSettings=\{\}\)/, 'saved settings must propagate to dependent views and open forms');
+  assert.match(html, /state\.settings\.oil_warn_miles \?\? 1500/, 'a saved zero-mile warning threshold must not fall back to 1500');
+  assert.match(html, /String\(state\.settings\.currency_symbol\|\|'\$'\)\.slice\(0,3\)/, 'custom saved currency symbols must be used by money formatting');
+  assert.match(html, /await refreshResource\('\/api\/plans','plans'\)/, 'payment plans must refresh when grace-period or late-fee settings change');
+  assert.match(html, /customer\?\.customer_type==='Fleet'.*state\.settings\.fleet_rate/, 'fleet customers must use the configured fleet labor rate');
+  assert.match(html, /function addEstItem\(type='labor',desc='',qty=1,rate=null\)/, 'new estimate lines must distinguish configured defaults from manual zero-dollar rates');
+  assert.strictEqual(normalizedItemType('emergency'), 'emergency', 'emergency labor must be an allowed line-item type');
+  assert.deepStrictEqual(lineItemTotals(normalizeLineItems([{ type: 'emergency', qty: 2, rate: 150 }])), { labor: 300, parts: 0, discount: 0, laborHours: 2, laborRate: 150 });
+  assert.match(html, /type==='emergency'\)return Number\(state\.settings\.emergency_rate\)/, 'emergency labor lines must use the configured after-hours rate');
+  assert.match(settingsRoute, /return res\.json\(globalSettings\(\)\)/, 'settings save must return canonical global settings');
+  assert.match(settingsRoute, /res\.json\(shopSettings\(shopId\)\)/, 'settings save must return canonical shop settings');
+}
+
 testMarkupSchedule();
 testTierValidation();
 testTierEditingControls();
 testPartsOnlyTax();
-console.log('Pricing QA passed: markup tiers, cent rounding, validation, and parts-only tax.');
+testExplicitDiscountLines();
+testSettingsPropagationWiring();
+console.log('Pricing QA passed: markup tiers, cent rounding, validation, parts-only tax, and explicit discount lines.');

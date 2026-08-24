@@ -98,6 +98,7 @@ app.use('/api/inspections',  require('./routes/inspections'));
 app.use('/api/warranties',   require('./routes/warranties'));
 app.use('/api/time',         require('./routes/time'));
 app.use('/api/leads',        require('./routes/leads'));
+app.use('/api/shop-context', require('./routes/shop-context'));
 app.use('/api/quick-entry',  require('./routes/quick-entry'));
 app.use('/api/operations',   require('./routes/operations'));
 

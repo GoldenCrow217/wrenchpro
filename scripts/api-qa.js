@@ -70,9 +70,12 @@ async function waitForServer() {
       { up_to: 1, markup: 125 }, { up_to: 5, markup: 75 },
       { up_to: 10, markup: 60 }, { up_to: null, markup: 15 },
     ];
-    await request('PUT', '/api/settings', { parts_markup_tiers: JSON.stringify(markupTiers) });
+    const settingsSave = await request('PUT', '/api/settings', { parts_markup_tiers: JSON.stringify(markupTiers), default_labor_rate: 110, fleet_rate: 95, oil_warn_miles: 0, currency_symbol: '€' });
+    assert(settingsSave.default_labor_rate === 110 && settingsSave.fleet_rate === 95, 'Settings save did not return canonical saved labor rates');
+    assert(settingsSave.oil_warn_miles === 0 && settingsSave.currency_symbol === '€', 'Settings save did not return canonical zero or display settings');
     const savedSettings = await request('GET', '/api/settings');
     assert(JSON.stringify(JSON.parse(savedSettings.parts_markup_tiers)) === JSON.stringify(markupTiers), 'Parts markup settings did not persist');
+    assert(savedSettings.oil_warn_miles === 0, 'Zero-mile oil warning setting did not persist');
     const invalidTiers = await requestRaw('PUT', '/api/settings', { parts_markup_tiers: '[{"up_to":1,"markup":-1}]' });
     assert(invalidTiers.status === 400 && invalidTiers.body.field === 'parts_markup_tiers', 'Invalid parts markup settings should return field-specific HTTP 400');
 
@@ -176,6 +179,24 @@ async function waitForServer() {
     });
     manualJobRecord = (await request('GET', '/api/jobs')).find(job => job.id === manualJob.id);
     assert(manualJobRecord.repair_order_number === 'RO-00043', 'Repair order number did not persist after editing');
+    const explicitDiscountItems = [...manualJobRecord.items, { type: 'discount', description: 'Diagnostic coupon', qty: 1, rate: 15, amount: 15 }];
+    const explicitlyDiscountedJob = await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: manualJobRecord.repair_order_number, service: manualJobRecord.service, date: manualJobRecord.date,
+      discount: 999, items: explicitDiscountItems,
+    });
+    assert(explicitlyDiscountedJob.discount === 15, 'Explicit discount line did not become the saved repair-order discount');
+    assert(explicitlyDiscountedJob.labor === 75 && explicitlyDiscountedJob.parts === 0, 'Discount line was incorrectly included in labor or parts subtotals');
+    const explicitlyDiscountedBalance = await request('GET', `/api/jobs/${manualJob.id}/balance`);
+    assert(explicitlyDiscountedBalance.total === 60, `Discount line was counted as a charge in the saved balance: ${JSON.stringify(explicitlyDiscountedBalance)}`);
+    const unnamedDiscount = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, {
+      items: [...manualJobRecord.items, { type: 'discount', description: '', qty: 1, rate: 5, amount: 5 }],
+    });
+    assert(unnamedDiscount.status === 400 && unnamedDiscount.body.field === 'description', 'Unnamed discount line should return field-specific HTTP 400');
+    await request('PUT', `/api/jobs/${manualJob.id}`, {
+      repair_order_number: manualJobRecord.repair_order_number, service: manualJobRecord.service, date: manualJobRecord.date,
+      discount: 0, items: manualJobRecord.items,
+    });
+    manualJobRecord = (await request('GET', '/api/jobs')).find(job => job.id === manualJob.id);
     await request('PUT', '/api/settings', { tax_rate: 10, default_pay_method: 'Card' });
     await request('POST', '/api/payments', { customer_id: customer.id, job_id: manualJob.id, description: 'Deposit', amount: 20, method: 'Cash', date: '2026-07-29' });
     const paidJobItems = [...manualJobRecord.items, { type: 'part', description: 'Shop part', qty: 1, rate: 50, amount: 50, taxable: 1 }];
@@ -202,6 +223,10 @@ async function waitForServer() {
     assert(paidAgain.payment === null, 'Repeated Paid job save created another automatic payment');
     const paidNoteCorrection = await request('PUT', `/api/jobs/${manualJob.id}`, { notes: 'Receipt note corrected' });
     assert(paidNoteCorrection.payment === null && paidNoteCorrection.invoice_status === 'Paid', 'Partial correction of a paid job created a duplicate payment or changed invoice status');
+    const completedPaidJob = await request('PUT', `/api/jobs/${manualJob.id}`, { status: 'Complete' });
+    assert(completedPaidJob.status === 'Complete' && completedPaidJob.invoice_status === 'Paid', 'Paid repair order could not be completed before locking');
+    const lockedJobUpdate = await requestRaw('PUT', `/api/jobs/${manualJob.id}`, { notes: 'Must not change a locked repair order' });
+    assert(lockedJobUpdate.status === 409 && /completed and paid/i.test(lockedJobUpdate.body.error), 'Completed and paid repair order was not locked against API edits');
     const manualJobPayments = (await request('GET', '/api/payments')).filter(payment => payment.job_id === manualJob.id);
     assert(manualJobPayments.length === 2 && manualJobPayments.reduce((sum, payment) => sum + payment.amount, 0) === 155, 'Job payments do not equal the paid job total with parts-only tax');
     assert(manualJobPayments.every(payment => payment.repair_order_number === 'RO-00043'), 'Job-linked payments did not return their repair-order number');

@@ -55,6 +55,65 @@ async function request(method, route, body, headers = {}) {
   return { status: response.status, ok: response.ok, body: parsed };
 }
 
+async function runOptionalMembershipQa() {
+  const optionalPort = String(7800 + Math.floor(Math.random() * 500));
+  const optionalDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-tenant-optional-'));
+  const optionalChild = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, PORT: optionalPort, WRENCHPRO_DATA: optionalDataDir, NODE_ENV: 'test', WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'false', WRENCHPRO_SUPABASE_JWT_SECRET: JWT_SECRET, SUPABASE_URL },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let optionalOutput = '';
+  optionalChild.stdout.on('data', chunk => { optionalOutput += chunk; });
+  optionalChild.stderr.on('data', chunk => { optionalOutput += chunk; });
+  const optionalUrl = route => `http://127.0.0.1:${optionalPort}${route}`;
+  try {
+    for (let i = 0; i < 100; i += 1) {
+      if (optionalChild.exitCode !== null) throw new Error(`Optional membership QA server exited early:\n${optionalOutput}`);
+      try { if ((await fetch(optionalUrl('/api/health'))).ok) break; } catch {}
+      await sleep(50);
+      if (i === 99) throw new Error(`Optional membership QA server did not start:\n${optionalOutput}`);
+    }
+    const optionalDb = new Database(path.join(optionalDataDir, 'wrenchpro.db'));
+    const shop = optionalDb.prepare("INSERT INTO shops (name, owner_email) VALUES ('Optional Shop', 'owner@example.com')").run().lastInsertRowid;
+    optionalDb.close();
+    const response = await fetch(optionalUrl('/api/customers'), { headers: { 'x-wrenchpro-shop-id': String(shop) } });
+    assert.strictEqual(response.status, 200, 'Configured Supabase secrets must not force bearer auth unless hosted membership enforcement is enabled');
+  } finally {
+    optionalChild.kill();
+  }
+}
+
+async function runMissingJwtSecretQa() {
+  const configPort = String(7200 + Math.floor(Math.random() * 500));
+  const configDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-tenant-config-'));
+  const configChild = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, PORT: configPort, WRENCHPRO_DATA: configDataDir, NODE_ENV: 'test', WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'true', WRENCHPRO_SUPABASE_JWT_SECRET: '', SUPABASE_JWT_SECRET: '', SUPABASE_URL },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let configOutput = '';
+  configChild.stdout.on('data', chunk => { configOutput += chunk; });
+  configChild.stderr.on('data', chunk => { configOutput += chunk; });
+  const configUrl = route => `http://127.0.0.1:${configPort}${route}`;
+  try {
+    for (let i = 0; i < 100; i += 1) {
+      if (configChild.exitCode !== null) throw new Error(`Config QA server exited early:\n${configOutput}`);
+      try { if ((await fetch(configUrl('/api/health'))).ok) break; } catch {}
+      await sleep(50);
+      if (i === 99) throw new Error(`Config QA server did not start:\n${configOutput}`);
+    }
+    const configDb = new Database(path.join(configDataDir, 'wrenchpro.db'));
+    const shop = configDb.prepare("INSERT INTO shops (name, owner_email) VALUES ('Misconfigured Shop', 'owner@example.com')").run().lastInsertRowid;
+    configDb.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name) VALUES (?, 'owner@example.com', 'owner', 'Owner')").run(shop);
+    configDb.close();
+    const response = await fetch(configUrl('/api/customers'), { headers: { 'x-wrenchpro-shop-id': String(shop), 'x-wrenchpro-user-email': 'owner@example.com' } });
+    assert.strictEqual(response.status, 503, 'Hosted membership enforcement must fail closed when no Supabase JWT secret is configured');
+  } finally {
+    configChild.kill();
+  }
+}
+
 async function main() {
   await waitForServer();
 
@@ -86,6 +145,16 @@ async function main() {
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${tokenB}` })).status, 403);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), 'x-wrenchpro-user-email': 'tech-b@example.com', authorization: `Bearer ${tokenA}` })).status, 200);
 
+  const shopContextA = await request('GET', '/api/shop-context', undefined, aHeaders);
+  assert.strictEqual(shopContextA.status, 200, JSON.stringify(shopContextA.body));
+  assert.strictEqual(shopContextA.body.mode, 'shop');
+  assert.strictEqual(shopContextA.body.shop.id, shopA);
+  assert.strictEqual(shopContextA.body.membership.role, 'owner');
+  assert.strictEqual(shopContextA.body.membership.email, 'tech-a@example.com');
+  assert.ok(!Object.prototype.hasOwnProperty.call(shopContextA.body.membership, 'supabase_user_id'), 'Shop context must not expose provider user IDs');
+  assert.ok(!Object.prototype.hasOwnProperty.call(shopContextA.body.membership, 'authorization'), 'Shop context must not expose bearer tokens');
+  assert.strictEqual((await request('GET', '/api/shop-context')).body.mode, 'desktop');
+
   const customerA = await request('POST', '/api/customers', { first: 'Ada', last: 'Tenant' }, aHeaders);
   assert.strictEqual(customerA.status, 200, JSON.stringify(customerA.body));
   assert.strictEqual(customerA.body.shop_id, shopA);
@@ -115,9 +184,17 @@ async function main() {
   const operationsBAfter = await request('GET','/api/operations',undefined,bHeaders);
   assert.ok(!operationsBAfter.body.resources.some(resource=>resource.id===resourceA.body.id),'Shop B must not see Shop A resources');
   assert.strictEqual((await request('PUT',`/api/operations/resources/${resourceA.body.id}`,{name:'Cross-tenant edit',resource_type:'bay',active:true},bHeaders)).status,404);
+  const historyDb = new Database(path.join(dataDir, 'wrenchpro.db'));
+  historyDb.prepare("INSERT INTO appointments (shop_id, resource_id, cust, service, date, time) VALUES (?, ?, 'Ada Tenant', 'Brake inspection', '2026-08-21', '09:00')").run(shopA, resourceA.body.id);
+  historyDb.close();
+  assert.strictEqual((await request('DELETE',`/api/operations/resources/${resourceA.body.id}`,undefined,bHeaders)).status,404,'Cross-tenant resource deletes must not reveal another shop scheduling history');
+  assert.strictEqual((await request('DELETE',`/api/operations/resources/${resourceA.body.id}`,undefined,aHeaders)).status,409,'Own-shop resources with scheduling history should be protected');
 
   const desktopView = await request('GET', '/api/customers');
   assert.ok(desktopView.body.length >= 2, 'Desktop compatibility mode should still see local records without a shop header');
+
+  await runOptionalMembershipQa();
+  await runMissingJwtSecretQa();
 
   console.log('Tenant membership QA passed:', JSON.stringify({ shopA, shopB, customerA: customerA.body.id, customerB: customerB.body.id }));
 }

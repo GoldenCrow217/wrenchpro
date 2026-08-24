@@ -455,12 +455,13 @@ db.prepare(`CREATE INDEX IF NOT EXISTS idx_shop_memberships_email ON shop_member
 const custCols = db.prepare(`PRAGMA table_info(customers)`).all().map(c => c.name);
 if (!custCols.includes('status'))           db.prepare(`ALTER TABLE customers ADD COLUMN status TEXT DEFAULT 'Active'`).run();
 if (!custCols.includes('tags'))             db.prepare(`ALTER TABLE customers ADD COLUMN tags TEXT DEFAULT ''`).run();
-if (!custCols.includes('customer_type'))    db.prepare(`ALTER TABLE customers ADD COLUMN customer_type TEXT DEFAULT 'Personal'`).run();
+if (!custCols.includes('customer_type'))    db.prepare(`ALTER TABLE customers ADD COLUMN customer_type TEXT DEFAULT 'Regular'`).run();
 if (!custCols.includes('preferred_contact'))db.prepare(`ALTER TABLE customers ADD COLUMN preferred_contact TEXT DEFAULT 'Phone'`).run();
 if (!custCols.includes('billing_address'))  db.prepare(`ALTER TABLE customers ADD COLUMN billing_address TEXT DEFAULT ''`).run();
 if (!custCols.includes('deleted_at'))       db.prepare(`ALTER TABLE customers ADD COLUMN deleted_at TEXT`).run();
 if (!custCols.includes('shop_id'))          db.prepare(`ALTER TABLE customers ADD COLUMN shop_id INTEGER REFERENCES shops(id)`).run();
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_customers_shop ON customers(shop_id)`).run();
+db.prepare(`UPDATE customers SET customer_type='Regular' WHERE customer_type IS NULL OR trim(customer_type)='' OR lower(customer_type)='personal'`).run();
 
 // Migrate: jobs
 const jobCols = db.prepare(`PRAGMA table_info(jobs)`).all().map(c => c.name);

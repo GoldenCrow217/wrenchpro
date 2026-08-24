@@ -1,6 +1,6 @@
 const { roundCurrency, isTaxablePart } = require('./pricing');
 
-const ALLOWED_ITEM_TYPES = new Set(['labor', 'diagnostic', 'part', 'parts', 'shop_supply', 'fee', 'sublet']);
+const ALLOWED_ITEM_TYPES = new Set(['labor', 'diagnostic', 'emergency', 'part', 'parts', 'shop_supply', 'fee', 'sublet', 'discount']);
 
 function normalizedItemType(type) {
   const normalized = String(type || 'labor').trim().toLowerCase();
@@ -29,14 +29,18 @@ function normalizeLineItems(items = []) {
 
 function lineItemTotals(items = []) {
   const totals = items.reduce((result, item) => {
+    if (String(item.type || '').toLowerCase() === 'discount') {
+      result.discount = roundCurrency(result.discount + Number(item.amount || 0));
+      return result;
+    }
     if (isTaxablePart(item)) result.parts = roundCurrency(result.parts + Number(item.amount || 0));
     else result.labor = roundCurrency(result.labor + Number(item.amount || 0));
-    if (['labor', 'diagnostic'].includes(String(item.type || '').toLowerCase())) {
+    if (['labor', 'diagnostic', 'emergency'].includes(String(item.type || '').toLowerCase())) {
       result.laborHours += Number(item.qty || 0);
       result.laborServiceAmount = roundCurrency(result.laborServiceAmount + Number(item.amount || 0));
     }
     return result;
-  }, { labor: 0, parts: 0, laborHours: 0, laborServiceAmount: 0 });
+  }, { labor: 0, parts: 0, discount: 0, laborHours: 0, laborServiceAmount: 0 });
   totals.laborHours = Math.round((totals.laborHours + Number.EPSILON) * 1000) / 1000;
   totals.laborRate = totals.laborHours > 0 ? roundCurrency(totals.laborServiceAmount / totals.laborHours) : 0;
   delete totals.laborServiceAmount;

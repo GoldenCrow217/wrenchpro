@@ -29,6 +29,7 @@ const context = {
   window: { addEventListener: () => {} },
   clearTimeout,
   setTimeout,
+  loadShopContextDetails: async () => {},
   updateSidebarFoot: () => {},
   renderPage: () => {},
 };

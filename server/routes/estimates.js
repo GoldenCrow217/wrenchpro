@@ -19,6 +19,7 @@ function validateEstimate(res, body, create) {
   for (const item of body.items || []) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return fail(res, 'items', 'Each item must be an object');
     if (!normalizedItemType(item.type)) return fail(res, 'type', 'Item type is not supported');
+    if (String(item.type || '').toLowerCase() === 'discount' && (typeof item.description !== 'string' || !item.description.trim())) return fail(res, 'description', 'Discount description must identify the item or service being discounted');
     for (const field of ['qty','rate','amount']) if (!nonNegativeNumber(res, item, field, { label: `Item ${field}` })) return false;
     if (item.qty !== undefined && Number(item.qty) <= 0) return fail(res, 'qty', 'Item quantity must be greater than zero');
     if (!positiveId(res, item.inventory_id, 'inventory_id')) return false;
@@ -120,6 +121,7 @@ router.post('/', (req, res) => {
     approved_by, approval_notes
   } = req.body;
   items = items === undefined ? undefined : normalizeLineItems(items);
+  if (items?.some(item => item.type === 'discount')) discount = lineItemTotals(items).discount;
   const tenant = customerTenantWhere(req, 'c');
   const cust = db.prepare(`SELECT c.id FROM customers c WHERE c.id = ? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(customer_id, ...tenant.values);
   if (!cust) return fail(res, 'customer_id', 'Customer not found', 404);
@@ -149,6 +151,7 @@ router.put('/:id', (req, res) => {
     approved_by, approval_notes
   } = req.body;
   items = items === undefined ? undefined : normalizeLineItems(items);
+  if (items?.some(item => item.type === 'discount')) discount = lineItemTotals(items).discount;
 
   const tenant = customerTenantWhere(req, 'c');
   const current = db.prepare(`

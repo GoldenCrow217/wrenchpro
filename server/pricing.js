@@ -65,9 +65,12 @@ function isTaxablePart(item) {
 }
 
 function calculateEstimateTotals(items = [], discount = 0, taxRate = 0) {
-  const subtotal = roundCurrency(items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+  const discountItems = items.filter(item => String(item?.type || '').toLowerCase() === 'discount');
+  const chargeItems = items.filter(item => String(item?.type || '').toLowerCase() !== 'discount');
+  const subtotal = roundCurrency(chargeItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
   const taxableParts = roundCurrency(items.filter(isTaxablePart).reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
-  const safeDiscount = Math.max(0, Number(discount) || 0);
+  const explicitDiscount = roundCurrency(discountItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+  const safeDiscount = Math.max(0, discountItems.length ? explicitDiscount : (Number(discount) || 0));
   const afterDiscount = roundCurrency(Math.max(0, subtotal - safeDiscount));
   const discountFactor = subtotal > 0 ? afterDiscount / subtotal : 0;
   const taxableAfterDiscount = roundCurrency(taxableParts * discountFactor);

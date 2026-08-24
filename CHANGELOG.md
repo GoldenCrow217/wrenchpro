@@ -21,6 +21,30 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.37 - 2026-08-23
+
+### Added
+
+- Regular, Fleet, Commercial, and Dealership customer classifications, including fleet-specific default labor pricing.
+- Direct declined-work decisions on repair orders and estimates, with safe customer-and-vehicle carry-forward into a future repair order.
+- Emergency/after-hours labor line items connected to the configured emergency rate.
+- Custom payment-plan amount scheduling with automatic final-payment adjustment.
+
+### Changed
+
+- Settings saves now return canonical values and immediately refresh dependent displays, payment-plan late-fee data, open-form defaults, currency formatting, oil-warning thresholds, labor rates, trip fees, deposits, and parts pricing rules.
+- Printable invoices, estimates, statements, and inspections use the installed Electron print/PDF bridge while retaining a browser print fallback.
+- Completed and fully paid repair orders remain locked for historical and financial integrity, while invoice and job-history views remain available.
+- Repair-order and estimate invoices show payment history, remaining balances, payment plans, explicit discounts, and declined/deferred service history where applicable.
+
+### Fixed
+
+- Invoice printing and PDF saving no longer depend on a popup window that Electron may block.
+- Financial reporting consistently separates paid amounts, remaining balances, late fees, discounts, parts tax, and customer credits.
+- Settings values of zero, custom currency symbols, estimate labor defaults, and customer-specific fleet rates now propagate correctly.
+- Declined work cannot be attached to a different vehicle or reused after it has been scheduled on a successful repair order.
+- Modal dialogs can be closed with Escape without being dismissed by accidental background clicks.
+
 ## v1.0.36 - 2026-08-16
 
 ### Added

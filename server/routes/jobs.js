@@ -36,9 +36,16 @@ function validateJob(res, body, create) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return fail(res, 'items', 'Each item must be an object');
     if (!normalizedItemType(item.type)) return fail(res, 'type', 'Item type is not supported');
     if (!validateOptionalText(res, item, 'description', 'Item description')) return false;
+    if (String(item.type || '').toLowerCase() === 'discount' && !String(item.description || '').trim()) return fail(res, 'description', 'Discount description must identify the item or service being discounted');
     for (const field of ['qty','rate','amount']) if (!nonNegativeNumber(res, item, field, { label: `Item ${field}` })) return false;
     if (item.qty !== undefined && Number(item.qty) <= 0) return fail(res, 'qty', 'Item quantity must be greater than zero');
     if (!positiveId(res, item.inventory_id, 'inventory_id')) return false;
+  }
+  if (body.deferred_service_ids !== undefined) {
+    if (!Array.isArray(body.deferred_service_ids)) return fail(res, 'deferred_service_ids', 'Deferred service IDs must be an array');
+    const ids = body.deferred_service_ids.map(Number);
+    if (ids.some(id => !Number.isSafeInteger(id) || id <= 0)) return fail(res, 'deferred_service_ids', 'Deferred service IDs must contain only positive integers');
+    if (new Set(ids).size !== ids.length) return fail(res, 'deferred_service_ids', 'A deferred service can only be added once');
   }
   if (body.repair_order_number !== undefined) {
     if (typeof body.repair_order_number !== 'string') return fail(res, 'repair_order_number', 'Repair order number must be text');
@@ -51,8 +58,39 @@ function validateJob(res, body, create) {
   return true;
 }
 
+function deferredServicesForJob(req, ids, customerId, vehicleId) {
+  if (!ids.length) return [];
+  const tenant = shopTenantWhere(req, 'd');
+  const placeholders = ids.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT d.id
+    FROM deferred_services d
+    WHERE d.id IN (${placeholders})
+      AND d.status = 'open'
+      AND d.customer_id = ?
+      AND d.vehicle_id = ?
+      AND ${tenant.clause}
+  `).all(...ids, customerId, vehicleId, ...tenant.values);
+}
+
+function scheduleDeferredServices(ids) {
+  if (!ids.length) return;
+  const placeholders = ids.map(() => '?').join(',');
+  const result = db.prepare(`
+    UPDATE deferred_services
+    SET status = 'scheduled', resolved_at = datetime('now')
+    WHERE id IN (${placeholders}) AND status = 'open'
+  `).run(...ids);
+  if (result.changes !== ids.length) {
+    const error = new Error('Deferred work changed before this repair order was saved. Refresh and try again.');
+    error.status = 409;
+    error.field = 'deferred_service_ids';
+    throw error;
+  }
+}
+
 function serviceFromItems(items = []) {
-  return items.map(item => String(item.description || '').trim()).filter(Boolean).join(', ').slice(0, 255);
+  return items.filter(item => String(item.type || '').toLowerCase() !== 'discount').map(item => String(item.description || '').trim()).filter(Boolean).join(', ').slice(0, 255);
 }
 
 function nextRepairOrderNumber(req) {
@@ -145,7 +183,7 @@ router.get('/:id/balance', (req, res) => {
   const currentTaxRate = Number(job.tax_rate ?? billingSettings(req).tax_rate) || 0;
   let laborTotal, partsTotal;
   if (items.length > 0) {
-    laborTotal = items.filter(i => !i.taxable).reduce((a, i) => a + (i.amount || 0), 0);
+    laborTotal = items.filter(i => !i.taxable && String(i.type || '').toLowerCase() !== 'discount').reduce((a, i) => a + (i.amount || 0), 0);
     partsTotal = items.filter(i => i.taxable).reduce((a, i) => a + (i.amount || 0), 0);
   } else {
     laborTotal = job.labor || 0;
@@ -248,7 +286,7 @@ function advanceVehicleMileage(vehicleId, mileage) {
   `).run(nextMileage, vehicleId, nextMileage);
 }
 
-const createJob = db.transaction((req, values, items, automaticPayment, vehicleMileage) => {
+const createJob = db.transaction((req, values, items, automaticPayment, vehicleMileage, deferredServiceIds) => {
   const result = db.prepare(`
     INSERT INTO jobs
       (customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
@@ -263,6 +301,7 @@ const createJob = db.transaction((req, values, items, automaticPayment, vehicleM
     saveJobItems(jobId, items);
   }
   advanceVehicleMileage(vehicleMileage.vehicleId, vehicleMileage.miles);
+  scheduleDeferredServices(deferredServiceIds);
   const payment = automaticPayment ? insertAutomaticJobPayment(jobId, automaticPayment.customer, automaticPayment.amount, automaticPayment.method, automaticPayment.date, automaticPayment.repairOrderNumber, automaticPayment.service) : null;
   reconcileJobInvoiceStatus(db, jobId);
   return { jobId, payment, inventoryUpdates };
@@ -273,8 +312,9 @@ router.post('/', (req, res) => {
   let {
     customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
     parts, discount, status, notes, employee_id, complaint, diagnosis, invoice_status, estimate_id,
-    service_address, travel_fee, parts_deposit_required, items
+    service_address, travel_fee, parts_deposit_required, items, deferred_service_ids
   } = req.body;
+  deferred_service_ids = (deferred_service_ids || []).map(Number);
   items = items === undefined ? undefined : normalizeLineItems(items);
   if (!String(service || '').trim() && items !== undefined) service = serviceFromItems(items);
 
@@ -287,6 +327,10 @@ router.post('/', (req, res) => {
 
   const veh = db.prepare('SELECT id FROM vehicles WHERE id = ? AND customer_id = ? AND deleted_at IS NULL').get(vehicle_id, customer_id);
   if (!veh) return fail(res, 'vehicle_id', 'Vehicle not found or does not belong to this customer', 404);
+
+  if (deferredServicesForJob(req, deferred_service_ids, customer_id, vehicle_id).length !== deferred_service_ids.length) {
+    return fail(res, 'deferred_service_ids', 'One or more selected deferred services are unavailable for this customer and vehicle', 409);
+  }
 
   if (!employeeInTenant(req, employee_id)) {
     return fail(res, 'employee_id', 'Employee not found', 404);
@@ -310,6 +354,7 @@ router.post('/', (req, res) => {
   const partsVal = totals ? totals.parts : (parts || 0);
   const laborHoursVal = totals ? totals.laborHours : (parseFloat(labor_hours) || 0);
   const laborRateVal = totals ? totals.laborRate : (parseFloat(labor_rate) || 0);
+  if (totals && items.some(item => item.type === 'discount')) discount = totals.discount;
 
   const settings = billingSettings(req);
   const effectiveTaxRate = Number(settings.tax_rate) || 0;
@@ -331,9 +376,9 @@ router.post('/', (req, res) => {
     partsVal, discount || 0, jobTaxRate, status || 'Pending', notes || '', employee_id || null,
     complaint || '', diagnosis || '', invoice_status || 'Unpaid', estimate_id || null,
     service_address || '', travel_fee || 0, parts_deposit_required || 0, closedAt
-  ], items, paidOnCreate, { vehicleId: vehicle_id, miles: miles || 0 });
+  ], items, paidOnCreate, { vehicleId: vehicle_id, miles: miles || 0 }, deferred_service_ids);
   const savedJob = savedJobRecord(req, created.jobId);
-  res.json({ ...savedJob, payment: created.payment, inventory_updates: created.inventoryUpdates });
+  res.json({ ...savedJob, payment: created.payment, inventory_updates: created.inventoryUpdates, scheduled_deferred_service_ids: deferred_service_ids });
 });
 
 router.put('/:id', (req, res) => {
@@ -341,8 +386,9 @@ router.put('/:id', (req, res) => {
   let {
     service, repair_order_number, date, miles, labor, labor_hours, labor_rate, parts, discount, status, notes,
     employee_id, complaint, diagnosis, invoice_status, estimate_id,
-    service_address, travel_fee, parts_deposit_required, items
+    service_address, travel_fee, parts_deposit_required, items, deferred_service_ids
   } = req.body;
+  deferred_service_ids = (deferred_service_ids || []).map(Number);
   items = items === undefined ? undefined : normalizeLineItems(items);
 
   const tenant = customerTenantWhere(req, 'c');
@@ -353,11 +399,17 @@ router.put('/:id', (req, res) => {
     WHERE j.id = ? AND j.deleted_at IS NULL AND ${tenant.clause}
   `).get(req.params.id, ...tenant.values);
   if (!current) return res.status(404).json({ error: 'Job not found' });
+  if (current.status === 'Complete' && current.invoice_status === 'Paid') {
+    return res.status(409).json({ error: 'This repair order is completed and paid, so it is locked. Refund or remove the payment before making changes.' });
+  }
   if (req.body.customer_id !== undefined && Number(req.body.customer_id) !== Number(current.customer_id)) {
     return fail(res, 'customer_id', 'A repair order cannot be moved to a different customer', 409);
   }
   if (req.body.vehicle_id !== undefined && Number(req.body.vehicle_id) !== Number(current.vehicle_id)) {
     return fail(res, 'vehicle_id', 'A repair order cannot be moved to a different vehicle', 409);
+  }
+  if (deferredServicesForJob(req, deferred_service_ids, current.customer_id, current.vehicle_id).length !== deferred_service_ids.length) {
+    return fail(res, 'deferred_service_ids', 'One or more selected deferred services are unavailable for this customer and vehicle', 409);
   }
   service = service ?? current.service;
   if (!String(service || '').trim() && items !== undefined) service = serviceFromItems(items);
@@ -407,6 +459,7 @@ router.put('/:id', (req, res) => {
   const partsVal = updatedTotals ? updatedTotals.parts : (Number(parts) || 0);
   const laborHoursVal = updatedTotals ? updatedTotals.laborHours : (Number(labor_hours) || 0);
   const laborRateVal = updatedTotals ? updatedTotals.laborRate : (Number(labor_rate) || 0);
+  if (updatedTotals && items.some(item => item.type === 'discount')) discount = updatedTotals.discount;
   const shouldRecordPayment = req.body.invoice_status === 'Paid';
   const paidToDate = shouldRecordPayment
     ? Number(db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE job_id = ?').get(req.params.id).total) || 0
@@ -444,6 +497,7 @@ router.put('/:id', (req, res) => {
       inventoryUpdates = applyInventoryItemChanges(req, previousItems, items || []);
       saveJobItems(req.params.id, items || []);
     }
+    scheduleDeferredServices(deferred_service_ids);
     advanceVehicleMileage(current.vehicle_id, miles || 0);
     if (shouldRecordPayment && remainingBalance > 0) {
       automaticPayment = insertAutomaticJobPayment(
@@ -459,7 +513,7 @@ router.put('/:id', (req, res) => {
     reconcileJobInvoiceStatus(db, Number(req.params.id), effectiveTaxRate);
   })();
   const savedJob = savedJobRecord(req, req.params.id);
-  res.json({ ...savedJob, success: true, payment: automaticPayment, inventory_updates: inventoryUpdates });
+  res.json({ ...savedJob, success: true, payment: automaticPayment, inventory_updates: inventoryUpdates, scheduled_deferred_service_ids: deferred_service_ids });
 });
 
 router.delete('/:id', (req, res) => {

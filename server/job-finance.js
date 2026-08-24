@@ -3,8 +3,8 @@ const { roundCurrency, calculateJobTotals } = require('./pricing');
 function jobFinancials(db, jobId, fallbackTaxRate = 0) {
   const job = db.prepare('SELECT labor, parts, travel_fee, discount, tax_rate, invoice_status FROM jobs WHERE id=?').get(jobId);
   if (!job) return null;
-  const items = db.prepare('SELECT amount, taxable FROM job_items WHERE job_id=?').all(jobId);
-  const labor = roundCurrency(items.length ? items.filter(item => !item.taxable).reduce((sum, item) => sum + Number(item.amount || 0), 0) : Number(job.labor || 0));
+  const items = db.prepare('SELECT type, amount, taxable FROM job_items WHERE job_id=?').all(jobId);
+  const labor = roundCurrency(items.length ? items.filter(item => !item.taxable && String(item.type || '').toLowerCase() !== 'discount').reduce((sum, item) => sum + Number(item.amount || 0), 0) : Number(job.labor || 0));
   const parts = roundCurrency(items.length ? items.filter(item => item.taxable).reduce((sum, item) => sum + Number(item.amount || 0), 0) : Number(job.parts || 0));
   const taxRate = Number(job.tax_rate ?? fallbackTaxRate) || 0;
   const totals = calculateJobTotals(labor, parts, job.travel_fee, job.discount, taxRate);

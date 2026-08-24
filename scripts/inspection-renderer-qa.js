@@ -37,6 +37,18 @@ app.whenReady().then(async () => {
         padInput.value='6.5';padInput.dispatchEvent(new Event('input',{bubbles:true}));
         rotorInput.value='24.2';rotorInput.dispatchEvent(new Event('input',{bubbles:true}));
         treadInput.value='5';treadInput.dispatchEvent(new Event('input',{bubbles:true}));
+        document.getElementById('insp-all-fail').click();
+        const allFail=inspItems.every(item=>item.condition==='fail');
+        document.getElementById('insp-all-na').click();
+        const allNA=inspItems.every(item=>item.condition==='na');
+        document.getElementById('insp-all-pass').click();
+        const bulkConditionState={
+          allFail,
+          allNA,
+          allPass:inspItems.every(item=>item.condition==='pass'),
+          measurementsPreserved:inspItems.find(item=>item.item_name==='Brake pad thickness — LF').measurement_value===6.5&&inspItems.find(item=>item.item_name==='Rotor thickness — RF').measurement_value===24.2&&inspItems.find(item=>item.item_name==='Tread depth — LR').measurement_value===5,
+          passActive:document.getElementById('insp-all-pass').classList.contains('cond-pass'),
+        };
         const treadIndex=inspItems.findIndex(item=>item.item_name==='Tread depth — LR');
         setInspCond(treadIndex,'advisory');
         document.getElementById('if2-cust').value='1';
@@ -98,6 +110,7 @@ app.whenReady().then(async () => {
         return {
           modalOpened:saveState.openWhileSaving,
           measurementCount:measurementInputs.length,
+          bulkConditionState,
           saveState,
           reopenState,
           failureState,
@@ -109,6 +122,7 @@ app.whenReady().then(async () => {
     `, true);
 
     assert(results.modalOpened && results.measurementCount === 16, 'New Inspection did not open with all per-corner measurement inputs');
+    assert(results.bulkConditionState.allFail && results.bulkConditionState.allNA && results.bulkConditionState.allPass && results.bulkConditionState.measurementsPreserved && results.bulkConditionState.passActive, 'Inspection bulk Pass, Fail, or N/A controls did not update every condition while preserving measurements');
     assert(results.saveState.requestCount === 1 && results.saveState.openWhileSaving && results.saveState.modalClosed, 'Inspection duplicate-save protection or modal lifecycle failed');
     assert(results.saveState.pad.measurement_value === 6.5 && results.saveState.pad.measurement_unit === 'mm', 'Brake pad measurement was not submitted in millimeters');
     assert(results.saveState.rotor.measurement_value === 24.2 && results.saveState.rotor.measurement_unit === 'mm', 'Rotor measurement was not submitted in millimeters');
