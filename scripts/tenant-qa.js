@@ -79,6 +79,8 @@ async function runOptionalMembershipQa() {
     optionalDb.close();
     const response = await fetch(optionalUrl('/api/customers'), { headers: { 'x-wrenchpro-shop-id': String(shop) } });
     assert.strictEqual(response.status, 200, 'Configured Supabase secrets must not force bearer auth unless hosted membership enforcement is enabled');
+    const desktopResponse = await fetch(optionalUrl('/api/customers'));
+    assert.strictEqual(desktopResponse.status, 200, 'Desktop compatibility mode should remain available when hosted membership enforcement is disabled');
   } finally {
     optionalChild.kill();
   }
@@ -190,8 +192,9 @@ async function main() {
   assert.strictEqual((await request('DELETE',`/api/operations/resources/${resourceA.body.id}`,undefined,bHeaders)).status,404,'Cross-tenant resource deletes must not reveal another shop scheduling history');
   assert.strictEqual((await request('DELETE',`/api/operations/resources/${resourceA.body.id}`,undefined,aHeaders)).status,409,'Own-shop resources with scheduling history should be protected');
 
-  const desktopView = await request('GET', '/api/customers');
-  assert.ok(desktopView.body.length >= 2, 'Desktop compatibility mode should still see local records without a shop header');
+  const hostedNoShopView = await request('GET', '/api/customers');
+  assert.strictEqual(hostedNoShopView.status, 400, 'Hosted membership enforcement must not expose desktop compatibility data without a shop context');
+  assert.strictEqual(hostedNoShopView.body.field, 'shop_id');
 
   await runOptionalMembershipQa();
   await runMissingJwtSecretQa();
