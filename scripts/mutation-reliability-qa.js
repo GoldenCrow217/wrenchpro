@@ -156,6 +156,8 @@ assert.match(html, /function isLaborLineItem\(type\)/, 'line-item editors must c
 assert.match(html, /function setJobItemType\(index,type\)/, 'job type changes must move quantity into the correct column');
 assert.match(html, /function setEstItemType\(index,type\)/, 'estimate type changes must move quantity into the correct column');
 assert.ok(html.includes('aria-label="Labor hours"') && html.includes('aria-label="Part quantity"'), 'separate line-item inputs must have clear accessible labels');
+assert.ok((html.match(/class="line-item-description"/g)||[]).length >= 2, 'repair-order and estimate descriptions must use wrapping multiline fields');
+assert.match(html, /\.line-item-description\{[^}]*overflow-wrap:anywhere/, 'long line-item descriptions must wrap instead of overflowing their editor');
 const lineItemTypeStart = html.indexOf('function isLaborLineItem(');
 const lineItemTypeEnd = html.indexOf('\nfunction addJobItem(', lineItemTypeStart);
 assert.ok(lineItemTypeStart >= 0 && lineItemTypeEnd > lineItemTypeStart, 'job line-item type helpers must be extractable');
