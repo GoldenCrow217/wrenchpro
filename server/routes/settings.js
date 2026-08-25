@@ -86,7 +86,7 @@ router.put('/', (req, res) => {
         require_parts_deposit=?, parts_deposit_percent=?, payment_grace_days=?, late_fee=?
       WHERE id = 1
     `).run(...SETTINGS_FIELDS.map(field => values[field]));
-    return res.json({ ok: true });
+    return res.json(globalSettings());
   }
 
   db.prepare(`
@@ -96,7 +96,7 @@ router.put('/', (req, res) => {
       ${SETTINGS_FIELDS.map(field => `${field}=excluded.${field}`).join(', ')},
       updated_at=datetime('now')
   `).run(shopId, ...SETTINGS_FIELDS.map(field => values[field]));
-  res.json({ ok: true, shop_id: shopId });
+  res.json(shopSettings(shopId));
 });
 
 module.exports = router;

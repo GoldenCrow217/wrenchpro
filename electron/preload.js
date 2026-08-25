@@ -19,7 +19,7 @@ const MENU_COMMANDS = new Set([
 // Expose a minimal, safe API to the renderer (index.html).
 // Nothing sensitive — just read-only metadata.
 contextBridge.exposeInMainWorld('electronAPI', {
-  version:  require('../package.json').version,
+  version:  ipcRenderer.sendSync('app:get-version'),
   platform: process.platform,
   printDocument(payload) {
     if (!payload || typeof payload.html !== 'string') return Promise.reject(new Error('Invalid print request'));

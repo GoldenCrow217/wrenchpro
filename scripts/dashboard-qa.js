@@ -12,7 +12,7 @@ const context = {
   fmt$: value => `$${Number(value || 0).toFixed(2)}`,
   planBalance: plan => Number(plan.balance || 0),
 };
-vm.runInNewContext(`${html.slice(helperStart, helperEnd)};globalThis.qa={localDateKey,jobPricingTotals,dashboardJobTotal,dashboardJobBalance,dashboardMetrics};`, context);
+vm.runInNewContext(`${html.slice(helperStart, helperEnd)};globalThis.qa={localDateKey,jobPricingTotals,paymentsLinkedToJob,jobAmountPaid,dashboardJobTotal,dashboardJobBalance,dashboardMetrics};`, context);
 
 const qa = context.qa;
 assert.strictEqual(qa.localDateKey(new Date(2026, 7, 12, 23, 30)), '2026-08-12', 'dashboard dates must use the local calendar date');
@@ -24,6 +24,7 @@ assert.strictEqual(dateContext.addDays('2026-03-08', 1), '2026-03-09', 'date-onl
 assert.strictEqual(qa.dashboardJobTotal({ labor: 100, parts: 50, travel_fee: 25 }, 10), 180, 'job totals must include labor, parts-only tax, and trip fees');
 assert.strictEqual(qa.dashboardJobTotal({ labor: 100, parts: 50, discount: 30, travel_fee: 25 }, 10), 149, 'job totals must preserve discounts and proportionally reduce parts-only tax');
 assert.strictEqual(qa.dashboardJobBalance({ id: 1, labor: 100, parts: 50, travel_fee: 25 }, [{ job_id: 1, amount: 55 }], 10), 125, 'job balances must subtract linked payments');
+assert.strictEqual(qa.jobAmountPaid(1, [{ job_id: '1', amount: '55.25' }, { job_id: 2, amount: 100 }]), 55.25, 'R/O paid totals must normalize IDs and numeric payment values');
 
 const now = new Date(2026, 7, 12, 12, 0);
 const snapshot = {
@@ -80,11 +81,14 @@ assert.strictEqual(discountedReport.income.labor, 80, 'Discounted labor revenue 
 assert.strictEqual(discountedReport.income.parts, 40, 'Discounted parts revenue must use the proportional net amount');
 assert.strictEqual(discountedReport.income.tax, 4, 'Discounted parts tax must use the proportional net parts amount');
 
-assert.match(html, /const netProfit = Number\(data\.monthNetProfit\)\|\|0/, 'dashboard monthly profit must use monthly server totals');
+assert.match(html, /const netProfit = data\?Number\(data\.monthNetProfit\)\|\|0:null/, 'dashboard monthly profit must use monthly server totals and remain explicitly unavailable after a summary failure');
+assert.match(html, /netProfit===null\?'—':fmt\$\(netProfit\)/, 'dashboard must not display a misleading zero when the summary request fails');
 assert.match(html, /Revenue · last 7 days/, 'revenue period label must match its calculation');
 assert.match(html, /class="kpi-value">\$\{fmt\$\(weekTotal\)\}/, 'dashboard revenue must display cents without whole-dollar rounding');
 assert.match(html, /class="kpi-value">\$\{fmt\$\(outstanding\)\}/, 'dashboard outstanding balance must display cents');
 assert.match(html, /dashboardJobTotal\(j,state\.settings\.tax_rate\)/, 'today route must display the complete job total');
 assert.match(html, /dashboardJobBalance\(job,state\.payments,state\.settings\.tax_rate\)/, 'overdue amount must display remaining invoice balances');
+assert.match(html, /id="finance-ro-tbody"/, 'Finance must include per-repair-order balance tracking');
+assert.match(html, /Repair order balances/, 'Finance balance table must be clearly labeled');
 
 console.log('Dashboard calculation QA passed');

@@ -1,6 +1,6 @@
 const { roundCurrency, isTaxablePart } = require('./pricing');
 
-const ALLOWED_ITEM_TYPES = new Set(['labor', 'diagnostic', 'part', 'parts', 'shop_supply', 'fee', 'sublet']);
+const ALLOWED_ITEM_TYPES = new Set(['labor', 'diagnostic', 'emergency', 'part', 'parts', 'shop_supply', 'fee', 'sublet', 'discount']);
 
 function normalizedItemType(type) {
   const normalized = String(type || 'labor').trim().toLowerCase();
@@ -11,13 +11,15 @@ function normalizeLineItem(item) {
   const type = normalizedItemType(item.type);
   const qty = Number(item.qty ?? 1);
   const rate = Number(item.rate ?? 0);
+  const taxable = isTaxablePart({ type });
   return {
     ...item,
     type,
     qty,
     rate,
     amount: roundCurrency(qty * rate),
-    taxable: isTaxablePart({ type }) ? 1 : 0,
+    taxable: taxable ? 1 : 0,
+    inventory_id: taxable ? (item.inventory_id || null) : null,
   };
 }
 
@@ -26,11 +28,23 @@ function normalizeLineItems(items = []) {
 }
 
 function lineItemTotals(items = []) {
-  return items.reduce((totals, item) => {
-    if (isTaxablePart(item)) totals.parts = roundCurrency(totals.parts + Number(item.amount || 0));
-    else totals.labor = roundCurrency(totals.labor + Number(item.amount || 0));
-    return totals;
-  }, { labor: 0, parts: 0 });
+  const totals = items.reduce((result, item) => {
+    if (String(item.type || '').toLowerCase() === 'discount') {
+      result.discount = roundCurrency(result.discount + Number(item.amount || 0));
+      return result;
+    }
+    if (isTaxablePart(item)) result.parts = roundCurrency(result.parts + Number(item.amount || 0));
+    else result.labor = roundCurrency(result.labor + Number(item.amount || 0));
+    if (['labor', 'diagnostic', 'emergency'].includes(String(item.type || '').toLowerCase())) {
+      result.laborHours += Number(item.qty || 0);
+      result.laborServiceAmount = roundCurrency(result.laborServiceAmount + Number(item.amount || 0));
+    }
+    return result;
+  }, { labor: 0, parts: 0, discount: 0, laborHours: 0, laborServiceAmount: 0 });
+  totals.laborHours = Math.round((totals.laborHours + Number.EPSILON) * 1000) / 1000;
+  totals.laborRate = totals.laborHours > 0 ? roundCurrency(totals.laborServiceAmount / totals.laborHours) : 0;
+  delete totals.laborServiceAmount;
+  return totals;
 }
 
 module.exports = { ALLOWED_ITEM_TYPES, normalizedItemType, normalizeLineItems, lineItemTotals };

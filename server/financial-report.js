@@ -8,7 +8,7 @@ function jobIncomeComponents(job) {
   if (items.length) {
     labor = items.filter(item => String(item.type || '').toLowerCase() === 'labor').reduce((sum, item) => sum + Number(item.amount || 0), 0);
     parts = items.filter(isTaxablePart).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    otherFees = items.filter(item => !isTaxablePart(item) && String(item.type || '').toLowerCase() !== 'labor').reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    otherFees = items.filter(item => !isTaxablePart(item) && !['labor', 'discount'].includes(String(item.type || '').toLowerCase())).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   }
   const totals = calculateJobTotals(labor + otherFees, parts, job.travel_fee, job.discount, job.tax_rate);
   const discountFactor = totals.subtotal > 0 ? Math.max(0, totals.subtotal - Math.min(totals.discount, totals.subtotal)) / totals.subtotal : 0;

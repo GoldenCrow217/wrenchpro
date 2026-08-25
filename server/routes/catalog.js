@@ -6,8 +6,8 @@ const { requiredText, nonNegativeNumber, positiveId } = require('../validation')
 
 function validateCatalogItem(res, body) {
   return requiredText(res, body, 'name', 'Service name')
-    && nonNegativeNumber(res, body, 'default_hours', { label: 'Default hours' })
-    && nonNegativeNumber(res, body, 'default_price', { label: 'Default price' });
+    && nonNegativeNumber(res, body, 'default_hours', { label: 'Hours' })
+    && nonNegativeNumber(res, body, 'default_price', { label: 'Price' });
 }
 
 router.get('/', (req, res) => {

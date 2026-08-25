@@ -53,7 +53,7 @@ async function stopServer() {
   try {
     await startServer();
     await request('PUT', '/api/settings', { tax_rate: 8.25, default_pay_method: 'Card' });
-    const customer = await request('POST', '/api/customers', { first: 'History', last: 'Keeper' });
+    const customer = await request('POST', '/api/customers', { first: 'History', last: 'Keeper', phone: '555-0100' });
     const vehicle = await request('POST', '/api/vehicles', { customer_id: customer.id, year: 2022, make: 'Ford', model: 'Transit' });
     const employee = await request('POST', '/api/employees', { first: 'Time', last: 'Keeper', hourly_rate: 25 });
 
@@ -141,7 +141,12 @@ async function stopServer() {
     const revenueBeforeArchive = (await request('GET', '/api/dashboard')).totalRevenue;
     await request('DELETE', `/api/customers/${customer.id}`);
     assert.ok(!(await request('GET', '/api/customers')).some(row => row.id === customer.id), 'Archived customer remained selectable');
-    assert.ok((await request('GET', '/api/jobs')).some(row => row.id === job.id), 'Archived customer hid historical repair orders');
+    const archivedJob = (await request('GET', '/api/jobs')).find(row => row.id === job.id);
+    assert.ok(archivedJob, 'Archived customer hid historical repair orders');
+    assert.strictEqual(archivedJob.customer_phone, '555-0100', 'Archived repair order lost its invoice customer details');
+    const correctedArchivedJob = await request('PUT', `/api/jobs/${job.id}`, { ...archivedJob, notes: 'Historical correction', items: archivedJob.items });
+    assert.strictEqual(correctedArchivedJob.notes, 'Historical correction', 'A visible archived-customer repair order could not be corrected');
+    assert.strictEqual(correctedArchivedJob.employee_id, employee.id, 'Correcting a historical repair order discarded its archived employee assignment');
     assert.ok((await request('GET', '/api/estimates')).some(row => row.id === estimate.id), 'Archived customer hid historical estimates');
     assert.ok((await request('GET', '/api/payments')).some(row => row.id === plan.payment.id), 'Archived customer hid historical payments');
     assert.ok((await request('GET', '/api/plans')).some(row => row.id === plan.id), 'Archived customer hid historical plans');
@@ -152,12 +157,16 @@ async function stopServer() {
     assert.strictEqual(deletedArchivedPayment.success, true, 'A visible payment for an archived customer could not be deleted');
     assert.ok(!(await request('GET', '/api/payments')).some(row => row.id === archivedCorrection.id), 'Deleted archived-customer payment remained in the ledger');
 
-    db.prepare('UPDATE jobs SET tax_rate=NULL WHERE id=?').run(job.id);
+    db.prepare("UPDATE jobs SET tax_rate=NULL, labor_hours=0, labor_rate=0, repair_order_number='', service='' WHERE id=?").run(job.id);
     db.close();
     await stopServer();
     await startServer();
     const migratedJob = (await request('GET', '/api/jobs')).find(row => row.id === job.id);
     assert.strictEqual(migratedJob.tax_rate, 8.25, 'Legacy closed job did not receive a frozen tax-rate snapshot');
+    assert.match(migratedJob.repair_order_number, /^RO-\d{4,}$/, 'Legacy blank repair order did not receive an RO-#### backfill');
+    assert.strictEqual(migratedJob.service, 'Part, Diagnostic', 'Legacy blank job service was not derived from its saved line-item descriptions');
+    assert.strictEqual(migratedJob.labor_hours, 1, 'Existing line-item job did not receive its labor-hours backfill');
+    assert.strictEqual(migratedJob.labor_rate, 50, 'Existing line-item job did not receive its effective labor-rate backfill');
 
     console.log('Accounting and historical-integrity QA passed');
   } finally {

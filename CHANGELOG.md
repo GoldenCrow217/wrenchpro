@@ -21,6 +21,73 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.37 - 2026-08-23
+
+### Added
+
+- Regular, Fleet, Commercial, and Dealership customer classifications, including fleet-specific default labor pricing.
+- Direct declined-work decisions on repair orders and estimates, with safe customer-and-vehicle carry-forward into a future repair order.
+- Emergency/after-hours labor line items connected to the configured emergency rate.
+- Custom payment-plan amount scheduling with automatic final-payment adjustment.
+
+### Changed
+
+- Settings saves now return canonical values and immediately refresh dependent displays, payment-plan late-fee data, open-form defaults, currency formatting, oil-warning thresholds, labor rates, trip fees, deposits, and parts pricing rules.
+- Printable invoices, estimates, statements, and inspections use the installed Electron print/PDF bridge while retaining a browser print fallback.
+- Completed and fully paid repair orders remain locked for historical and financial integrity, while invoice and job-history views remain available.
+- Repair-order and estimate invoices show payment history, remaining balances, payment plans, explicit discounts, and declined/deferred service history where applicable.
+
+### Fixed
+
+- Invoice printing and PDF saving no longer depend on a popup window that Electron may block.
+- Financial reporting consistently separates paid amounts, remaining balances, late fees, discounts, parts tax, and customer credits.
+- Settings values of zero, custom currency symbols, estimate labor defaults, and customer-specific fleet rates now propagate correctly.
+- Declined work cannot be attached to a different vehicle or reused after it has been scheduled on a successful repair order.
+- Modal dialogs can be closed with Escape without being dismissed by accidental background clicks.
+
+## v1.0.36 - 2026-08-16
+
+### Added
+
+- Connected shop workflow board with customizable columns, drag-and-drop repair orders, promised times, priorities, and assignable bays or mobile service units.
+- Custom inspection templates, per-corner brake/rotor/tire measurements, quick notes, photos, recommendations, deferred-service follow-up, and printable inspection reports.
+- Service-line authorization history with typed signatures, technician task queues and labor-line time tracking, vehicle check-in/quality-control records, parts reservations, vendors, and purchase orders with receiving.
+- Recurring appointments with resource conflict detection, expanded vehicle/customer service history, customer statements, and partial job-payment refunds.
+
+### Changed
+
+- Repair-order and estimate line items retain stable IDs so authorization, tasks, inventory reservations, and deferred work remain attached through edits and conversion.
+- Mutation completion waits for local state application and distinguishes a confirmed save from a follow-up view-refresh failure.
+- Local SQLite migrations add the new operational records without requiring a hosted service or external database.
+
+### Fixed
+
+- Inspection and estimate saves return canonical records with stable item IDs, allowing immediate authorization, editing, and reporting without a broad refresh.
+- Workflow, purchasing, task, resource, authorization, and refund APIs validate linked records before changing local data.
+- Focus refresh and renderer QA account for the connected operations data source without overlapping requests or stale-state replacement.
+
+## v1.0.35 - 2026-08-14
+
+### Added
+
+- Focused finance-corrections QA covering operating revenue, late fees, repair-order ledger protection, weighted inventory cost, direct-job stock movement, estimate preservation, invoice balances, wage cost, and calendar-month schedules.
+- Separate late-fee payment tracking with automatic migration and historical installment-payment backfill.
+
+### Changed
+
+- Dashboard and Profit and Loss now distinguish operating income from sales-tax liability, customer credits, canceled or voided receipts, and late fees.
+- Expense restocks use weighted-average inventory cost, while inventory-linked repair-order creation, editing, and deletion adjust stock transactionally.
+- Invoices show paid amounts, balance due, customer credit, payment history, and separate service/fee subtotals.
+- Payment plans calculate remaining obligations without applying late-fee receipts against principal and schedule monthly payments by calendar month.
+- Time Tracking estimates wage cost from employee hourly rates rather than customer billing rates.
+
+### Fixed
+
+- Installment-generated payments can no longer be edited independently from their installment state.
+- Repair orders with payments or payment plans can no longer be deleted in ways that orphan or reclassify financial history.
+- Editing an estimate preserves intentional zero-percent tax and inventory-item links.
+- Direct repair orders now reject insufficient inventory without partial writes and restore reserved stock when an unpaid order is deleted.
+
 ## v1.0.34 - 2026-08-13
 
 ### Added

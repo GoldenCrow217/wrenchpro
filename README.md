@@ -17,9 +17,9 @@ Current status: **private beta**.
 ### Operations
 | Feature | Description |
 |---|---|
-| **Jobs / Work Orders** | Customer complaint → diagnosis → approved services → labor/parts → 7 status levels (Pending, Confirmed, En Route, In Progress, Waiting on Parts, Done, Canceled) → invoice status. |
-| **Schedule** | Monthly calendar with appointments and job overlay. |
-| **Inspections** | 50-item vehicle checklist across 10 categories. Each item rated Pass / Advisory / Fail / N/A. |
+| **Jobs / Work Orders** | Customer complaint → diagnosis → service-line authorization → technician tasks → labor/parts → invoice status, with a customizable workflow board and assignable bays/mobile units. |
+| **Schedule** | Monthly calendar with appointments, recurring visits, job overlay, and bay/mobile-unit conflict checks. |
+| **Inspections** | Custom templates with Pass / Advisory / Fail / N/A conditions, brake/rotor/tire measurements, quick notes, photos, recommendations, and printable reports. |
 | **Quick Entry** | Enter a historical job in one shot — auto-creates customer and vehicle if they don't exist. |
 
 ### Customers & Vehicles
@@ -32,7 +32,7 @@ Current status: **private beta**.
 ### Resources
 | Feature | Description |
 |---|---|
-| **Parts / Inventory** | Name, part number, vendor, cost, retail price, quantity on hand, reorder level, location. Low-stock row highlighting and dashboard alert. |
+| **Parts / Inventory** | Name, part number, vendor, cost, retail price, quantity on hand, reorder level, reservations, vendors, and purchase orders with receiving. |
 | **Service Catalog** | Reusable service templates with default hours, price, category, and taxable flag. Available in the estimate builder. |
 | **Warranties** | Labor and parts warranty periods, mileage limits, expiration dates, and status (Active/Expired/Voided) — linked per job. |
 
@@ -45,7 +45,7 @@ Current status: **private beta**.
 ### Finance
 | Feature | Description |
 |---|---|
-| **Payments** | Cash, card, Venmo, CashApp, Check, Zelle. Partial payments, deposits, tips. |
+| **Payments** | Cash, card, Venmo, CashApp, Check, Zelle. Partial payments, deposits, job-payment refunds, printable customer statements, and customer credits. |
 | **Payment Plans** | Fixed installments or custom amounts. Overdue tracking, auto-log payment on mark-paid. |
 | **Expenses** | Categorized expense log (parts, fuel, tools, insurance, marketing, other). |
 | **P&L Report** | Income vs. expenses by period. Export as plain-text report for accountant. |

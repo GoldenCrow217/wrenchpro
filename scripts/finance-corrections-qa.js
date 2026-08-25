@@ -68,13 +68,26 @@ async function stopServer() {
       customer_id: customer.id, vehicle_id: vehicle.id, date: '2026-08-02',
       items: [{ type: 'part', description: 'Weighted Part', qty: 2, rate: 50, inventory_id: part.id }],
     });
+    assert.strictEqual(job.service, 'Weighted Part', 'Job with line items but no service text did not derive its visible Service column');
+    assert.deepStrictEqual(job.inventory_updates, [{ id: part.id, quantity: 9 }], 'Job creation did not return its committed inventory quantity');
     assert.strictEqual((await request('GET', '/api/inventory')).find(item => item.id === part.id).quantity, 9, 'Direct job creation did not deduct inventory');
     const editedJob = await request('PUT', `/api/jobs/${job.id}`, {
       ...job, date: '2026-08-02', items: [{ type: 'part', description: 'Weighted Part', qty: 3, rate: 50, inventory_id: part.id }],
     });
     assert.strictEqual(editedJob.items[0].qty, 3, 'Edited job item quantity was not saved');
+    assert.deepStrictEqual(editedJob.inventory_updates, [{ id: part.id, quantity: 8 }], 'Job edit did not return its committed inventory quantity');
     assert.strictEqual((await request('GET', '/api/inventory')).find(item => item.id === part.id).quantity, 8, 'Job edit did not deduct only the inventory delta');
-    await request('DELETE', `/api/jobs/${job.id}`);
+    const laborJob = await request('PUT', `/api/jobs/${job.id}`, {
+      ...editedJob, items: [{ type: 'labor', description: 'No longer a part', qty: 1, rate: 50, inventory_id: part.id }],
+    });
+    assert.strictEqual(laborJob.items[0].inventory_id, null, 'Server retained an inventory link on a non-part line');
+    assert.deepStrictEqual(laborJob.inventory_updates, [{ id: part.id, quantity: 11 }], 'Changing an inventory part to labor did not restore stock');
+    const restoredPartJob = await request('PUT', `/api/jobs/${job.id}`, {
+      ...laborJob, items: [{ type: 'part', description: 'Weighted Part', qty: 3, rate: 50, inventory_id: part.id }],
+    });
+    assert.deepStrictEqual(restoredPartJob.inventory_updates, [{ id: part.id, quantity: 8 }], 'Changing labor back to an inventory part did not reapply stock usage');
+    const deletedJob = await request('DELETE', `/api/jobs/${job.id}`);
+    assert.deepStrictEqual(deletedJob.inventory_updates, [{ id: part.id, quantity: 11 }], 'Job deletion did not return its restored inventory quantity');
     assert.strictEqual((await request('GET', '/api/inventory')).find(item => item.id === part.id).quantity, 11, 'Deleting an unpaid job did not restore inventory');
     const insufficient = await requestRaw('POST', '/api/jobs', {
       customer_id: customer.id, vehicle_id: vehicle.id, date: '2026-08-02',

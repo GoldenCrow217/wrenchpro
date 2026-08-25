@@ -97,12 +97,35 @@ router.post('/', (req, res) => {
   res.json({ id: saved.id, ...req.body, job_id: resolvedJobId, repair_order_number: job?.repair_order_number || null, late_fee_amount: saved.lateFeeAmount, allocations: saved.allocations, plan_installments: planInstallments, job_invoice_status: saved.jobInvoiceStatus });
 });
 
+router.post('/:id/refund', (req, res) => {
+  if (!finiteNumber(res, req.body, 'amount', { required: true, label: 'Refund amount' })) return;
+  if (Number(req.body.amount) <= 0) return fail(res, 'amount', 'Refund amount must be greater than zero');
+  if (!isoDate(res, req.body, 'date', { required: true, label: 'Refund date' })) return;
+  const tenant = customerTenantWhere(req, 'c');
+  const payment = db.prepare(`SELECT p.*,c.first,c.last,j.repair_order_number FROM payments p JOIN customers c ON p.customer_id=c.id LEFT JOIN jobs j ON p.job_id=j.id WHERE p.id=? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
+  if (!payment) return fail(res, 'payment_id', 'Payment not found', 404);
+  if (payment.payment_type === 'refund' || Number(payment.amount) <= 0) return fail(res, 'payment_id', 'A refund cannot be refunded again', 409);
+  if (payment.plan_id || payment.installment_id) return fail(res, 'payment_id', 'Payment-plan funds must be corrected from the payment plan so installment balances remain accurate', 409);
+  const alreadyRefunded = Math.abs(Number(db.prepare(`SELECT COALESCE(SUM(amount),0) AS total FROM payments WHERE parent_payment_id=? AND payment_type='refund'`).get(payment.id).total || 0));
+  const amount = Math.round(Number(req.body.amount) * 100) / 100;
+  const remaining = Math.round((Number(payment.amount) - alreadyRefunded) * 100) / 100;
+  if (amount > remaining + 0.005) return fail(res, 'amount', `Refund amount cannot exceed the remaining refundable amount of $${remaining.toFixed(2)}`);
+  const saved = db.transaction(() => {
+    const result = db.prepare(`INSERT INTO payments (customer_id,job_id,description,amount,method,date,note,payment_type,parent_payment_id) VALUES (?,?,?,?,?,?,?,?,?)`)
+      .run(payment.customer_id,payment.job_id||null,`Refund — ${payment.description||'Payment'}`,-amount,req.body.method||payment.method||'Cash',req.body.date,req.body.note||'', 'refund',payment.id);
+    const jobInvoiceStatus = reconcileJobInvoiceStatus(db, payment.job_id, currentTaxRate(req));
+    return { id: result.lastInsertRowid, jobInvoiceStatus };
+  })();
+  res.json({ id:saved.id,customer_id:payment.customer_id,job_id:payment.job_id||null,repair_order_number:payment.repair_order_number||null,first:payment.first,last:payment.last,description:`Refund — ${payment.description||'Payment'}`,amount:-amount,method:req.body.method||payment.method||'Cash',date:req.body.date,note:req.body.note||'',payment_type:'refund',parent_payment_id:payment.id,job_invoice_status:saved.jobInvoiceStatus });
+});
+
 router.put('/:id', (req, res) => {
   if (!validatePayment(res, req.body, false)) return;
   const { description, amount, method, date, note } = req.body;
   const tenant = customerTenantWhere(req, 'c');
   const payment = db.prepare(`SELECT p.* FROM payments p JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
   if (!payment) return res.status(404).json({ error: 'Payment not found' });
+  if (payment.payment_type === 'refund') return res.status(409).json({ error: 'Refund records cannot be edited. Delete the refund and record it again.' });
   if (payment.plan_id && String(payment.note || '').trim().toLowerCase() === 'down payment') return res.status(409).json({ error: 'Plan down payments cannot be edited separately from their payment plan' });
   if (payment.installment_id) return res.status(409).json({ error: 'Installment payments cannot be edited; delete and re-record the payment instead' });
   const allocated = db.prepare(`SELECT pa.id FROM payment_allocations pa JOIN payments p ON pa.payment_id=p.id JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND c.deleted_at IS NULL AND ${tenant.clause} LIMIT 1`).get(req.params.id, ...tenant.values);
@@ -127,6 +150,9 @@ router.delete('/:id', (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const payment = db.prepare(`SELECT p.* FROM payments p JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
   if (!payment) return res.status(404).json({ error: 'Payment not found' });
+  if (payment.payment_type !== 'refund' && db.prepare(`SELECT id FROM payments WHERE parent_payment_id=? AND payment_type='refund' LIMIT 1`).get(payment.id)) {
+    return res.status(409).json({ error: 'Delete linked refund records before deleting the original payment' });
+  }
   if (payment.plan_id && String(payment.note || '').trim().toLowerCase() === 'down payment') {
     return res.status(409).json({ error: 'Delete the payment plan first. Its down payment will remain in the ledger and can then be deleted safely.' });
   }

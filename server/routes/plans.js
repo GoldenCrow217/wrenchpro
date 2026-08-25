@@ -147,8 +147,10 @@ router.put('/installment/:id/pay', (req, res) => {
 
   const paidDate = req.body.date || localDateKey();
   const settings = paymentSettings(req);
+  const scheduledAmount = Number(installment.amount);
+  if (!installment.paid && (!Number.isFinite(scheduledAmount) || scheduledAmount <= 0)) return res.status(400).json({ error: 'Installment amount must be greater than zero' });
   const assessedLateFee = isPastGrace(installment.due_date, paidDate, settings.payment_grace_days) ? Number(installment.late_fee || settings.late_fee) || 0 : Number(installment.late_fee) || 0;
-  const amount = Math.round((Number(installment.amount) + assessedLateFee - Number(installment.amount_paid || 0)) * 100) / 100;
+  const amount = Math.round((scheduledAmount + assessedLateFee - Number(installment.amount_paid || 0)) * 100) / 100;
   if (!installment.paid && (!Number.isFinite(amount) || amount <= 0)) return res.status(400).json({ error: 'Installment amount must be greater than zero' });
   const method = req.body.method || 'Cash';
   const description = `${plan.description || 'Payment plan'} (installment)`;

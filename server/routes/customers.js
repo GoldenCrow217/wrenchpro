@@ -2,7 +2,19 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { resolveShopId, customerTenantWhere } = require('../tenant');
-const { requiredText, positiveId } = require('../validation');
+const { fail, requiredText, positiveId } = require('../validation');
+
+const CUSTOMER_TYPES = new Set(['Regular', 'Fleet', 'Commercial', 'Dealership']);
+
+function normalizedCustomerType(res, value) {
+  const type = String(value || 'Regular').trim();
+  const normalized = type === 'Personal' ? 'Regular' : type;
+  if (!CUSTOMER_TYPES.has(normalized)) {
+    fail(res, 'customer_type', 'Customer type must be Regular, Fleet, Commercial, or Dealership');
+    return null;
+  }
+  return normalized;
+}
 
 router.get('/', (req, res) => {
   const tenant = customerTenantWhere(req);
@@ -23,10 +35,12 @@ router.post('/', (req, res) => {
   const { first, last, phone, email, address, billing_address, notes, status, tags, customer_type, preferred_contact } = req.body;
   if (!requiredText(res, req.body, 'first', 'Customer first name')) return;
   if (!requiredText(res, req.body, 'last', 'Customer last name')) return;
+  const normalizedType = normalizedCustomerType(res, customer_type);
+  if (!normalizedType) return;
   const shopId = resolveShopId(req);
   const result = db.prepare(
     'INSERT INTO customers (shop_id, first, last, phone, email, address, billing_address, notes, status, tags, customer_type, preferred_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(shopId, first, last, phone || '', email || '', address || '', billing_address || '', notes || '', status || 'Active', tags || '', customer_type || 'Personal', preferred_contact || 'Phone');
+  ).run(shopId, first, last, phone || '', email || '', address || '', billing_address || '', notes || '', status || 'Active', tags || '', normalizedType, preferred_contact || 'Phone');
   const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(result.lastInsertRowid);
   res.json(customer);
 });
@@ -36,10 +50,12 @@ router.put('/:id', (req, res) => {
   if (!requiredText(res, req.body, 'first', 'Customer first name')) return;
   if (!requiredText(res, req.body, 'last', 'Customer last name')) return;
   const { first, last, phone, email, address, billing_address, notes, status, tags, customer_type, preferred_contact } = req.body;
+  const normalizedType = normalizedCustomerType(res, customer_type);
+  if (!normalizedType) return;
   const tenant = customerTenantWhere(req);
   const result = db.prepare(
     `UPDATE customers SET first=?, last=?, phone=?, email=?, address=?, billing_address=?, notes=?, status=?, tags=?, customer_type=?, preferred_contact=? WHERE id=? AND ${tenant.clause}`
-  ).run(first, last, phone || '', email || '', address || '', billing_address || '', notes || '', status || 'Active', tags || '', customer_type || 'Personal', preferred_contact || 'Phone', req.params.id, ...tenant.values);
+  ).run(first, last, phone || '', email || '', address || '', billing_address || '', notes || '', status || 'Active', tags || '', normalizedType, preferred_contact || 'Phone', req.params.id, ...tenant.values);
   if (!result.changes) return res.status(404).json({ error: 'Customer not found' });
   res.json({ success: true });
 });
