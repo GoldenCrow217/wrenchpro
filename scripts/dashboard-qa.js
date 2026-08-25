@@ -130,4 +130,21 @@ assert.match(html, /dashboardJobBalance\(job,state\.payments,state\.settings\.ta
 assert.match(html, /id="finance-ro-tbody"/, 'Finance must include per-repair-order balance tracking');
 assert.match(html, /Repair order balances/, 'Finance balance table must be clearly labeled');
 
+const financeFilterStart = html.indexOf('function paymentDateInRange(');
+const financeFilterEnd = html.indexOf('\nfunction clearFinanceDateFilters()', financeFilterStart);
+assert.ok(financeFilterStart >= 0 && financeFilterEnd > financeFilterStart, 'payment date filter helpers must be extractable');
+const financeFilterContext = {};
+vm.runInNewContext(`${html.slice(financeFilterStart, financeFilterEnd)};globalThis.qa={paymentDateInRange,financePaymentsForRange};`, financeFilterContext);
+const datedPayments = [
+  { id: 1, date: '2026-08-01', amount: 10 },
+  { id: 2, date: '2026-08-15', amount: 20 },
+  { id: 3, date: '2026-08-31', amount: 30 },
+];
+assert.deepStrictEqual(Array.from(financeFilterContext.qa.financePaymentsForRange(datedPayments,'2026-08-01','2026-08-31'), payment=>payment.id), [3,2,1], 'payment date boundaries must be inclusive and results must be newest first');
+assert.deepStrictEqual(Array.from(financeFilterContext.qa.financePaymentsForRange(datedPayments,'2026-08-10','2026-08-20'), payment=>payment.id), [2], 'payment date range must exclude payments outside the selected dates');
+assert.strictEqual(financeFilterContext.qa.financePaymentsForRange(datedPayments,'2026-09-01','2026-08-01').length, 0, 'an invalid reversed payment range must not show misleading results');
+assert.match(html, /id="finance-date-from"/, 'Payments must include a start-date filter');
+assert.match(html, /id="finance-date-to"/, 'Payments must include an end-date filter');
+assert.match(html, /Outstanding balances remain all-time/, 'Payments must explain that date filtering does not alter outstanding balances');
+
 console.log('Dashboard calculation QA passed');

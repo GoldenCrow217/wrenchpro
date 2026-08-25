@@ -670,8 +670,14 @@ tr:hover td{background:var(--bg-subtle);}
 
     <!-- FINANCE -->
     <div class="page" id="page-finance">
+      <div class="filter-bar" aria-label="Payment date filters">
+        <label style="font-size:12px;color:var(--fg-muted);">From <input type="date" id="finance-date-from" onchange="renderFinance()"></label>
+        <label style="font-size:12px;color:var(--fg-muted);">To <input type="date" id="finance-date-to" onchange="renderFinance()"></label>
+        <button type="button" class="btn btn-sm" onclick="clearFinanceDateFilters()">Clear dates</button>
+        <span id="finance-date-filter-status" class="settings-hint" style="margin:0;"></span>
+      </div>
       <div class="stats-grid">
-        <div class="stat"><div class="stat-label">Revenue collected</div><div class="stat-value green" id="f-rev">—</div></div>
+        <div class="stat"><div class="stat-label" id="f-rev-label">Revenue collected</div><div class="stat-value green" id="f-rev">—</div></div>
         <div class="stat"><div class="stat-label">Outstanding balance</div><div class="stat-value red" id="f-out">—</div></div>
         <div class="stat"><div class="stat-label">Active plans</div><div class="stat-value blue" id="f-plans">—</div></div>
         <div class="stat"><div class="stat-label">Overdue payments</div><div class="stat-value red" id="f-od">—</div></div>
@@ -3067,8 +3073,35 @@ function renderVehicles(){
   }).join('');
 }
 
+function paymentDateInRange(date,from='',to=''){
+  const value=String(date||'');
+  return Boolean(value)&&(!from||value>=from)&&(!to||value<=to);
+}
+
+function financePaymentsForRange(payments,from='',to=''){
+  if(from&&to&&from>to)return[];
+  return (Array.isArray(payments)?payments:[]).filter(payment=>paymentDateInRange(payment.date,from,to)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||Number(b.id||0)-Number(a.id||0));
+}
+
+function clearFinanceDateFilters(){
+  document.getElementById('finance-date-from').value='';
+  document.getElementById('finance-date-to').value='';
+  renderFinance();
+}
+
 function renderFinance(){
-  const totalRev=state.payments.reduce((sum,payment)=>sum+(Number(payment.amount)||0),0);
+  const from=document.getElementById('finance-date-from')?.value||'';
+  const to=document.getElementById('finance-date-to')?.value||'';
+  const invalidRange=Boolean(from&&to&&from>to);
+  const pmts=financePaymentsForRange(state.payments,from,to);
+  const totalRev=pmts.reduce((sum,payment)=>sum+(Number(payment.amount)||0),0);
+  const filterStatus=document.getElementById('finance-date-filter-status');
+  const revenueLabel=document.getElementById('f-rev-label');
+  if(filterStatus){
+    filterStatus.style.color=invalidRange?'var(--danger-fg)':'var(--fg-faint)';
+    filterStatus.textContent=invalidRange?'Start date must be on or before end date.':from||to?`Showing ${pmts.length} payment${pmts.length===1?'':'s'}${from?` from ${from}`:''}${to?` through ${to}`:''}. Outstanding balances remain all-time.`:`Showing all ${pmts.length} payments.`;
+  }
+  if(revenueLabel)revenueLabel.textContent=from||to?'Revenue collected · filtered':'Revenue collected';
   const repairOrders=state.jobs.filter(job=>job.status!=='Canceled'&&job.invoice_status!=='Voided');
   const linkedPlanJobIds=new Set(state.plans.map(plan=>Number(plan.job_id)).filter(jobId=>Number.isSafeInteger(jobId)&&jobId>0));
   const outstanding=repairOrders.reduce((sum,job)=>sum+dashboardJobBalance(job,state.payments,state.settings.tax_rate),0)
@@ -3095,7 +3128,6 @@ function renderFinance(){
     <td style="display:flex;gap:4px;"><button type="button" class="btn btn-sm" onclick="openInvoice(${safeId(job.id)})">Invoice</button>${remaining>0?`<button type="button" class="btn btn-sm btn-primary" onclick="openPmtModal(${safeId(job.customer_id)},${safeId(job.id)})">Add payment</button>`:''}</td>
   </tr>`).join(''):'<tr><td colspan="7" class="empty">No repair orders to track</td></tr>';
   const tbody=document.getElementById('ledger-tbody');
-  const pmts=[...state.payments].sort((a,b)=>b.date.localeCompare(a.date));
   tbody.innerHTML=pmts.length?pmts.map(p=>`<tr>
     <td style="color:#888;font-size:12px;">${esc(p.date||'—')}</td>
     <td>${p.job_id?`<button type="button" class="btn btn-sm" onclick="openJobModal(${safeId(p.job_id)})">${esc(p.repair_order_number||'Job #'+safeId(p.job_id))}</button>`:'—'}</td>
@@ -3104,7 +3136,7 @@ function renderFinance(){
     <td><span class="badge b-gray">${esc(p.method||'Cash')}</span></td>
     <td style="font-weight:600;color:${p.payment_type==='refund'||Number(p.amount)<0?'#A32D2D':'#3B6D11'};">${fmt$(p.amount)}</td>
     <td>${p.payment_type!=='refund'&&Number(p.amount)>0?`<button type="button" class="btn btn-sm" onclick="refundPayment(${safeId(p.id)})">Refund</button> `:''}<button type="button" class="btn btn-sm btn-danger" onclick="deletePayment(${safeId(p.id)})">Delete</button></td>
-  </tr>`).join(''):`<tr><td colspan="7" class="empty">No payments yet</td></tr>`;
+  </tr>`).join(''):`<tr><td colspan="7" class="empty">${from||to?'No payments match this date range':'No payments yet'}</td></tr>`;
 }
 
 async function deletePayment(id){
