@@ -5,6 +5,26 @@ const { resolveShopId } = require('../tenant');
 const { fail, nonNegativeNumber } = require('../validation');
 const { normalizeMarkupTiers } = require('../pricing');
 
+const DASHBOARD_KPI_IDS = new Set([
+  'active_jobs', 'todays_jobs', 'appointments_today', 'revenue_7d', 'outstanding', 'net_profit_month',
+  'overdue_invoices', 'customers', 'low_stock_parts', 'pending_estimates', 'completed_jobs_30d', 'average_ro',
+]);
+const DEFAULT_DASHBOARD_KPIS = ['active_jobs', 'revenue_7d', 'outstanding', 'net_profit_month'];
+
+function normalizeDashboardKpis(value) {
+  if (value === undefined || value === null || value === '') return JSON.stringify(DEFAULT_DASHBOARD_KPIS);
+  let parsed = value;
+  if (typeof value === 'string') {
+    try { parsed = JSON.parse(value); } catch (_) { throw new Error('Dashboard KPIs must be a valid list'); }
+  }
+  if (!Array.isArray(parsed)) throw new Error('Dashboard KPIs must be a list');
+  const ids = parsed.map(id => String(id || '').trim());
+  if (!ids.length) throw new Error('Select at least one dashboard KPI');
+  if (ids.some(id => !DASHBOARD_KPI_IDS.has(id))) throw new Error('Dashboard KPI selection contains an unsupported item');
+  if (new Set(ids).size !== ids.length) throw new Error('Dashboard KPI selection cannot contain duplicates');
+  return JSON.stringify(ids);
+}
+
 const SETTINGS_FIELDS = [
   'business_name', 'owner_name', 'phone', 'email', 'address', 'service_area', 'website', 'business_hours',
   'default_labor_rate', 'diagnostic_rate', 'fleet_rate', 'emergency_rate', 'service_fee',
@@ -12,6 +32,7 @@ const SETTINGS_FIELDS = [
   'tax_id', 'invoice_terms', 'invoice_footer', 'invoice_logo',
   'warranty_terms', 'estimate_terms', 'parts_markup_tiers',
   'require_parts_deposit', 'parts_deposit_percent', 'payment_grace_days', 'late_fee',
+  'dashboard_kpis',
 ];
 
 function globalSettings() {
@@ -30,6 +51,8 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', (req, res) => {
+  const shopId = resolveShopId(req);
+  const currentSettings = shopSettings(shopId) || globalSettings();
   for (const [field, label] of [['default_labor_rate','Default labor rate'],['diagnostic_rate','Diagnostic rate'],['fleet_rate','Fleet rate'],['emergency_rate','Emergency rate'],['service_fee','Service fee'],['tax_rate','Tax rate'],['oil_warn_miles','Oil warning mileage'],['parts_deposit_percent','Parts deposit percent'],['payment_grace_days','Payment grace days'],['late_fee','Late fee']]) {
     if (!nonNegativeNumber(res, req.body, field, { label })) return;
   }
@@ -38,12 +61,17 @@ router.put('/', (req, res) => {
   if (!Number.isInteger(Number(req.body.payment_grace_days || 0)) || Number(req.body.payment_grace_days || 0) < 0) return fail(res, 'payment_grace_days', 'Payment grace days must be a non-negative whole number');
   if (!Number.isInteger(Number(req.body.oil_warn_miles || 0))) return fail(res, 'oil_warn_miles', 'Oil warning mileage must be a non-negative whole number');
   let partsMarkupTiers;
+  let dashboardKpis;
   try {
     partsMarkupTiers = JSON.stringify(normalizeMarkupTiers(req.body.parts_markup_tiers));
   } catch (error) {
     return fail(res, 'parts_markup_tiers', error.message);
   }
-  const shopId = resolveShopId(req);
+  try {
+    dashboardKpis = normalizeDashboardKpis(req.body.dashboard_kpis === undefined ? currentSettings.dashboard_kpis : req.body.dashboard_kpis);
+  } catch (error) {
+    return fail(res, 'dashboard_kpis', error.message);
+  }
   const values = {
     business_name: req.body.business_name || '',
     owner_name: req.body.owner_name || '',
@@ -73,6 +101,7 @@ router.put('/', (req, res) => {
     parts_deposit_percent: parseFloat(req.body.parts_deposit_percent) || 0,
     payment_grace_days: parseInt(req.body.payment_grace_days) || 0,
     late_fee: parseFloat(req.body.late_fee) || 0,
+    dashboard_kpis: dashboardKpis,
   };
 
   if (!shopId) {
@@ -83,7 +112,7 @@ router.put('/', (req, res) => {
         default_pay_method=?, tax_rate=?, oil_warn_miles=?, currency_symbol=?,
         tax_id=?, invoice_terms=?, invoice_footer=?, invoice_logo=?,
         warranty_terms=?, estimate_terms=?, parts_markup_tiers=?,
-        require_parts_deposit=?, parts_deposit_percent=?, payment_grace_days=?, late_fee=?
+        require_parts_deposit=?, parts_deposit_percent=?, payment_grace_days=?, late_fee=?, dashboard_kpis=?
       WHERE id = 1
     `).run(...SETTINGS_FIELDS.map(field => values[field]));
     return res.json(globalSettings());

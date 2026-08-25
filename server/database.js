@@ -139,7 +139,8 @@ db.exec(`
     require_parts_deposit INTEGER DEFAULT 0,
     parts_deposit_percent REAL DEFAULT 100,
     payment_grace_days INTEGER DEFAULT 0,
-    late_fee REAL DEFAULT 0
+    late_fee REAL DEFAULT 0,
+    dashboard_kpis TEXT DEFAULT '["active_jobs","revenue_7d","outstanding","net_profit_month"]'
   );
 
   CREATE TABLE IF NOT EXISTS employees (
@@ -428,6 +429,7 @@ db.exec(`
     parts_deposit_percent REAL DEFAULT 100,
     payment_grace_days INTEGER DEFAULT 0,
     late_fee REAL DEFAULT 0,
+    dashboard_kpis TEXT DEFAULT '["active_jobs","revenue_7d","outstanding","net_profit_month"]',
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (shop_id) REFERENCES shops(id)
   );
@@ -574,6 +576,7 @@ const newSettCols = [
   ['parts_deposit_percent', 'REAL DEFAULT 100'],
   ['payment_grace_days', 'INTEGER DEFAULT 0'],
   ['late_fee', 'REAL DEFAULT 0'],
+  ['dashboard_kpis', `TEXT DEFAULT '["active_jobs","revenue_7d","outstanding","net_profit_month"]'`],
 ];
 for (const [col, def] of newSettCols) {
   if (!settCols.includes(col)) db.prepare(`ALTER TABLE settings ADD COLUMN ${col} ${def}`).run();

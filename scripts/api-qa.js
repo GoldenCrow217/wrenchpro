@@ -70,14 +70,25 @@ async function waitForServer() {
       { up_to: 1, markup: 125 }, { up_to: 5, markup: 75 },
       { up_to: 10, markup: 60 }, { up_to: null, markup: 15 },
     ];
-    const settingsSave = await request('PUT', '/api/settings', { parts_markup_tiers: JSON.stringify(markupTiers), default_labor_rate: 110, fleet_rate: 95, oil_warn_miles: 0, currency_symbol: '€' });
+    const dashboardKpis = ['todays_jobs', 'revenue_7d', 'customers'];
+    const settingsSave = await request('PUT', '/api/settings', { parts_markup_tiers: JSON.stringify(markupTiers), dashboard_kpis: JSON.stringify(dashboardKpis), default_labor_rate: 110, fleet_rate: 95, oil_warn_miles: 0, currency_symbol: '€' });
     assert(settingsSave.default_labor_rate === 110 && settingsSave.fleet_rate === 95, 'Settings save did not return canonical saved labor rates');
     assert(settingsSave.oil_warn_miles === 0 && settingsSave.currency_symbol === '€', 'Settings save did not return canonical zero or display settings');
     const savedSettings = await request('GET', '/api/settings');
     assert(JSON.stringify(JSON.parse(savedSettings.parts_markup_tiers)) === JSON.stringify(markupTiers), 'Parts markup settings did not persist');
+    assert(JSON.stringify(JSON.parse(savedSettings.dashboard_kpis)) === JSON.stringify(dashboardKpis), 'Dashboard KPI choices and order did not persist');
     assert(savedSettings.oil_warn_miles === 0, 'Zero-mile oil warning setting did not persist');
     const invalidTiers = await requestRaw('PUT', '/api/settings', { parts_markup_tiers: '[{"up_to":1,"markup":-1}]' });
     assert(invalidTiers.status === 400 && invalidTiers.body.field === 'parts_markup_tiers', 'Invalid parts markup settings should return field-specific HTTP 400');
+    const invalidDashboardKpis = await requestRaw('PUT', '/api/settings', { dashboard_kpis: '["customers","unsupported"]' });
+    assert(invalidDashboardKpis.status === 400 && invalidDashboardKpis.body.field === 'dashboard_kpis', 'Unsupported dashboard KPIs should return field-specific HTTP 400');
+    const emptyDashboardKpis = await requestRaw('PUT', '/api/settings', { dashboard_kpis: '[]' });
+    assert(emptyDashboardKpis.status === 400 && emptyDashboardKpis.body.field === 'dashboard_kpis', 'An empty dashboard KPI selection should return field-specific HTTP 400');
+    const duplicateDashboardKpis = await requestRaw('PUT', '/api/settings', { dashboard_kpis: '["customers","customers"]' });
+    assert(duplicateDashboardKpis.status === 400 && duplicateDashboardKpis.body.field === 'dashboard_kpis', 'Duplicate dashboard KPI choices should return field-specific HTTP 400');
+    assert(JSON.stringify(JSON.parse((await request('GET', '/api/settings')).dashboard_kpis)) === JSON.stringify(dashboardKpis), 'Rejected dashboard KPI settings must not alter the saved selection');
+    const partialSettingsSave = await request('PUT', '/api/settings', { tax_rate: 0 });
+    assert(JSON.stringify(JSON.parse(partialSettingsSave.dashboard_kpis)) === JSON.stringify(dashboardKpis), 'Partial Settings updates must preserve saved dashboard KPI choices');
 
     const emptyCustomer = await requestRaw('POST', '/api/customers');
     assert(emptyCustomer.status === 400, `Empty JSON body should return 400, got ${emptyCustomer.status}`);
