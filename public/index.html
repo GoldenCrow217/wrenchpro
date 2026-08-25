@@ -336,7 +336,8 @@ tr:hover td{background:var(--bg-subtle);}
 .settings-markup-table .gross-margin{white-space:nowrap;font-variant-numeric:tabular-nums;}
 .line-item-grid{display:grid;grid-template-columns:78px minmax(120px,1fr) 62px 52px 82px 78px 28px;gap:4px;align-items:center;}
 .est-item-row{display:grid;grid-template-columns:78px minmax(120px,1fr) 62px 52px 82px 78px 28px;gap:4px;padding:3px 0;align-items:center;}
-.est-item-row input,.est-item-row select{padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;font-family:inherit;}
+.est-item-row input,.est-item-row select,.est-item-row textarea{padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;font-family:inherit;}
+.line-item-description{padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;line-height:1.35;background:var(--bg-subtle);width:100%;min-height:40px;resize:vertical;white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}
 .est-item-amt{text-align:right;font-size:12px;font-weight:500;padding-right:2px;}
 .line-item-na{text-align:center;color:var(--fg-faint);font-size:12px;}
 .insp-cat{margin-bottom:12px;}
@@ -3468,7 +3469,7 @@ function renderJobItems(){
       <select style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);" onchange="setJobItemType(${i},this.value)">
         ${TYPES.map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t==='shop_supply'?'supply':t}</option>`).join('')}
       </select>
-      <input style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${attrEsc(item.description||'')}" placeholder="${item.type==='discount'?'Discount applies to...':'Description...'}" oninput="jobItems[${i}].description=this.value;">
+      <textarea class="line-item-description" rows="2" placeholder="${item.type==='discount'?'Discount applies to...':'Description...'}" oninput="jobItems[${i}].description=this.value;">${esc(item.description||'')}</textarea>
       ${isLaborLineItem(item.type)?`<input type="number" aria-label="Labor hours" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">`:'<span class="line-item-na">—</span>'}
       ${isLaborLineItem(item.type)?'<span class="line-item-na">—</span>':`<input type="number" aria-label="Part quantity" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">`}
       <input type="number" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="jobItems[${i}].rate=parseFloat(this.value)||0;jobItems[${i}].uses_default_rate=false;_calcJob();">
@@ -3530,9 +3531,12 @@ function addJobItem(type='labor'){
 }
 
 function catalogServiceLine(service){
+  const name=String(service?.name||'').trim()||'Service';
+  const detail=String(service?.description||'').trim();
+  const description=detail&&detail.toLowerCase()!==name.toLowerCase()?`${name}: ${detail}`:name;
   const hours=Number(service?.default_hours)>0?Number(service.default_hours):1;
   const price=Number(service?.default_price)||0;
-  return {type:'labor',description:service?.name||'Service',qty:hours,rate:price,amount:+(hours*price).toFixed(2),taxable:0};
+  return {type:'labor',description,qty:hours,rate:price,amount:+(hours*price).toFixed(2),taxable:0};
 }
 
 function addJobItemFromCatalog(){
@@ -5214,7 +5218,7 @@ function renderEstItems(){
       <select style="padding:4px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onchange="setEstItemType(${i},this.value)">
         ${['labor','parts','fee','diagnostic','emergency','sublet','discount'].map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t[0].toUpperCase()+t.slice(1)}</option>`).join('')}
       </select>
-      <input style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${attrEsc(item.description||'')}" placeholder="${item.type==='discount'?'Discount applies to...':'Description'}" oninput="estItems[${i}].description=this.value">
+      <textarea class="line-item-description" rows="2" placeholder="${item.type==='discount'?'Discount applies to...':'Description'}" oninput="estItems[${i}].description=this.value">${esc(item.description||'')}</textarea>
       ${isLaborLineItem(item.type)?`<input type="number" aria-label="Labor hours" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">`:'<span class="line-item-na">—</span>'}
       ${isLaborLineItem(item.type)?'<span class="line-item-na">—</span>':`<input type="number" aria-label="Part quantity" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">`}
       <input type="number" style="padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="estItems[${i}].rate=parseFloat(this.value)||0;estItems[${i}].uses_default_rate=false;_calcEst()">

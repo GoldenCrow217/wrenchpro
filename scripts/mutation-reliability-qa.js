@@ -65,7 +65,9 @@ const catalogServiceEnd = html.indexOf('\nfunction addJobItemFromCatalog()', cat
 assert.ok(catalogServiceStart >= 0 && catalogServiceEnd > catalogServiceStart, 'shared catalog service mapping must be extractable');
 const catalogServiceContext = {};
 vm.runInNewContext(`${html.slice(catalogServiceStart, catalogServiceEnd)};globalThis.catalogServiceLine=catalogServiceLine;`, catalogServiceContext);
-assert.strictEqual(JSON.stringify(catalogServiceContext.catalogServiceLine({name:'Oil change',default_hours:1,default_price:49.99,taxable:1})), JSON.stringify({type:'labor',description:'Oil change',qty:1,rate:49.99,amount:49.99,taxable:0}), 'catalog services must preserve the entered name, hour, and price as labor');
+assert.strictEqual(JSON.stringify(catalogServiceContext.catalogServiceLine({name:'Oil change',description:'Drain engine oil and replace filter',default_hours:1,default_price:49.99,taxable:1})), JSON.stringify({type:'labor',description:'Oil change: Drain engine oil and replace filter',qty:1,rate:49.99,amount:49.99,taxable:0}), 'catalog services must carry the entered name and description onto the repair-order labor line');
+assert.strictEqual(catalogServiceContext.catalogServiceLine({name:'Oil change',description:'  ',default_hours:1,default_price:49.99}).description, 'Oil change', 'catalog services without a description must retain the service name without extra punctuation');
+assert.strictEqual(catalogServiceContext.catalogServiceLine({name:'Oil change',description:'oil CHANGE',default_hours:1,default_price:49.99}).description, 'Oil change', 'catalog services must not duplicate an equivalent name and description');
 assert.strictEqual(catalogServiceContext.catalogServiceLine({name:'Two-hour service',default_hours:2,default_price:49.99}).rate, 49.99, 'catalog price must not be divided by catalog hours');
 assert.match(html, /<th>Hours<\/th><th>Price<\/th>/, 'Service Catalog table must use Hours and Price headings');
 assert.match(html, /<label>Hours<\/label><input type="number" id="catf-hours"/, 'Service Catalog form must label service hours without Default');
@@ -154,6 +156,8 @@ assert.match(html, /function isLaborLineItem\(type\)/, 'line-item editors must c
 assert.match(html, /function setJobItemType\(index,type\)/, 'job type changes must move quantity into the correct column');
 assert.match(html, /function setEstItemType\(index,type\)/, 'estimate type changes must move quantity into the correct column');
 assert.ok(html.includes('aria-label="Labor hours"') && html.includes('aria-label="Part quantity"'), 'separate line-item inputs must have clear accessible labels');
+assert.ok((html.match(/class="line-item-description"/g)||[]).length >= 2, 'repair-order and estimate descriptions must use wrapping multiline fields');
+assert.match(html, /\.line-item-description\{[^}]*overflow-wrap:anywhere/, 'long line-item descriptions must wrap instead of overflowing their editor');
 const lineItemTypeStart = html.indexOf('function isLaborLineItem(');
 const lineItemTypeEnd = html.indexOf('\nfunction addJobItem(', lineItemTypeStart);
 assert.ok(lineItemTypeStart >= 0 && lineItemTypeEnd > lineItemTypeStart, 'job line-item type helpers must be extractable');
