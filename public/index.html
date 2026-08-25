@@ -179,8 +179,12 @@ textarea.input{height:auto;padding:8px 10px;min-height:64px;resize:vertical;}
 .tbl .col-num{text-align:right;font-variant-numeric:tabular-nums;}
 
 /* ── KPI cards ── */
-.kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;}
 .kpi{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;display:flex;flex-direction:column;gap:4px;}
+.dashboard-kpi-option{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);}
+.dashboard-kpi-option:last-child{border-bottom:0;}
+.dashboard-kpi-option input{width:16px;height:16px;}
+.dashboard-kpi-controls{display:flex;gap:4px;}
 .kpi-label{font-size:11px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;display:flex;align-items:center;gap:6px;}
 .kpi-value{font-size:28px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--fg);line-height:1.1;margin-top:2px;}
 .kpi-meta{font-size:11px;color:var(--fg-muted);margin-top:2px;display:flex;align-items:center;gap:6px;}
@@ -336,7 +340,8 @@ tr:hover td{background:var(--bg-subtle);}
 .settings-markup-table .gross-margin{white-space:nowrap;font-variant-numeric:tabular-nums;}
 .line-item-grid{display:grid;grid-template-columns:78px minmax(120px,1fr) 62px 52px 82px 78px 28px;gap:4px;align-items:center;}
 .est-item-row{display:grid;grid-template-columns:78px minmax(120px,1fr) 62px 52px 82px 78px 28px;gap:4px;padding:3px 0;align-items:center;}
-.est-item-row input,.est-item-row select{padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;font-family:inherit;}
+.est-item-row input,.est-item-row select,.est-item-row textarea{padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;font-family:inherit;}
+.line-item-description{padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;line-height:1.35;background:var(--bg-subtle);width:100%;min-height:40px;resize:vertical;white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}
 .est-item-amt{text-align:right;font-size:12px;font-weight:500;padding-right:2px;}
 .line-item-na{text-align:center;color:var(--fg-faint);font-size:12px;}
 .insp-cat{margin-bottom:12px;}
@@ -562,6 +567,14 @@ tr:hover td{background:var(--bg-subtle);}
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard"></div>
 
+    <!-- MODAL: Dashboard KPIs -->
+    <div class="modal-overlay" id="m-dashboard-kpis"><div class="modal" style="width:560px;">
+      <h2>Customize dashboard KPIs</h2>
+      <div class="settings-hint" style="margin:0 0 10px;">Choose the cards shown on the Dashboard and use the arrows to set their order. WrenchPro keeps the underlying calculations consistent.</div>
+      <div id="dashboard-kpi-options"></div>
+      <div class="mfooter"><button type="button" class="btn btn-sm" onclick="resetDashboardKpis()">Restore defaults</button><div class="mfooter-r"><button type="button" class="btn" onclick="closeM('m-dashboard-kpis')">Cancel</button><button type="button" class="btn btn-primary" id="save-dashboard-kpis-btn" onclick="saveDashboardKpis()">Save KPIs</button></div></div>
+    </div></div>
+
     <!-- JOBS -->
     <div class="page" id="page-jobs">
       <div class="search-bar">
@@ -657,8 +670,14 @@ tr:hover td{background:var(--bg-subtle);}
 
     <!-- FINANCE -->
     <div class="page" id="page-finance">
+      <div class="filter-bar" aria-label="Payment date filters">
+        <label style="font-size:12px;color:var(--fg-muted);">From <input type="date" id="finance-date-from" onchange="renderFinance()"></label>
+        <label style="font-size:12px;color:var(--fg-muted);">To <input type="date" id="finance-date-to" onchange="renderFinance()"></label>
+        <button type="button" class="btn btn-sm" onclick="clearFinanceDateFilters()">Clear dates</button>
+        <span id="finance-date-filter-status" class="settings-hint" style="margin:0;"></span>
+      </div>
       <div class="stats-grid">
-        <div class="stat"><div class="stat-label">Revenue collected</div><div class="stat-value green" id="f-rev">—</div></div>
+        <div class="stat"><div class="stat-label" id="f-rev-label">Revenue collected</div><div class="stat-value green" id="f-rev">—</div></div>
         <div class="stat"><div class="stat-label">Outstanding balance</div><div class="stat-value red" id="f-out">—</div></div>
         <div class="stat"><div class="stat-label">Active plans</div><div class="stat-value blue" id="f-plans">—</div></div>
         <div class="stat"><div class="stat-label">Overdue payments</div><div class="stat-value red" id="f-od">—</div></div>
@@ -2358,6 +2377,32 @@ function renderPage(id){
   else if(id==='time') renderTime();
 }
 
+const DASHBOARD_KPI_DEFINITIONS = [
+  {id:'active_jobs',label:'Active jobs',description:'Repair orders currently open'},
+  {id:'todays_jobs',label:"Today's jobs",description:'Open repair orders scheduled today'},
+  {id:'appointments_today',label:"Today's appointments",description:'Appointments scheduled today'},
+  {id:'revenue_7d',label:'Revenue · last 7 days',description:'Payments collected over the last seven days'},
+  {id:'outstanding',label:'Outstanding',description:'Remaining repair-order and payment-plan balances'},
+  {id:'net_profit_month',label:'Net profit · this month',description:'Current-month income less expenses'},
+  {id:'overdue_invoices',label:'Overdue invoices',description:'Completed repair orders with overdue balances'},
+  {id:'customers',label:'Customers',description:'Current customer records'},
+  {id:'low_stock_parts',label:'Low-stock parts',description:'Inventory at or below its reorder level'},
+  {id:'pending_estimates',label:'Open estimates',description:'Draft and sent estimates'},
+  {id:'completed_jobs_30d',label:'Completed jobs · 30 days',description:'Repair orders completed in the last 30 days'},
+  {id:'average_ro',label:'Average R/O',description:'Average total across non-canceled repair orders'},
+];
+const DEFAULT_DASHBOARD_KPIS = ['active_jobs','revenue_7d','outstanding','net_profit_month'];
+
+function dashboardKpiSelection(value){
+  let parsed=value;
+  if(typeof value==='string'){try{parsed=JSON.parse(value)}catch(_){parsed=[]}}
+  if(!Array.isArray(parsed))parsed=[];
+  const allowed=new Set(DASHBOARD_KPI_DEFINITIONS.map(item=>item.id)),seen=new Set();
+  const selected=[];
+  parsed.forEach(value=>{const id=String(value||'');if(allowed.has(id)&&!seen.has(id)){seen.add(id);selected.push(id);}});
+  return selected.length?selected:[...DEFAULT_DASHBOARD_KPIS];
+}
+
 function localDateKey(date=new Date()){
   const value=date instanceof Date?date:new Date(date);
   return `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
@@ -2401,6 +2446,8 @@ function dashboardJobBalance(job,payments,taxRate=0){
 function dashboardMetrics(snapshot,now=new Date()){
   const jobs=Array.isArray(snapshot.jobs)?snapshot.jobs:[],payments=Array.isArray(snapshot.payments)?snapshot.payments:[];
   const plans=Array.isArray(snapshot.plans)?snapshot.plans:[],leads=Array.isArray(snapshot.leads)?snapshot.leads:[];
+  const appointments=Array.isArray(snapshot.appts)?snapshot.appts:[],customers=Array.isArray(snapshot.customers)?snapshot.customers:[];
+  const inventory=Array.isArray(snapshot.inventory)?snapshot.inventory:[],estimates=Array.isArray(snapshot.estimates)?snapshot.estimates:[];
   const todayStr=localDateKey(now),taxRate=Number(snapshot.settings?.tax_rate)||0;
   const recentDays=Array.from({length:7},(_,index)=>new Date(now.getFullYear(),now.getMonth(),now.getDate()-(6-index)));
   const recentDateKeys=recentDays.map(localDateKey),recentDateSet=new Set(recentDateKeys);
@@ -2418,11 +2465,80 @@ function dashboardMetrics(snapshot,now=new Date()){
   const recentPayments=payments.filter(payment=>recentDateSet.has(payment.date)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||Number(b.id||0)-Number(a.id||0)).slice(0,5);
   const pipelineStart=localDateKey(new Date(now.getFullYear(),now.getMonth(),now.getDate()-29));
   const recentLeads=leads.filter(lead=>String(lead.created_at||'').slice(0,10)>=pipelineStart&&String(lead.created_at||'').slice(0,10)<=todayStr);
+  const todayAppointments=appointments.filter(appointment=>appointment.date===todayStr);
+  const lowStockItems=inventory.filter(part=>Number(part.reorder_qty)>0&&Number(part.quantity)<=Number(part.reorder_qty));
+  const pendingEstimates=estimates.filter(estimate=>['Sent','Draft'].includes(estimate.status));
+  const completedStart=localDateKey(new Date(now.getFullYear(),now.getMonth(),now.getDate()-29));
+  const completedJobs30d=jobs.filter(job=>job.status==='Complete'&&String(job.closed_at||job.date||'').slice(0,10)>=completedStart&&String(job.closed_at||job.date||'').slice(0,10)<=todayStr);
+  const repairOrders=jobs.filter(job=>job.status!=='Canceled');
+  const averageRepairOrder=repairOrders.length?Math.round(repairOrders.reduce((sum,job)=>sum+dashboardJobTotal(job,taxRate),0)*100/repairOrders.length)/100:0;
+  const overdueBalance=overdueInvoices.reduce((sum,job)=>sum+dashboardJobBalance(job,payments,taxRate),0);
   const activity=[
     ...jobs.map(job=>({kind:job.status==='Complete'?'complete':'job',who:`${job.first||''} ${job.last||''}`,what:job.status==='Complete'?'job marked complete':`job ${(job.status||'updated').toLowerCase()}`,t:job.date||'',id:Number(job.id)||0})),
     ...payments.map(payment=>({kind:'pmt',who:`${payment.first||''} ${payment.last||''}`,what:`paid ${fmt$(payment.amount)}`,t:payment.date||'',id:Number(payment.id)||0})),
   ].sort((a,b)=>String(b.t).localeCompare(String(a.t))||b.id-a.id).slice(0,6);
-  return {todayStr,week,weekTotal:week.reduce((sum,value)=>sum+value,0),active,todayJobs,outstanding,overdueInvoices,recentPayments,recentLeads,activity};
+  return {todayStr,week,weekTotal:week.reduce((sum,value)=>sum+value,0),active,todayJobs,outstanding,overdueInvoices,overdueBalance,recentPayments,recentLeads,activity,todayAppointments,lowStockItems,pendingEstimates,completedJobs30d,customerCount:customers.length,averageRepairOrder,repairOrderCount:repairOrders.length};
+}
+
+function dashboardKpiCards(metrics,netProfit,monthLabel){
+  const definitions={
+    active_jobs:{label:'Active jobs',value:String(metrics.active.length),meta:`${metrics.active.length} total open`},
+    todays_jobs:{label:"Today's jobs",value:String(metrics.todayJobs.length),meta:'open repair orders scheduled today'},
+    appointments_today:{label:"Today's appointments",value:String(metrics.todayAppointments.length),meta:'scheduled appointments'},
+    revenue_7d:{label:'Revenue · last 7 days',value:fmt$(metrics.weekTotal),spark:buildSpark(metrics.week)},
+    outstanding:{label:'Outstanding',value:fmt$(metrics.outstanding),meta:metrics.overdueInvoices.length?`${metrics.overdueInvoices.length} overdue`:'all current',tone:metrics.overdueInvoices.length?'down':'up'},
+    net_profit_month:{label:`Net profit · ${monthLabel}`,value:netProfit===null?'—':fmt$(netProfit),meta:netProfit===null?'summary unavailable':'this month',tone:netProfit===null?'':netProfit>=0?'up':'down'},
+    overdue_invoices:{label:'Overdue invoices',value:String(metrics.overdueInvoices.length),meta:`${fmt$(metrics.overdueBalance)} remaining`,tone:metrics.overdueInvoices.length?'down':''},
+    customers:{label:'Customers',value:String(metrics.customerCount),meta:'customer records'},
+    low_stock_parts:{label:'Low-stock parts',value:String(metrics.lowStockItems.length),meta:'at or below reorder level',tone:metrics.lowStockItems.length?'down':'up'},
+    pending_estimates:{label:'Open estimates',value:String(metrics.pendingEstimates.length),meta:`${fmt$(metrics.pendingEstimates.reduce((sum,estimate)=>sum+Number(estimate.total||0),0))} pipeline`},
+    completed_jobs_30d:{label:'Completed jobs · 30 days',value:String(metrics.completedJobs30d.length),meta:'completed repair orders'},
+    average_ro:{label:'Average R/O',value:fmt$(metrics.averageRepairOrder),meta:`${metrics.repairOrderCount} non-canceled order${metrics.repairOrderCount===1?'':'s'}`},
+  };
+  return dashboardKpiSelection(state.settings?.dashboard_kpis).map(id=>({id,...definitions[id]})).filter(card=>card.label);
+}
+
+function dashboardKpiHtml(metrics,netProfit){
+  const cards=dashboardKpiCards(metrics,netProfit,new Date().toLocaleDateString('en-US',{month:'short'}));
+  return cards.map(card=>`<div class="kpi" data-dashboard-kpi="${attrEsc(card.id)}"><div class="kpi-label">${esc(card.label)}</div><div class="kpi-value">${card.value}</div>${card.spark?`<div style="margin-top:4px;">${card.spark}</div>`:`<div class="kpi-meta">${card.tone?`<span class="kpi-delta ${card.tone}">${esc(card.meta)}</span>`:`<span>${esc(card.meta)}</span>`}</div>`}</div>`).join('');
+}
+
+let dashboardKpiDraft=[];
+function openDashboardKpiModal(){
+  const selected=dashboardKpiSelection(state.settings?.dashboard_kpis);
+  const ordered=[...selected,...DASHBOARD_KPI_DEFINITIONS.map(item=>item.id).filter(id=>!selected.includes(id))];
+  dashboardKpiDraft=ordered.map(id=>({id,enabled:selected.includes(id)}));
+  renderDashboardKpiOptions();
+  document.getElementById('m-dashboard-kpis').classList.add('open');
+}
+function renderDashboardKpiOptions(){
+  const container=document.getElementById('dashboard-kpi-options');
+  container.innerHTML=dashboardKpiDraft.map((item,index)=>{
+    const definition=DASHBOARD_KPI_DEFINITIONS.find(candidate=>candidate.id===item.id);
+    return `<div class="dashboard-kpi-option"><input type="checkbox" id="dashboard-kpi-${attrEsc(item.id)}" ${item.enabled?'checked':''} onchange="toggleDashboardKpi('${attrEsc(item.id)}',this.checked)"><label for="dashboard-kpi-${attrEsc(item.id)}"><strong>${esc(definition.label)}</strong><span class="settings-hint" style="display:block;">${esc(definition.description)}</span></label><div class="dashboard-kpi-controls"><button type="button" class="btn btn-sm" aria-label="Move ${attrEsc(definition.label)} up" ${index===0?'disabled':''} onclick="moveDashboardKpi(${index},-1)">↑</button><button type="button" class="btn btn-sm" aria-label="Move ${attrEsc(definition.label)} down" ${index===dashboardKpiDraft.length-1?'disabled':''} onclick="moveDashboardKpi(${index},1)">↓</button></div></div>`;
+  }).join('');
+}
+function toggleDashboardKpi(id,enabled){
+  const item=dashboardKpiDraft.find(candidate=>candidate.id===id);
+  if(item)item.enabled=!!enabled;
+}
+function moveDashboardKpi(index,direction){
+  const next=index+direction;
+  if(index<0||next<0||index>=dashboardKpiDraft.length||next>=dashboardKpiDraft.length)return;
+  [dashboardKpiDraft[index],dashboardKpiDraft[next]]=[dashboardKpiDraft[next],dashboardKpiDraft[index]];
+  renderDashboardKpiOptions();
+}
+function resetDashboardKpis(){
+  const ordered=[...DEFAULT_DASHBOARD_KPIS,...DASHBOARD_KPI_DEFINITIONS.map(item=>item.id).filter(id=>!DEFAULT_DASHBOARD_KPIS.includes(id))];
+  dashboardKpiDraft=ordered.map(id=>({id,enabled:DEFAULT_DASHBOARD_KPIS.includes(id)}));
+  renderDashboardKpiOptions();
+}
+async function saveDashboardKpis(){
+  const selected=dashboardKpiDraft.filter(item=>item.enabled).map(item=>item.id);
+  if(!selected.length){toast('Select at least one dashboard KPI.',8000);return;}
+  const body={...state.settings,dashboard_kpis:JSON.stringify(selected)};
+  delete body._pendingLogo;
+  await runMutation('dashboard-kpis-save',{buttonId:'save-dashboard-kpis-btn',action:'Saving dashboard KPIs',request:()=>api('PUT','/api/settings',body),apply:saved=>{state.settings={...saved};},render:()=>{void renderDashboard();},close:'m-dashboard-kpis',success:'Dashboard KPIs updated'});
 }
 
 async function renderDashboard(){
@@ -2439,13 +2555,10 @@ async function renderDashboard(){
   try {
     // KPI computations
     const metrics=dashboardMetrics(state);
-    const {active,todayStr,week,weekTotal,outstanding,todayJobs,overdueInvoices,recentPayments:recentPmts,recentLeads,activity:actFeed}=metrics;
-    const overdueCount = overdueInvoices.length;
+    const {active,todayStr,todayJobs,overdueInvoices,recentPayments:recentPmts,recentLeads,activity:actFeed,lowStockItems,pendingEstimates:pendingEsts}=metrics;
     const netProfit = data?Number(data.monthNetProfit)||0:null;
 
     // Action needed
-    const lowStockItems = state.inventory.filter(p=>p.reorder_qty>0&&p.quantity<=p.reorder_qty);
-    const pendingEsts = state.estimates.filter(e=>e.status==='Sent'||e.status==='Draft');
     // Pipeline funnel
     const pipeRows = [
       {label:'New Leads',s:'New',color:'var(--info)'},
@@ -2485,6 +2598,7 @@ async function renderDashboard(){
     <div class="page-sub">${dateStr} · ${subParts.join(' · ')}</div>
   </div>
   <div class="page-actions">
+    <button class="btn" type="button" onclick="openDashboardKpiModal()">Customize KPIs</button>
     <button class="btn" onclick="openQuickEntry()">${iBolt} Quick entry</button>
     <button class="btn" onclick="openCustModal()">${iPlus} New Customer</button>
     <button class="btn btn-primary" type="button" onclick="openJobModal()">${iPlus} New Job</button>
@@ -2492,26 +2606,7 @@ async function renderDashboard(){
 </div>
 
 <div class="kpi-row" style="margin-bottom:16px;">
-  <div class="kpi">
-    <div class="kpi-label"><span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:var(--accent);margin-right:6px;vertical-align:2px;"></span>Active jobs</div>
-    <div class="kpi-value">${active.length}</div>
-    <div class="kpi-meta"><span>${active.length} total open</span></div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-label">Revenue · last 7 days</div>
-    <div class="kpi-value">${fmt$(weekTotal)}</div>
-    <div style="margin-top:4px;">${buildSpark(week)}</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-label">Outstanding</div>
-    <div class="kpi-value">${fmt$(outstanding)}</div>
-    <div class="kpi-meta">${overdueCount>0?`<span class="kpi-delta down">${overdueCount} overdue</span>`:'<span style="color:var(--success-fg);">all current</span>'}</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-label">Net profit · ${new Date().toLocaleDateString('en-US',{month:'short'})}</div>
-    <div class="kpi-value">${netProfit===null?'—':fmt$(netProfit)}</div>
-    <div class="kpi-meta">${netProfit===null?'<span>summary unavailable</span>':`<span class="kpi-delta ${netProfit>=0?'up':'down'}">${netProfit>=0?'+':''}${fmt$(netProfit)}</span><span>this month</span>`}</div>
-  </div>
+  ${dashboardKpiHtml(metrics,netProfit)}
 </div>
 
 <div class="grid-dash" style="margin-bottom:16px;">
@@ -2978,8 +3073,35 @@ function renderVehicles(){
   }).join('');
 }
 
+function paymentDateInRange(date,from='',to=''){
+  const value=String(date||'');
+  return Boolean(value)&&(!from||value>=from)&&(!to||value<=to);
+}
+
+function financePaymentsForRange(payments,from='',to=''){
+  if(from&&to&&from>to)return[];
+  return (Array.isArray(payments)?payments:[]).filter(payment=>paymentDateInRange(payment.date,from,to)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||Number(b.id||0)-Number(a.id||0));
+}
+
+function clearFinanceDateFilters(){
+  document.getElementById('finance-date-from').value='';
+  document.getElementById('finance-date-to').value='';
+  renderFinance();
+}
+
 function renderFinance(){
-  const totalRev=state.payments.reduce((sum,payment)=>sum+(Number(payment.amount)||0),0);
+  const from=document.getElementById('finance-date-from')?.value||'';
+  const to=document.getElementById('finance-date-to')?.value||'';
+  const invalidRange=Boolean(from&&to&&from>to);
+  const pmts=financePaymentsForRange(state.payments,from,to);
+  const totalRev=pmts.reduce((sum,payment)=>sum+(Number(payment.amount)||0),0);
+  const filterStatus=document.getElementById('finance-date-filter-status');
+  const revenueLabel=document.getElementById('f-rev-label');
+  if(filterStatus){
+    filterStatus.style.color=invalidRange?'var(--danger-fg)':'var(--fg-faint)';
+    filterStatus.textContent=invalidRange?'Start date must be on or before end date.':from||to?`Showing ${pmts.length} payment${pmts.length===1?'':'s'}${from?` from ${from}`:''}${to?` through ${to}`:''}. Outstanding balances remain all-time.`:`Showing all ${pmts.length} payments.`;
+  }
+  if(revenueLabel)revenueLabel.textContent=from||to?'Revenue collected · filtered':'Revenue collected';
   const repairOrders=state.jobs.filter(job=>job.status!=='Canceled'&&job.invoice_status!=='Voided');
   const linkedPlanJobIds=new Set(state.plans.map(plan=>Number(plan.job_id)).filter(jobId=>Number.isSafeInteger(jobId)&&jobId>0));
   const outstanding=repairOrders.reduce((sum,job)=>sum+dashboardJobBalance(job,state.payments,state.settings.tax_rate),0)
@@ -3006,7 +3128,6 @@ function renderFinance(){
     <td style="display:flex;gap:4px;"><button type="button" class="btn btn-sm" onclick="openInvoice(${safeId(job.id)})">Invoice</button>${remaining>0?`<button type="button" class="btn btn-sm btn-primary" onclick="openPmtModal(${safeId(job.customer_id)},${safeId(job.id)})">Add payment</button>`:''}</td>
   </tr>`).join(''):'<tr><td colspan="7" class="empty">No repair orders to track</td></tr>';
   const tbody=document.getElementById('ledger-tbody');
-  const pmts=[...state.payments].sort((a,b)=>b.date.localeCompare(a.date));
   tbody.innerHTML=pmts.length?pmts.map(p=>`<tr>
     <td style="color:#888;font-size:12px;">${esc(p.date||'—')}</td>
     <td>${p.job_id?`<button type="button" class="btn btn-sm" onclick="openJobModal(${safeId(p.job_id)})">${esc(p.repair_order_number||'Job #'+safeId(p.job_id))}</button>`:'—'}</td>
@@ -3015,7 +3136,7 @@ function renderFinance(){
     <td><span class="badge b-gray">${esc(p.method||'Cash')}</span></td>
     <td style="font-weight:600;color:${p.payment_type==='refund'||Number(p.amount)<0?'#A32D2D':'#3B6D11'};">${fmt$(p.amount)}</td>
     <td>${p.payment_type!=='refund'&&Number(p.amount)>0?`<button type="button" class="btn btn-sm" onclick="refundPayment(${safeId(p.id)})">Refund</button> `:''}<button type="button" class="btn btn-sm btn-danger" onclick="deletePayment(${safeId(p.id)})">Delete</button></td>
-  </tr>`).join(''):`<tr><td colspan="7" class="empty">No payments yet</td></tr>`;
+  </tr>`).join(''):`<tr><td colspan="7" class="empty">${from||to?'No payments match this date range':'No payments yet'}</td></tr>`;
 }
 
 async function deletePayment(id){
@@ -3468,7 +3589,7 @@ function renderJobItems(){
       <select style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);" onchange="setJobItemType(${i},this.value)">
         ${TYPES.map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t==='shop_supply'?'supply':t}</option>`).join('')}
       </select>
-      <input style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${attrEsc(item.description||'')}" placeholder="${item.type==='discount'?'Discount applies to...':'Description...'}" oninput="jobItems[${i}].description=this.value;">
+      <textarea class="line-item-description" rows="2" placeholder="${item.type==='discount'?'Discount applies to...':'Description...'}" oninput="jobItems[${i}].description=this.value;">${esc(item.description||'')}</textarea>
       ${isLaborLineItem(item.type)?`<input type="number" aria-label="Labor hours" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">`:'<span class="line-item-na">—</span>'}
       ${isLaborLineItem(item.type)?'<span class="line-item-na">—</span>':`<input type="number" aria-label="Part quantity" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.qty}" min="0" step="0.1" oninput="jobItems[${i}].qty=parseFloat(this.value)||0;_calcJob();">`}
       <input type="number" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-subtle);width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="jobItems[${i}].rate=parseFloat(this.value)||0;jobItems[${i}].uses_default_rate=false;_calcJob();">
@@ -3530,9 +3651,12 @@ function addJobItem(type='labor'){
 }
 
 function catalogServiceLine(service){
+  const name=String(service?.name||'').trim()||'Service';
+  const detail=String(service?.description||'').trim();
+  const description=detail&&detail.toLowerCase()!==name.toLowerCase()?`${name}: ${detail}`:name;
   const hours=Number(service?.default_hours)>0?Number(service.default_hours):1;
   const price=Number(service?.default_price)||0;
-  return {type:'labor',description:service?.name||'Service',qty:hours,rate:price,amount:+(hours*price).toFixed(2),taxable:0};
+  return {type:'labor',description,qty:hours,rate:price,amount:+(hours*price).toFixed(2),taxable:0};
 }
 
 function addJobItemFromCatalog(){
@@ -4561,6 +4685,7 @@ async function saveSettings(){
     parts_deposit_percent: parseFloat(document.getElementById('s-parts-deposit-percent').value)||0,
     payment_grace_days: parseInt(document.getElementById('s-payment-grace-days').value)||0,
     late_fee: parseFloat(document.getElementById('s-late-fee').value)||0,
+    dashboard_kpis: JSON.stringify(dashboardKpiSelection(state.settings.dashboard_kpis)),
   };
   await runMutation('settings-save',{buttonId:'settings-save-btn',action:'Saving settings',request:()=>api('PUT','/api/settings',body),apply:async savedSettings=>{state.settings={...savedSettings};delete state.settings._pendingLogo;await refreshResource('/api/plans','plans');},render:()=>{propagateSettingsChange(previousSettings);const saved=document.getElementById('s-saved');saved.style.display='';setTimeout(()=>saved.style.display='none',2500);},success:'Settings saved and applied'});
 }
@@ -5214,7 +5339,7 @@ function renderEstItems(){
       <select style="padding:4px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;" onchange="setEstItemType(${i},this.value)">
         ${['labor','parts','fee','diagnostic','emergency','sublet','discount'].map(t=>`<option value="${t}" ${item.type===t?'selected':''}>${t[0].toUpperCase()+t.slice(1)}</option>`).join('')}
       </select>
-      <input style="padding:4px 8px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${attrEsc(item.description||'')}" placeholder="${item.type==='discount'?'Discount applies to...':'Description'}" oninput="estItems[${i}].description=this.value">
+      <textarea class="line-item-description" rows="2" placeholder="${item.type==='discount'?'Discount applies to...':'Description'}" oninput="estItems[${i}].description=this.value">${esc(item.description||'')}</textarea>
       ${isLaborLineItem(item.type)?`<input type="number" aria-label="Labor hours" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">`:'<span class="line-item-na">—</span>'}
       ${isLaborLineItem(item.type)?'<span class="line-item-na">—</span>':`<input type="number" aria-label="Part quantity" value="${item.qty}" min="0" step="0.1" oninput="estItems[${i}].qty=parseFloat(this.value)||0;_calcEst()">`}
       <input type="number" style="padding:4px 6px;border:1px solid #d0d0cc;border-radius:6px;font-size:12px;background:#fafaf8;width:100%;" value="${item.rate||''}" min="0" step="0.01" placeholder="0.00" oninput="estItems[${i}].rate=parseFloat(this.value)||0;estItems[${i}].uses_default_rate=false;_calcEst()">

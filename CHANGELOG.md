@@ -21,6 +21,25 @@ All notable WrenchPro changes should be documented here before release.
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
+## v1.0.39 - 2026-08-24
+
+### Added
+
+- Dashboard KPI customization with 12 supported metrics, add/remove controls, ordering, and one-click restoration of the original defaults.
+- Inclusive From and To date filters for the Payments ledger and its collected-revenue KPI.
+
+### Changed
+
+- Dashboard KPI selections and order persist in local settings and remain intact through later Settings saves.
+- Dashboard KPI cards use a responsive grid as users select more or fewer metrics.
+- Repair-order line descriptions wrap so longer catalog descriptions remain readable.
+
+### Fixed
+
+- Service catalog entries now carry their saved descriptions onto repair-order labor lines while preserving their configured hours and price.
+- Payment date filters affect only the payment ledger and collected amount; outstanding balances, active plans, and overdue totals remain all-time figures.
+- Dashboard KPI settings reject empty, duplicate, malformed, or unsupported selections without changing the saved configuration.
+
 ## v1.0.38 - 2026-08-24
 
 ### Fixed

@@ -4,17 +4,42 @@ const path = require('path');
 const vm = require('vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-const helperStart = html.indexOf('function localDateKey(');
+const helperStart = html.indexOf('const DASHBOARD_KPI_DEFINITIONS');
 const helperEnd = html.indexOf('\nasync function renderDashboard()', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'dashboard calculation helpers must be extractable');
 
 const context = {
   fmt$: value => `$${Number(value || 0).toFixed(2)}`,
   planBalance: plan => Number(plan.balance || 0),
+  buildSpark: () => '<svg></svg>',
+  esc: value => String(value ?? ''),
+  attrEsc: value => String(value ?? ''),
+  state: { settings: { dashboard_kpis: '["customers","active_jobs"]' } },
+  document: {
+    getElementById(id) {
+      if (id === 'dashboard-kpi-options') return this.options;
+      if (id === 'm-dashboard-kpis') return this.modal;
+      return null;
+    },
+    options: { innerHTML: '' },
+    modal: { classList: { add(value) { this.value = value; } } },
+  },
 };
-vm.runInNewContext(`${html.slice(helperStart, helperEnd)};globalThis.qa={localDateKey,jobPricingTotals,paymentsLinkedToJob,jobAmountPaid,dashboardJobTotal,dashboardJobBalance,dashboardMetrics};`, context);
+vm.runInNewContext(`${html.slice(helperStart, helperEnd)};globalThis.qa={DASHBOARD_KPI_DEFINITIONS,DEFAULT_DASHBOARD_KPIS,dashboardKpiSelection,localDateKey,jobPricingTotals,paymentsLinkedToJob,jobAmountPaid,dashboardJobTotal,dashboardJobBalance,dashboardMetrics,dashboardKpiCards,openDashboardKpiModal,moveDashboardKpi,toggleDashboardKpi,resetDashboardKpis,getDashboardKpiDraft:()=>dashboardKpiDraft};`, context);
 
 const qa = context.qa;
+assert.deepStrictEqual(Array.from(qa.dashboardKpiSelection(null)), ['active_jobs','revenue_7d','outstanding','net_profit_month'], 'missing dashboard KPI settings must use the established default cards');
+assert.deepStrictEqual(Array.from(qa.dashboardKpiSelection('["customers","active_jobs","customers","unsupported"]')), ['customers','active_jobs'], 'renderer must preserve KPI order while ignoring duplicate or unsupported stored values');
+assert.strictEqual(qa.DASHBOARD_KPI_DEFINITIONS.length, 12, 'dashboard must expose the complete allowlisted KPI catalog');
+qa.openDashboardKpiModal();
+assert.strictEqual(context.document.modal.classList.value, 'open', 'KPI customization must open its modal');
+assert.match(context.document.options.innerHTML, /Customers/, 'KPI customization must render the available choices');
+qa.moveDashboardKpi(1, -1);
+assert.deepStrictEqual(Array.from(qa.getDashboardKpiDraft().slice(0, 2), item => item.id), ['active_jobs','customers'], 'KPI customization must reorder cards');
+qa.toggleDashboardKpi('customers', false);
+assert.strictEqual(qa.getDashboardKpiDraft().find(item => item.id === 'customers').enabled, false, 'KPI customization must add or remove cards');
+qa.resetDashboardKpis();
+assert.deepStrictEqual(Array.from(qa.getDashboardKpiDraft().filter(item => item.enabled), item => item.id), ['active_jobs','revenue_7d','outstanding','net_profit_month'], 'Restore defaults must reinstate the original dashboard cards and order');
 assert.strictEqual(qa.localDateKey(new Date(2026, 7, 12, 23, 30)), '2026-08-12', 'dashboard dates must use the local calendar date');
 const addDaysStart = html.indexOf('function addDays(');
 const addDaysEnd = html.indexOf('async function api(', addDaysStart);
@@ -44,6 +69,10 @@ const snapshot = {
     { id: 1, status: 'New', created_at: '2026-08-01 09:00:00' },
     { id: 2, status: 'New', created_at: '2026-06-01 09:00:00' },
   ],
+  appts: [{ id: 1, date: '2026-08-12' }, { id: 2, date: '2026-08-13' }],
+  customers: [{ id: 1 }, { id: 2 }],
+  inventory: [{ id: 1, quantity: 2, reorder_qty: 3 }, { id: 2, quantity: 5, reorder_qty: 0 }],
+  estimates: [{ id: 1, status: 'Draft', total: 120 }, { id: 2, status: 'Approved', total: 400 }],
 };
 const metrics = qa.dashboardMetrics(snapshot, now);
 assert.strictEqual(metrics.active.length, 1, 'only nonterminal, nonclosed jobs must count as active');
@@ -54,6 +83,13 @@ assert.deepStrictEqual(Array.from(metrics.overdueInvoices, job => job.id), [1], 
 assert.deepStrictEqual(Array.from(metrics.recentPayments, payment => payment.id), [2, 1], 'recent payments must be limited to the last seven days and sorted newest first');
 assert.deepStrictEqual(Array.from(metrics.recentLeads, lead => lead.id), [1], 'pipeline must be limited to the last 30 days');
 assert.strictEqual(metrics.activity[0].id, 2, 'activity must select the newest records rather than array-tail records');
+assert.strictEqual(metrics.todayAppointments.length, 1, 'today appointment KPI must use the selected local date');
+assert.strictEqual(metrics.customerCount, 2, 'customer KPI must count current customer records');
+assert.strictEqual(metrics.lowStockItems.length, 1, 'low-stock KPI must honor positive reorder thresholds');
+assert.strictEqual(metrics.pendingEstimates.length, 1, 'open-estimate KPI must include draft and sent estimates only');
+assert.strictEqual(metrics.completedJobs30d.length, 1, 'completed-jobs KPI must use the last 30 local calendar days');
+assert.strictEqual(metrics.averageRepairOrder, 100, 'average R/O KPI must exclude canceled repair orders and retain cents');
+assert.deepStrictEqual(Array.from(qa.dashboardKpiCards(metrics, 50, 'Aug'), card => card.id), ['customers','active_jobs'], 'dashboard cards must follow the saved user order and selection');
 
 const reportStart = html.indexOf('function reportMetrics(');
 const reportEnd = html.indexOf('\nfunction renderReport()', reportStart);
@@ -84,11 +120,31 @@ assert.strictEqual(discountedReport.income.tax, 4, 'Discounted parts tax must us
 assert.match(html, /const netProfit = data\?Number\(data\.monthNetProfit\)\|\|0:null/, 'dashboard monthly profit must use monthly server totals and remain explicitly unavailable after a summary failure');
 assert.match(html, /netProfit===null\?'—':fmt\$\(netProfit\)/, 'dashboard must not display a misleading zero when the summary request fails');
 assert.match(html, /Revenue · last 7 days/, 'revenue period label must match its calculation');
-assert.match(html, /class="kpi-value">\$\{fmt\$\(weekTotal\)\}/, 'dashboard revenue must display cents without whole-dollar rounding');
-assert.match(html, /class="kpi-value">\$\{fmt\$\(outstanding\)\}/, 'dashboard outstanding balance must display cents');
+assert.match(html, /revenue_7d:\{label:'Revenue · last 7 days',value:fmt\$\(metrics\.weekTotal\)/, 'dashboard revenue KPI must display cents without whole-dollar rounding');
+assert.match(html, /outstanding:\{label:'Outstanding',value:fmt\$\(metrics\.outstanding\)/, 'dashboard outstanding KPI must display cents');
+assert.match(html, /onclick="openDashboardKpiModal\(\)">Customize KPIs/, 'dashboard must expose the KPI customization dialog');
+assert.match(html, /dashboard_kpis: JSON\.stringify\(dashboardKpiSelection\(state\.settings\.dashboard_kpis\)\)/, 'ordinary Settings saves must preserve dashboard KPI choices');
+assert.match(html, /grid-template-columns:repeat\(auto-fit,minmax\(190px,1fr\)\)/, 'custom KPI cards must remain responsive without horizontal scrolling');
 assert.match(html, /dashboardJobTotal\(j,state\.settings\.tax_rate\)/, 'today route must display the complete job total');
 assert.match(html, /dashboardJobBalance\(job,state\.payments,state\.settings\.tax_rate\)/, 'overdue amount must display remaining invoice balances');
 assert.match(html, /id="finance-ro-tbody"/, 'Finance must include per-repair-order balance tracking');
 assert.match(html, /Repair order balances/, 'Finance balance table must be clearly labeled');
+
+const financeFilterStart = html.indexOf('function paymentDateInRange(');
+const financeFilterEnd = html.indexOf('\nfunction clearFinanceDateFilters()', financeFilterStart);
+assert.ok(financeFilterStart >= 0 && financeFilterEnd > financeFilterStart, 'payment date filter helpers must be extractable');
+const financeFilterContext = {};
+vm.runInNewContext(`${html.slice(financeFilterStart, financeFilterEnd)};globalThis.qa={paymentDateInRange,financePaymentsForRange};`, financeFilterContext);
+const datedPayments = [
+  { id: 1, date: '2026-08-01', amount: 10 },
+  { id: 2, date: '2026-08-15', amount: 20 },
+  { id: 3, date: '2026-08-31', amount: 30 },
+];
+assert.deepStrictEqual(Array.from(financeFilterContext.qa.financePaymentsForRange(datedPayments,'2026-08-01','2026-08-31'), payment=>payment.id), [3,2,1], 'payment date boundaries must be inclusive and results must be newest first');
+assert.deepStrictEqual(Array.from(financeFilterContext.qa.financePaymentsForRange(datedPayments,'2026-08-10','2026-08-20'), payment=>payment.id), [2], 'payment date range must exclude payments outside the selected dates');
+assert.strictEqual(financeFilterContext.qa.financePaymentsForRange(datedPayments,'2026-09-01','2026-08-01').length, 0, 'an invalid reversed payment range must not show misleading results');
+assert.match(html, /id="finance-date-from"/, 'Payments must include a start-date filter');
+assert.match(html, /id="finance-date-to"/, 'Payments must include an end-date filter');
+assert.match(html, /Outstanding balances remain all-time/, 'Payments must explain that date filtering does not alter outstanding balances');
 
 console.log('Dashboard calculation QA passed');
