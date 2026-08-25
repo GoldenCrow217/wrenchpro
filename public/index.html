@@ -3530,9 +3530,12 @@ function addJobItem(type='labor'){
 }
 
 function catalogServiceLine(service){
+  const name=String(service?.name||'').trim()||'Service';
+  const detail=String(service?.description||'').trim();
+  const description=detail&&detail.toLowerCase()!==name.toLowerCase()?`${name}: ${detail}`:name;
   const hours=Number(service?.default_hours)>0?Number(service.default_hours):1;
   const price=Number(service?.default_price)||0;
-  return {type:'labor',description:service?.name||'Service',qty:hours,rate:price,amount:+(hours*price).toFixed(2),taxable:0};
+  return {type:'labor',description,qty:hours,rate:price,amount:+(hours*price).toFixed(2),taxable:0};
 }
 
 function addJobItemFromCatalog(){

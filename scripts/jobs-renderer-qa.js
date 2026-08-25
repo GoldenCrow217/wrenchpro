@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
         state.settings={...state.settings,default_labor_rate:125,diagnostic_rate:150,service_fee:50,tax_rate:8.25};
         state.jobs=[];
         state.inventory=[{id:9,name:'Test part',part_number:'QA-9',quantity:2,retail_price:25}];
-        state.catalog=[{id:5,name:'Oil change',category:'Maintenance',default_hours:1,default_price:49.99}];
+        state.catalog=[{id:5,name:'Oil change',description:'Drain engine oil and replace filter',category:'Maintenance',default_hours:1,default_price:49.99}];
         state.payments=[];
 
         const initialPrimaryDisplay=document.getElementById('pri-btn').style.display;
@@ -84,7 +84,7 @@ app.whenReady().then(async () => {
         document.getElementById('job-catalog-select').value='inventory:9';
         addSelectedJobCatalogItem();
         const catalogLines={
-          service:jobItems.find(item=>item.description==='Oil change'),
+          service:jobItems.find(item=>item.description==='Oil change: Drain engine oil and replace filter'),
           inventory:jobItems.find(item=>item.inventory_id===9),
         };
         document.getElementById('jf-veh').value='2';
@@ -309,7 +309,7 @@ app.whenReady().then(async () => {
     assert(results.serviceAddress === '123 Main St', 'New Job did not use the selected customer service address');
     assert(results.switchedAutoAddress === '456 Oak Ave' && results.preservedManualAddress === 'Mobile service location', 'Customer changes did not refresh an automatic service address or preserve a manual address');
     assert(JSON.stringify(results.defaultRates) === JSON.stringify([125, 150]), 'Configured labor and diagnostic rates did not initialize');
-    assert(results.pickerOpened && results.pickerOptionCount === 2 && results.catalogLines.service?.qty === 1 && results.catalogLines.service?.rate === 49.99, 'From Catalog button did not open both sources or retain the configured service hours and price');
+    assert(results.pickerOpened && results.pickerOptionCount === 2 && results.catalogLines.service?.qty === 1 && results.catalogLines.service?.rate === 49.99, 'From Catalog button did not open both sources or retain the configured service description, hours, and price');
     assert(results.catalogLines.inventory?.rate === 25 && results.catalogLines.inventory?.inventory_id === 9, 'Parts & Inventory item was not added with its retail price and stable inventory link');
     assert(results.tripState.value === '50.00' && results.tripState.step === '10' && results.tripState.enabled, 'Configured trip fee did not enable with ten-dollar input increments');
     assert(results.modalOpenWhileSaving, 'New Job modal closed before the save request was confirmed');
