@@ -1870,6 +1870,7 @@ tr:hover td{background:var(--bg-subtle);}
 const API = '';
 const SHOP_CONTEXT_STORAGE_KEY = 'wrenchpro.shopContext.v1';
 const SHOP_REJECTED_TOKEN_STORAGE_KEY = 'wrenchpro.rejectedSupabaseAccessToken';
+const SUPABASE_AUTH_ISSUER = 'https://xgqidqyctypfbuhhzwai.supabase.co/auth/v1';
 let shopContext = loadShopContext();
 let shopContextDetails = null;
 let state = { customers:[], vehicles:[], jobs:[], payments:[], plans:[], expenses:[], appts:[], employees:[], settings:{}, interactions:[], followups:[], serviceReminders:[], estimates:[], inventory:[], catalog:[], inspections:[], warranties:[], timeLogs:[], leads:[], operations:{workflow_columns:[],resources:[],templates:[],authorizations:[],deferred_services:[],reservations:[],vendors:[],purchase_orders:[],tasks:[],service_events:[],jobs:[]} };
@@ -1932,6 +1933,33 @@ function cleanBearerToken(value){
   const token=String(value||'').trim().replace(/^Bearer\s+/i,'');
   return token.split('.').length===3?token:'';
 }
+function decodeJwtPayload(token){
+  try{
+    const payload=String(token||'').split('.')[1];
+    if(!payload)return null;
+    const normalized=payload.replace(/-/g,'+').replace(/_/g,'/');
+    const padded=normalized.padEnd(Math.ceil(normalized.length/4)*4,'=');
+    const json=atob(padded).split('').map(ch=>`%${ch.charCodeAt(0).toString(16).padStart(2,'0')}`).join('');
+    return JSON.parse(decodeURIComponent(json));
+  }catch(_){ return null; }
+}
+function bearerTokenIsActive(token){
+  const payload=decodeJwtPayload(token);
+  if(!payload)return false;
+  const now=Math.floor(Date.now()/1000);
+  const skewSeconds=30;
+  const exp=Number(payload.exp);
+  if(!Number.isFinite(exp)||exp<=now+skewSeconds)return false;
+  if(payload.nbf!==undefined&&payload.nbf!==null){
+    const nbf=Number(payload.nbf);
+    if(!Number.isFinite(nbf)||nbf>now+skewSeconds)return false;
+  }
+  const audience=Array.isArray(payload.aud)?payload.aud.map(String):[String(payload.aud||'')];
+  if(!audience.includes('authenticated'))return false;
+  const issuer=String(payload.iss||'').replace(/\/$/,'');
+  if(issuer!==SUPABASE_AUTH_ISSUER)return false;
+  return true;
+}
 function rejectedSupabaseAccessToken(){
   return cleanBearerToken(sessionStorage.getItem(SHOP_REJECTED_TOKEN_STORAGE_KEY));
 }
@@ -1944,7 +1972,7 @@ function rememberRejectedSupabaseAccessToken(token){
 }
 function usableSupabaseAccessToken(value){
   const token=cleanBearerToken(value);
-  return token&&!isRejectedSupabaseAccessToken(token)?token:'';
+  return token&&bearerTokenIsActive(token)&&!isRejectedSupabaseAccessToken(token)?token:'';
 }
 function storedSupabaseAccessToken(){
   const direct=usableSupabaseAccessToken(sessionStorage.getItem('wrenchpro.supabaseAccessToken'))||usableSupabaseAccessToken(localStorage.getItem('wrenchpro.supabaseAccessToken'));
@@ -1977,15 +2005,23 @@ function loadShopContext(){
 function saveShopContext(next){
   const providedToken=cleanBearerToken(next.accessToken);
   if(providedToken&&isRejectedSupabaseAccessToken(providedToken))sessionStorage.removeItem(SHOP_REJECTED_TOKEN_STORAGE_KEY);
-  shopContext={ shopId:Number.isSafeInteger(Number(next.shopId))&&Number(next.shopId)>0?Number(next.shopId):null, email:String(next.email||'').trim().toLowerCase(), accessToken:providedToken||storedSupabaseAccessToken() };
-  const {accessToken,...persisted}=shopContext;
+  const activeProvidedToken=usableSupabaseAccessToken(providedToken);
+  if(providedToken&&!activeProvidedToken){
+    rememberRejectedSupabaseAccessToken(providedToken);
+    sessionStorage.removeItem('wrenchpro.supabaseAccessToken');
+    localStorage.removeItem('wrenchpro.supabaseAccessToken');
+  }
+  const accessToken=providedToken?activeProvidedToken:storedSupabaseAccessToken();
+  shopContext={ shopId:Number.isSafeInteger(Number(next.shopId))&&Number(next.shopId)>0?Number(next.shopId):null, email:String(next.email||'').trim().toLowerCase(), accessToken };
+  const {accessToken:_,...persisted}=shopContext;
   localStorage.setItem(SHOP_CONTEXT_STORAGE_KEY,JSON.stringify(persisted));
   if(accessToken)sessionStorage.setItem('wrenchpro.supabaseAccessToken',accessToken);
+  else sessionStorage.removeItem('wrenchpro.supabaseAccessToken');
 }
 function shopContextHeaders(){
   if(!shopContext.shopId)return {};
   const headers={'X-WrenchPro-Shop-Id':String(shopContext.shopId)};
-  const token=cleanBearerToken(shopContext.accessToken)||storedSupabaseAccessToken();
+  const token=usableSupabaseAccessToken(shopContext.accessToken)||storedSupabaseAccessToken();
   if(token)headers.Authorization=`Bearer ${token}`;
   else if(shopContext.email)headers['X-WrenchPro-User-Email']=shopContext.email;
   return headers;

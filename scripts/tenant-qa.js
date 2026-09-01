@@ -36,10 +36,10 @@ function base64urlJson(value) {
 }
 
 function signToken(payload, options = {}) {
-  const header = base64urlJson({ alg: 'HS256', typ: 'JWT' });
+  const header = base64urlJson({ alg: options.alg || 'HS256', typ: 'JWT' });
   const defaults = options.skipDefaults ? {} : { iss: `${SUPABASE_URL}/auth/v1`, aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 };
   const body = base64urlJson({ ...defaults, ...payload });
-  const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  const signature = options.badSignature ? 'bad-signature' : crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
   return `${header}.${body}.${signature}`;
 }
 
@@ -133,6 +133,10 @@ async function main() {
   const noExpiryTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' }, { skipDefaults: true });
   const badAudienceTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com', aud: 'anon' });
   const badIssuerTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com', iss: 'https://evil.example/auth/v1' });
+  const malformedNbfTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com', nbf: 'soon' });
+  const badSignatureTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' }, { badSignature: true });
+  const unsupportedAlgTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' }, { alg: 'none' });
+  const multiAudienceTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com', aud: ['anon', 'authenticated'] });
   const aHeaders = { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${tokenA}` };
   const bHeaders = { 'x-wrenchpro-shop-id': String(shopB), authorization: `Bearer ${tokenB}` };
 
@@ -144,6 +148,10 @@ async function main() {
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${noExpiryTokenA}` })).status, 401);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${badAudienceTokenA}` })).status, 401);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${badIssuerTokenA}` })).status, 401);
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${malformedNbfTokenA}` })).status, 401);
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${badSignatureTokenA}` })).status, 401);
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${unsupportedAlgTokenA}` })).status, 401);
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${multiAudienceTokenA}` })).status, 200);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${tokenB}` })).status, 403);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), 'x-wrenchpro-user-email': 'tech-b@example.com', authorization: `Bearer ${tokenA}` })).status, 200);
 

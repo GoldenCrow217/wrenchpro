@@ -15,7 +15,11 @@ assert.match(html, /Some dashboard totals could not be refreshed\. Jobs and othe
 assert.match(html, /function storedSupabaseAccessToken\(\)/, 'SaaS shop context must be able to reuse Supabase auth tokens stored by the hosted shell');
 assert.match(html, /headers\.Authorization=`Bearer \$\{token\}`/, 'shop-scoped API requests must send the Supabase bearer token when available');
 assert.match(html, /else if\(shopContext\.email\)headers\['X-WrenchPro-User-Email'\]=shopContext\.email/, 'desktop compatibility must keep email-header shop context when no bearer token exists');
-assert.match(html, /const \{accessToken,\.\.\.persisted\}=shopContext/, 'saved shop context must avoid persisting bearer tokens in long-lived localStorage');
+assert.match(html, /const \{accessToken(?::\w+)?,\.\.\.persisted\}=shopContext/, 'saved shop context must avoid persisting bearer tokens in long-lived localStorage');
+assert.match(html, /function bearerTokenIsActive\(token\)/, 'hosted shop context must reject expired or not-yet-valid Supabase tokens before API calls');
+assert.match(html, /audience\.includes\('authenticated'\)/, 'hosted shop context must reject non-authenticated Supabase token audiences before API calls');
+assert.match(html, /!Number\.isFinite\(nbf\)/, 'hosted shop context must reject malformed not-before token claims before API calls');
+assert.match(html, /SUPABASE_AUTH_ISSUER/, 'hosted shop context must only reuse tokens issued by the WrenchPro Supabase project');
 assert.match(html, /const accessToken=storedSupabaseAccessToken\(\)/, 'hosted shop context must not reload legacy bearer tokens from long-lived shop-context localStorage');
 assert.match(html, /function clearStoredShopAccessToken\(\)/, 'hosted auth failures must clear stale bearer tokens from short-lived storage');
 assert.match(html, /SHOP_REJECTED_TOKEN_STORAGE_KEY/, 'hosted auth failures must remember rejected Supabase tokens for the browser session');

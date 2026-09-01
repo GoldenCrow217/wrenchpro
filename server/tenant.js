@@ -98,10 +98,13 @@ function verifiedBearerPayload(req) {
     error.status = 401;
     throw error;
   }
-  if (payload.nbf && Number(payload.nbf) > now) {
-    const error = new Error('Authorization token is not active yet');
-    error.status = 401;
-    throw error;
+  if (payload.nbf !== undefined && payload.nbf !== null) {
+    const nbf = Number(payload.nbf);
+    if (!Number.isFinite(nbf) || nbf > now) {
+      const error = new Error('Authorization token is not active yet');
+      error.status = 401;
+      throw error;
+    }
   }
   const audience = Array.isArray(payload.aud) ? payload.aud.map(String) : [String(payload.aud || '')];
   if (!audience.includes('authenticated')) {
