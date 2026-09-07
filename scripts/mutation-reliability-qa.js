@@ -5,6 +5,7 @@ const vm = require('vm');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
+const tenant = fs.readFileSync(path.join(root, 'server', 'tenant.js'), 'utf8');
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match => match[1]).filter(Boolean);
 scripts.forEach((source, index) => new vm.Script(source, { filename: `public/index.inline-${index}.js` }));
 
@@ -20,13 +21,22 @@ assert.match(html, /function bearerTokenIsActive\(token\)/, 'hosted shop context
 assert.match(html, /audience\.includes\('authenticated'\)/, 'hosted shop context must reject non-authenticated Supabase token audiences before API calls');
 assert.match(html, /!Number\.isFinite\(nbf\)/, 'hosted shop context must reject malformed not-before token claims before API calls');
 assert.match(html, /SUPABASE_AUTH_ISSUER/, 'hosted shop context must only reuse tokens issued by the WrenchPro Supabase project');
-assert.match(html, /const accessToken=storedSupabaseAccessToken\(\)/, 'hosted shop context must not reload legacy bearer tokens from long-lived shop-context localStorage');
+assert.match(html, /storedSupabaseAccessToken\(\)/, 'hosted shop context must be able to discover current hosted Supabase sessions');
+assert.ok(!html.includes('parsed.accessToken'), 'hosted shop context must not reload legacy bearer tokens from long-lived shop-context localStorage');
+assert.match(html, /shouldScrub=sensitiveKeys\.some/, 'hosted URL bootstrap must scrub token parameters even when no usable access token is present');
+assert.match(html, /hasHostedSecret=hostedSecretKeys\.some/, 'hosted shell must detect secret handoff fields even when access tokens are expired or malformed');
+assert.match(html, /window\.WrenchProShopContext=\{\.\.\.window\.WrenchProShopContext,accessToken:'',access_token:'',supabaseAccessToken:'',supabase_access_token:'',refreshToken:'',refresh_token:''\}/, 'hosted shell handoff tokens and refresh tokens must be cleared after bootstrap');
 assert.match(html, /function clearStoredShopAccessToken\(\)/, 'hosted auth failures must clear stale bearer tokens from short-lived storage');
+assert.match(tenant, /BLOCKED_PLAN_STATUSES/, 'hosted shop context must deny suspended or canceled SaaS shops before exposing shop data');
+assert.match(tenant, /field: 'plan_status'/, 'blocked SaaS shop responses must identify plan_status as the account-access blocker');
 assert.match(html, /SHOP_REJECTED_TOKEN_STORAGE_KEY/, 'hosted auth failures must remember rejected Supabase tokens for the browser session');
 assert.match(html, /isRejectedSupabaseAccessToken\(token\)/, 'hosted token discovery must skip rejected Supabase tokens after a 401');
 assert.match(html, /for\(const store of \[sessionStorage,localStorage\]\)/, 'hosted token discovery should prefer short-lived session storage before long-lived local storage');
 assert.match(html, /delete persisted\.accessToken/, 'hosted auth failures must remove legacy bearer tokens from saved shop context');
-assert.match(html, /shopAuthErrorMessage\(r\.status,err\.error\)/, 'hosted shop auth failures must show a specific session or membership message');
+assert.match(html, /shopAuthErrorMessage\(r\.status,err\.error,err\.field\)/, 'hosted shop auth failures must show field-specific session, membership, or account-status recovery messages');
+assert.match(html, /field==='plan_status'/, 'suspended or canceled hosted shops should show account-status recovery guidance instead of a membership-only error');
+assert.match(html, /authLoadFailed\?error\.message/, 'initial hosted auth failures should surface the actionable auth recovery message');
+assert.match(html, /authRefreshFailed\?error\.message/, 'focus-refresh hosted auth failures should surface the actionable auth recovery message');
 assert.match(html, /error\.status = r\.status/, 'API errors must expose HTTP status for hosted auth handling and QA');
 assert.match(html, /let shopContextDetails = null/, 'frontend must keep non-sensitive shop context details separate from persisted auth context');
 assert.match(html, /async function loadShopContextDetails\(\)/, 'frontend must verify hosted shop context before bulk data loading');

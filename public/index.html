@@ -1975,8 +1975,14 @@ function usableSupabaseAccessToken(value){
   return token&&bearerTokenIsActive(token)&&!isRejectedSupabaseAccessToken(token)?token:'';
 }
 function storedSupabaseAccessToken(){
-  const direct=usableSupabaseAccessToken(sessionStorage.getItem('wrenchpro.supabaseAccessToken'))||usableSupabaseAccessToken(localStorage.getItem('wrenchpro.supabaseAccessToken'));
-  if(direct)return direct;
+  const sessionToken=usableSupabaseAccessToken(sessionStorage.getItem('wrenchpro.supabaseAccessToken'));
+  if(sessionToken)return sessionToken;
+  const legacyLocalToken=usableSupabaseAccessToken(localStorage.getItem('wrenchpro.supabaseAccessToken'));
+  if(legacyLocalToken){
+    sessionStorage.setItem('wrenchpro.supabaseAccessToken',legacyLocalToken);
+    localStorage.removeItem('wrenchpro.supabaseAccessToken');
+    return legacyLocalToken;
+  }
   for(const store of [sessionStorage,localStorage]){
     for(let i=0;i<store.length;i++){
       const key=store.key(i)||'';
@@ -1993,14 +1999,70 @@ function storedSupabaseAccessToken(){
   }
   return '';
 }
+function normalizeHostedShopContext(value){
+  const source=value&&typeof value==='object'?value:{};
+  const shopId=Number(source.shopId??source.shop_id);
+  const email=String(source.email??source.userEmail??source.user_email??source.shopEmail??source.shop_email??'').trim().toLowerCase();
+  const accessToken=usableSupabaseAccessToken(source.accessToken??source.access_token??source.supabaseAccessToken??source.supabase_access_token);
+  return { shopId:Number.isSafeInteger(shopId)&&shopId>0?shopId:null, email, accessToken };
+}
+function urlShopContextBootstrap(){
+  if(typeof window==='undefined'||typeof URLSearchParams==='undefined'||!window.location)return { shopId:null,email:'',accessToken:'' };
+  try{
+    const params=new URLSearchParams(window.location.search||'');
+    const hashParams=new URLSearchParams(String(window.location.hash||'').replace(/^#/,''));
+    const valueFor=(...keys)=>keys.map(key=>params.get(key)||hashParams.get(key)).find(Boolean)||'';
+    const sensitiveKeys=['access_token','supabase_access_token','refresh_token','expires_at','expires_in','token_type'];
+    const shouldScrub=sensitiveKeys.some(key=>params.has(key)||hashParams.has(key));
+    const context=normalizeHostedShopContext({
+      shopId:valueFor('shop_id','shopId'),
+      email:valueFor('email','user_email','shop_email'),
+      accessToken:valueFor('access_token','supabase_access_token'),
+    });
+    if(shouldScrub){
+      sensitiveKeys.forEach(key=>{params.delete(key);hashParams.delete(key);});
+      const safeSearch=params.toString();
+      const safeHash=hashParams.toString();
+      if(window.history?.replaceState){
+        window.history.replaceState({},document.title,`${window.location.pathname}${safeSearch?`?${safeSearch}`:''}${safeHash?`#${safeHash}`:''}`);
+      }
+    }
+    return context;
+  }catch(_){ return { shopId:null,email:'',accessToken:'' }; }
+}
+function hostShopContextBootstrap(){
+  const fromGlobal=typeof window!=='undefined'?normalizeHostedShopContext(window.WrenchProShopContext):{ shopId:null,email:'',accessToken:'' };
+  if(typeof window!=='undefined'&&window.WrenchProShopContext){
+    const hostedSecretKeys=['accessToken','access_token','supabaseAccessToken','supabase_access_token','refreshToken','refresh_token'];
+    const hasHostedSecret=hostedSecretKeys.some(key=>Boolean(window.WrenchProShopContext[key]));
+    if(hasHostedSecret){
+      window.WrenchProShopContext={...window.WrenchProShopContext,accessToken:'',access_token:'',supabaseAccessToken:'',supabase_access_token:'',refreshToken:'',refresh_token:''};
+    }
+  }
+  const fromUrl=urlShopContextBootstrap();
+  return {
+    shopId:fromUrl.shopId||fromGlobal.shopId||null,
+    email:fromUrl.email||fromGlobal.email||'',
+    accessToken:fromUrl.accessToken||fromGlobal.accessToken||'',
+  };
+}
 function loadShopContext(){
+  const hosted=hostShopContextBootstrap();
   try{
     const parsed=JSON.parse(localStorage.getItem(SHOP_CONTEXT_STORAGE_KEY)||'{}');
-    const shopId=Number(parsed.shopId);
-    const email=String(parsed.email||'').trim().toLowerCase();
-    const accessToken=storedSupabaseAccessToken();
-    return { shopId:Number.isSafeInteger(shopId)&&shopId>0?shopId:null, email, accessToken };
-  }catch(_){ return { shopId:null, email:'', accessToken:storedSupabaseAccessToken() }; }
+    const shopId=Number(hosted.shopId||parsed.shopId);
+    const email=String(hosted.email||parsed.email||'').trim().toLowerCase();
+    const accessToken=hosted.accessToken||storedSupabaseAccessToken();
+    const context={ shopId:Number.isSafeInteger(shopId)&&shopId>0?shopId:null, email, accessToken };
+    if(hosted.shopId||hosted.email)localStorage.setItem(SHOP_CONTEXT_STORAGE_KEY,JSON.stringify({shopId:context.shopId,email:context.email}));
+    if(accessToken)sessionStorage.setItem('wrenchpro.supabaseAccessToken',accessToken);
+    return context;
+  }catch(_){
+    const context={ shopId:hosted.shopId||null, email:hosted.email||'', accessToken:hosted.accessToken||storedSupabaseAccessToken() };
+    if(hosted.shopId||hosted.email)localStorage.setItem(SHOP_CONTEXT_STORAGE_KEY,JSON.stringify({shopId:context.shopId,email:context.email}));
+    if(context.accessToken)sessionStorage.setItem('wrenchpro.supabaseAccessToken',context.accessToken);
+    return context;
+  }
 }
 function saveShopContext(next){
   const providedToken=cleanBearerToken(next.accessToken);
@@ -2039,8 +2101,9 @@ function clearStoredShopAccessToken(){
     }
   }catch(_){ localStorage.removeItem(SHOP_CONTEXT_STORAGE_KEY); }
 }
-function shopAuthErrorMessage(status,msg){
+function shopAuthErrorMessage(status,msg,field){
   if(status===401)return 'Your shop session expired or is missing. Sign in again from the hosted WrenchPro shell, then reopen this shop.';
+  if(status===403&&field==='plan_status')return 'This shop account is not active. Update the WrenchPro subscription or contact support to reopen this shop.';
   if(status===403)return 'Your signed-in account is not an active member of this shop.';
   return msg||'Request failed';
 }
@@ -2202,7 +2265,7 @@ async function api(method, path, body, {silentError=false}={}){
   const r = await fetch(API+path, opts);
   if(!r.ok){
     const err = await r.json().catch(()=>({error:'Request failed'}));
-    const msg = shopContext.shopId&&[401,403].includes(r.status)?shopAuthErrorMessage(r.status,err.error):err.error||'Request failed';
+    const msg = shopContext.shopId&&[401,403].includes(r.status)?shopAuthErrorMessage(r.status,err.error,err.field):err.error||'Request failed';
     if(shopContext.shopId&&r.status===401)clearStoredShopAccessToken();
     if(!silentError)toast(msg,8000);
     const error = new Error(msg);
@@ -2224,7 +2287,8 @@ async function refreshOnFocus(){
     await loadAll({silentErrors:true});
   }catch(error){
     console.error('Focus refresh failed:',error);
-    toast('Some data could not be refreshed. Your existing information is still available.',8000);
+    const authRefreshFailed=shopContext.shopId&&[401,403].includes(Number(error?.status));
+    toast(authRefreshFailed?error.message:'Some data could not be refreshed. Your existing information is still available.',8000);
   }finally{
     _focusRefreshInFlight=false;
   }
@@ -2307,7 +2371,8 @@ async function initializeApp(){
     }
   }catch(error){
     console.error('Initial data load failed:',error);
-    toast('WrenchPro could not finish loading. Check the application logs and try reopening it.',8000);
+    const authLoadFailed=shopContext.shopId&&[401,403].includes(Number(error?.status));
+    toast(authLoadFailed?error.message:'WrenchPro could not finish loading. Check the application logs and try reopening it.',8000);
   }
 }
 

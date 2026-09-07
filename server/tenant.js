@@ -15,6 +15,7 @@ const REQUIRE_MEMBERSHIP = String(process.env.WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP 
 const SUPABASE_JWT_SECRET = String(process.env.WRENCHPRO_SUPABASE_JWT_SECRET || process.env.SUPABASE_JWT_SECRET || '').trim();
 const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.WRENCHPRO_SUPABASE_URL || '').replace(/\/$/, '');
 const ACTIVE_ROLES = new Set(['owner', 'admin', 'mechanic', 'service_writer']);
+const BLOCKED_PLAN_STATUSES = new Set(['canceled', 'cancelled', 'suspended', 'disabled', 'inactive', 'deleted']);
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -139,9 +140,18 @@ function requestedUserEmail(req) {
   return normalizeEmail(req?.headers?.[EMAIL_HEADER]);
 }
 
+function shopRecord(shopId) {
+  if (!shopId) return null;
+  return db.prepare('SELECT id, plan_status FROM shops WHERE id = ?').get(shopId) || null;
+}
+
 function shopExists(shopId) {
-  if (!shopId) return false;
-  return Boolean(db.prepare('SELECT id FROM shops WHERE id = ?').get(shopId));
+  return Boolean(shopRecord(shopId));
+}
+
+function shopPlanAllowsAccess(shop) {
+  const status = String(shop?.plan_status || 'trial').trim().toLowerCase();
+  return !BLOCKED_PLAN_STATUSES.has(status);
 }
 
 function membershipFor(shopId, email, userId = '') {
@@ -174,7 +184,8 @@ function validateRequestedShopContext(req, res, next) {
       }
       return next();
     }
-    if (!shopExists(shopId)) return res.status(404).json({ error: 'Shop context not found', field: 'shop_id' });
+    const shop = shopRecord(shopId);
+    if (!shop) return res.status(404).json({ error: 'Shop context not found', field: 'shop_id' });
     if (REQUIRE_MEMBERSHIP && !SUPABASE_JWT_SECRET) {
       return res.status(503).json({ error: 'Shop membership authentication is not configured' });
     }
@@ -198,6 +209,10 @@ function validateRequestedShopContext(req, res, next) {
     const membership = (email || userId) ? membershipFor(shopId, email, userId) : null;
     if ((email || userId) && !membership) {
       return res.status(403).json({ error: 'User is not an active member of the selected shop' });
+    }
+
+    if (!shopPlanAllowsAccess(shop)) {
+      return res.status(403).json({ error: 'Shop account is not active', field: 'plan_status' });
     }
 
     req.shopId = shopId;

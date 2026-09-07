@@ -122,12 +122,15 @@ async function main() {
   const db = new Database(path.join(dataDir, 'wrenchpro.db'));
   const shopA = db.prepare("INSERT INTO shops (name, owner_email) VALUES ('A Mobile Repair', 'owner-a@example.com')").run().lastInsertRowid;
   const shopB = db.prepare("INSERT INTO shops (name, owner_email) VALUES ('B Mobile Repair', 'owner-b@example.com')").run().lastInsertRowid;
+  const suspendedShop = db.prepare("INSERT INTO shops (name, owner_email, plan_status) VALUES ('Suspended Mobile Repair', 'owner-suspended@example.com', 'suspended')").run().lastInsertRowid;
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'tech-a@example.com', 'owner', 'Tech A', 'user-a')").run(shopA);
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'tech-b@example.com', 'owner', 'Tech B', 'user-b')").run(shopB);
+  db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'owner-suspended@example.com', 'owner', 'Suspended Owner', 'user-suspended')").run(suspendedShop);
   db.close();
 
   const tokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' });
   const tokenB = signToken({ sub: 'user-b', email: 'tech-b@example.com' });
+  const suspendedToken = signToken({ sub: 'user-suspended', email: 'owner-suspended@example.com' });
   const expiredTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com', exp: Math.floor(Date.now() / 1000) - 10 });
   const noSubjectTokenA = signToken({ email: 'tech-a@example.com' });
   const noExpiryTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' }, { skipDefaults: true });
@@ -153,6 +156,12 @@ async function main() {
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${unsupportedAlgTokenA}` })).status, 401);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${multiAudienceTokenA}` })).status, 200);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${tokenB}` })).status, 403);
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(suspendedShop) })).status, 401, 'Suspended shop status must not be exposed before bearer auth succeeds');
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(suspendedShop), authorization: `Bearer ${badSignatureTokenA}` })).status, 401, 'Suspended shop status must not be exposed to invalid bearer tokens');
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(suspendedShop), authorization: `Bearer ${tokenA}` })).status, 403, 'Suspended shop status must not be exposed to non-members');
+  const suspendedResponse = await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(suspendedShop), authorization: `Bearer ${suspendedToken}` });
+  assert.strictEqual(suspendedResponse.status, 403, 'Suspended/canceled SaaS shops must be blocked even with a valid member token');
+  assert.strictEqual(suspendedResponse.body.field, 'plan_status');
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), 'x-wrenchpro-user-email': 'tech-b@example.com', authorization: `Bearer ${tokenA}` })).status, 200);
 
   const shopContextA = await request('GET', '/api/shop-context', undefined, aHeaders);
