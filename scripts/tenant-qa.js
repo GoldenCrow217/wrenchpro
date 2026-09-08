@@ -144,7 +144,8 @@ async function main() {
   const bHeaders = { 'x-wrenchpro-shop-id': String(shopB), authorization: `Bearer ${tokenB}` };
 
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': 'bad' })).status, 400);
-  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': '999999' })).status, 404);
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': '999999' })).status, 401, 'Unknown hosted shop IDs must not be enumerable before bearer auth succeeds');
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': '999999', authorization: `Bearer ${tokenA}` })).status, 404);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA) })).status, 401);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${expiredTokenA}` })).status, 401);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${noSubjectTokenA}` })).status, 401);

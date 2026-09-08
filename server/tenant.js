@@ -184,8 +184,6 @@ function validateRequestedShopContext(req, res, next) {
       }
       return next();
     }
-    const shop = shopRecord(shopId);
-    if (!shop) return res.status(404).json({ error: 'Shop context not found', field: 'shop_id' });
     if (REQUIRE_MEMBERSHIP && !SUPABASE_JWT_SECRET) {
       return res.status(503).json({ error: 'Shop membership authentication is not configured' });
     }
@@ -199,6 +197,9 @@ function validateRequestedShopContext(req, res, next) {
         role: String(authPayload.role || ''),
       };
     }
+
+    const shop = shopRecord(shopId);
+    if (!shop) return res.status(404).json({ error: 'Shop context not found', field: 'shop_id' });
 
     const email = requestedUserEmail(req);
     const userId = String(req.authUser?.id || '');

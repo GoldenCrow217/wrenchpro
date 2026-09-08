@@ -9,6 +9,7 @@ All notable WrenchPro changes should be documented here before release.
 - Hosted frontend shop-context bootstrap for SaaS shells via `window.WrenchProShopContext` or URL/hash context parameters, with active-token persistence limited to session storage, legacy local tokens migrated out of localStorage, and secret-bearing URL/global handoff parameters scrubbed after bootstrap.
 - Hosted shop access now fails closed for suspended/canceled SaaS shop plan statuses only after bearer authentication and membership pass, avoiding plan-status disclosure to invalid tokens or non-members.
 - Hosted auth recovery UX now distinguishes expired sessions, non-member access, and inactive shop accounts during initial load, focus refresh, and API failures.
+- Hosted membership enforcement now requires bearer authentication before revealing whether a requested shop context exists.
 - Project/company operating docs for the AI-assisted WrenchPro software company workflow.
 - Initial internal strategy, business workflow assumptions, QA checklist, release checklist, support/docs plan, and Telegram bot plan.
 - Basic smoke test script: `npm run smoke` / `npm test`.
