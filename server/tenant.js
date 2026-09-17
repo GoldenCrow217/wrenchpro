@@ -186,7 +186,7 @@ function validateRequestedShopContext(req, res, next) {
 
     const shopId = requestedShopId(req);
     if (!shopId) {
-      if (REQUIRE_MEMBERSHIP && req.path !== '/shop-context') {
+      if (REQUIRE_MEMBERSHIP) {
         return res.status(400).json({ error: 'Shop context is required', field: 'shop_id' });
       }
       return next();

@@ -185,7 +185,6 @@ async function main() {
   assert.strictEqual(shopContextA.body.membership.email, 'tech-a@example.com');
   assert.ok(!Object.prototype.hasOwnProperty.call(shopContextA.body.membership, 'supabase_user_id'), 'Shop context must not expose provider user IDs');
   assert.ok(!Object.prototype.hasOwnProperty.call(shopContextA.body.membership, 'authorization'), 'Shop context must not expose bearer tokens');
-  assert.strictEqual((await request('GET', '/api/shop-context')).body.mode, 'desktop');
 
   const customerA = await request('POST', '/api/customers', { first: 'Ada', last: 'Tenant' }, aHeaders);
   assert.strictEqual(customerA.status, 200, JSON.stringify(customerA.body));
@@ -231,6 +230,9 @@ async function main() {
   const hostedNoShopView = await request('GET', '/api/customers');
   assert.strictEqual(hostedNoShopView.status, 400, 'Hosted membership enforcement must not expose desktop compatibility data without a shop context');
   assert.strictEqual(hostedNoShopView.body.field, 'shop_id');
+  const hostedNoShopContext = await request('GET', '/api/shop-context');
+  assert.strictEqual(hostedNoShopContext.status, 400, 'Hosted shop context endpoint must require an explicit shop context');
+  assert.strictEqual(hostedNoShopContext.body.field, 'shop_id');
 
   await runOptionalMembershipQa();
   await runMissingJwtSecretQa();
