@@ -136,7 +136,11 @@ function hasRequestedShopId(req) {
 }
 
 function requestedUserEmail(req) {
-  if (req?.authUser?.email) return normalizeEmail(req.authUser.email);
+  // Once a bearer token has been verified, only trust identity claims from that
+  // token. Falling back to a client-supplied email header would let any valid
+  // authenticated Supabase user impersonate a shop member by spoofing the
+  // header when their token lacks an email claim.
+  if (req && Object.prototype.hasOwnProperty.call(req, 'authUser')) return normalizeEmail(req.authUser.email);
   return normalizeEmail(req?.headers?.[EMAIL_HEADER]);
 }
 
@@ -159,7 +163,10 @@ function membershipFor(shopId, email, userId = '') {
   const membership = userId
     ? db.prepare(`
       SELECT * FROM shop_memberships
-      WHERE shop_id = ? AND (supabase_user_id = ? OR (? <> '' AND lower(email) = lower(?)))
+      WHERE shop_id = ? AND (
+        supabase_user_id = ?
+        OR ((supabase_user_id IS NULL OR trim(supabase_user_id) = '') AND ? <> '' AND lower(email) = lower(?))
+      )
     `).get(shopId, userId, email, email)
     : db.prepare(`
       SELECT * FROM shop_memberships

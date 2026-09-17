@@ -33,7 +33,7 @@ const context = {
   updateSidebarFoot: () => {},
   renderPage: () => {},
 };
-vm.runInNewContext(`const API='';let currentPage='dashboard';${html.slice(apiStart, apiEnd)}${html.slice(loadStart, loadEnd)};globalThis.qa={refreshOnFocus,loadAll};`, context);
+vm.runInNewContext(`const API='';let currentPage='dashboard';let shopContext={shopId:null,email:'',accessToken:''};${html.slice(apiStart, apiEnd)}${html.slice(loadStart, loadEnd)};globalThis.qa={refreshOnFocus,loadAll};`, context);
 
 const ok = value => ({ ok: true, json: async () => value });
 const failed = message => ({ ok: false, json: async () => ({ error: message }) });

@@ -21,6 +21,7 @@ app.disable('x-powered-by');
 // http://localhost.evil.test to receive CORS headers. Local desktop builds may
 // load from a file/null origin.
 const LOCALHOST_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(:\d+)?$/;
+const HOSTED_SAAS_MODE = String(process.env.WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP || '').toLowerCase() === 'true';
 function configuredAllowedOrigins() {
   return String(process.env.WRENCHPRO_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || '')
     .split(',')
@@ -33,7 +34,10 @@ app.use(cors({
     const cleanOrigin = String(origin).replace(/\/$/, '');
     if (LOCALHOST_ORIGIN.test(cleanOrigin)) return callback(null, true);
     if (configuredAllowedOrigins().includes(cleanOrigin)) return callback(null, true);
-    if (origin === 'null') return callback(null, true);
+    // Desktop/Electron may load from a file/null origin. In hosted SaaS mode,
+    // require an explicit HTTPS origin so bearer-authenticated shop APIs are not
+    // exposed to arbitrary local files or sandboxed documents.
+    if (origin === 'null' && !HOSTED_SAAS_MODE) return callback(null, true);
     return callback(null, false);
   },
 }));

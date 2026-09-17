@@ -37,7 +37,7 @@ const multiAudience = unsignedToken({ sub: 'user-a', email: 'tech@example.com', 
 
 const context = {
   SHOP_CONTEXT_STORAGE_KEY: 'wrenchpro.shopContext',
-  SHOP_REJECTED_TOKEN_STORAGE_KEY: 'wrenchpro.rejectedSupabaseAccessToken',
+  SHOP_REJECTED_TOKEN_STORAGE_KEY: 'wrenchpro.rejectedSupabaseAccessTokenFingerprint',
   SUPABASE_AUTH_ISSUER: trustedIssuer,
   shopContext: { shopId: 42, email: 'fallback@example.com', accessToken: '' },
   sessionStorage: createStorage(),
@@ -113,7 +113,7 @@ assert.strictEqual(context.sessionStorage.getItem('wrenchpro.supabaseAccessToken
 assert.strictEqual(context.localStorage.getItem('wrenchpro.supabaseAccessToken'), null, 'Expired provided tokens should clear stale primary hosted sessions instead of falling back to them');
 assert.strictEqual(context.usableSupabaseAccessToken(expired), '', 'Expired provided tokens should be remembered as rejected for this tab');
 
-context.sessionStorage.removeItem('wrenchpro.rejectedSupabaseAccessToken');
+context.sessionStorage.removeItem('wrenchpro.rejectedSupabaseAccessTokenFingerprint');
 context.localStorage.setItem('wrenchpro.supabaseAccessToken', valid);
 assert.strictEqual(context.storedSupabaseAccessToken(), valid, 'Legacy WrenchPro localStorage tokens should be discoverable during migration');
 assert.strictEqual(context.sessionStorage.getItem('wrenchpro.supabaseAccessToken'), valid, 'Legacy WrenchPro localStorage tokens should be migrated to session storage');
@@ -129,6 +129,8 @@ assert.strictEqual(headers['X-WrenchPro-Shop-Id'], '42', 'Shop context header sh
 assert.strictEqual(headers.Authorization, `Bearer ${valid}`, 'Active hosted sessions should send Authorization');
 context.rememberRejectedSupabaseAccessToken(valid);
 assert.strictEqual(context.usableSupabaseAccessToken(valid), '', 'Rejected tokens should not be retried in the same tab');
+assert.notStrictEqual(context.rejectedSupabaseAccessToken(), valid, 'Rejected-token retry guard must not store the bearer token itself');
+assert.match(context.rejectedSupabaseAccessToken(), /^sig:/, 'Rejected-token retry guard should store only a non-bearer token fingerprint');
 context.localStorage.removeItem('sb-xgqidqyctypfbuhhzwai-auth-token');
 context.sessionStorage.removeItem('sb-xgqidqyctypfbuhhzwai-auth-token');
 context.shopContext = { shopId: 42, email: 'fallback@example.com', accessToken: expired };

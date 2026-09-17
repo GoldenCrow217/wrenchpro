@@ -39,6 +39,19 @@ function globalSettings() {
   return db.prepare('SELECT * FROM settings WHERE id = 1').get() || {};
 }
 
+function defaultShopSettings(shopId) {
+  return {
+    shop_id: shopId,
+    business_name: '', owner_name: '', phone: '', email: '', address: '', service_area: '', website: '', business_hours: '',
+    default_labor_rate: 0, diagnostic_rate: 0, fleet_rate: 0, emergency_rate: 0, service_fee: 0,
+    default_pay_method: 'Cash', tax_rate: 0, oil_warn_miles: 1500, currency_symbol: '$',
+    tax_id: '', invoice_terms: 'Due on receipt', invoice_footer: 'Thank you for your business!', invoice_logo: '',
+    warranty_terms: '12 months / 12,000 miles', estimate_terms: '', parts_markup_tiers: '',
+    require_parts_deposit: 0, parts_deposit_percent: 100, payment_grace_days: 0, late_fee: 0,
+    dashboard_kpis: JSON.stringify(DEFAULT_DASHBOARD_KPIS),
+  };
+}
+
 function shopSettings(shopId) {
   if (!shopId) return null;
   return db.prepare('SELECT * FROM shop_settings WHERE shop_id = ?').get(shopId) || null;
@@ -46,13 +59,13 @@ function shopSettings(shopId) {
 
 router.get('/', (req, res) => {
   const shopId = resolveShopId(req);
-  const row = shopSettings(shopId) || globalSettings();
+  const row = shopId ? (shopSettings(shopId) || defaultShopSettings(shopId)) : globalSettings();
   res.json(row || {});
 });
 
 router.put('/', (req, res) => {
   const shopId = resolveShopId(req);
-  const currentSettings = shopSettings(shopId) || globalSettings();
+  const currentSettings = shopId ? (shopSettings(shopId) || defaultShopSettings(shopId)) : globalSettings();
   for (const [field, label] of [['default_labor_rate','Default labor rate'],['diagnostic_rate','Diagnostic rate'],['fleet_rate','Fleet rate'],['emergency_rate','Emergency rate'],['service_fee','Service fee'],['tax_rate','Tax rate'],['oil_warn_miles','Oil warning mileage'],['parts_deposit_percent','Parts deposit percent'],['payment_grace_days','Payment grace days'],['late_fee','Late fee']]) {
     if (!nonNegativeNumber(res, req.body, field, { label })) return;
   }

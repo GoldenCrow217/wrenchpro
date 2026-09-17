@@ -6,7 +6,12 @@ All notable WrenchPro changes should be documented here before release.
 
 ### Added
 
-- Hosted frontend shop-context bootstrap for SaaS shells via `window.WrenchProShopContext` or URL/hash context parameters, with active-token persistence limited to session storage, legacy local tokens migrated out of localStorage, and secret-bearing URL/global handoff parameters scrubbed after bootstrap.
+- Hosted frontend shop-context bootstrap for SaaS shells via `window.WrenchProShopContext` or URL/hash context parameters, with active-token persistence limited to session storage, legacy local tokens migrated out of localStorage, rejected-token retry guards stored as non-bearer fingerprints, and secret-bearing URL/global handoff parameters scrubbed after bootstrap.
+- Hosted SaaS mode now rejects browser CORS from `file`/`null` origins while preserving desktop/Electron compatibility when hosted membership enforcement is disabled.
+- Hosted shop settings now start from safe SaaS defaults instead of inheriting the desktop/global settings row, preventing business identity or tax configuration leakage between local desktop mode and new hosted shops.
+- Hosted tenant QA now avoids browser/fetch-forbidden ports so daily SaaS conversion checks do not false-fail after the server starts successfully.
+- Focus-refresh QA now includes hosted shop context state so SaaS auth-refresh error handling stays covered by automated checks.
+- Hosted membership checks no longer trust spoofable email headers once a Supabase bearer token is verified; linked memberships now require the matching Supabase user ID instead of allowing email-only fallback for a different token subject.
 - Hosted shop access now fails closed for suspended/canceled SaaS shop plan statuses only after bearer authentication and membership pass, avoiding plan-status disclosure to invalid tokens or non-members.
 - Hosted auth recovery UX now distinguishes expired sessions, non-member access, and inactive shop accounts during initial load, focus refresh, and API failures.
 - Hosted membership enforcement now requires bearer authentication before revealing whether a requested shop context exists.

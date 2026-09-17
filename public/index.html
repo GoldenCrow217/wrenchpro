@@ -1869,7 +1869,7 @@ tr:hover td{background:var(--bg-subtle);}
 <script>
 const API = '';
 const SHOP_CONTEXT_STORAGE_KEY = 'wrenchpro.shopContext.v1';
-const SHOP_REJECTED_TOKEN_STORAGE_KEY = 'wrenchpro.rejectedSupabaseAccessToken';
+const SHOP_REJECTED_TOKEN_STORAGE_KEY = 'wrenchpro.rejectedSupabaseAccessTokenFingerprint';
 const SUPABASE_AUTH_ISSUER = 'https://xgqidqyctypfbuhhzwai.supabase.co/auth/v1';
 let shopContext = loadShopContext();
 let shopContextDetails = null;
@@ -1960,15 +1960,21 @@ function bearerTokenIsActive(token){
   if(issuer!==SUPABASE_AUTH_ISSUER)return false;
   return true;
 }
+function supabaseAccessTokenFingerprint(token){
+  const clean=cleanBearerToken(token);
+  const signature=clean.split('.')[2]||'';
+  return signature?`sig:${signature}`:'';
+}
 function rejectedSupabaseAccessToken(){
-  return cleanBearerToken(sessionStorage.getItem(SHOP_REJECTED_TOKEN_STORAGE_KEY));
+  return String(sessionStorage.getItem(SHOP_REJECTED_TOKEN_STORAGE_KEY)||'');
 }
 function isRejectedSupabaseAccessToken(token){
-  return Boolean(token&&rejectedSupabaseAccessToken()===token);
+  const fingerprint=supabaseAccessTokenFingerprint(token);
+  return Boolean(fingerprint&&rejectedSupabaseAccessToken()===fingerprint);
 }
 function rememberRejectedSupabaseAccessToken(token){
-  const clean=cleanBearerToken(token);
-  if(clean)sessionStorage.setItem(SHOP_REJECTED_TOKEN_STORAGE_KEY,clean);
+  const fingerprint=supabaseAccessTokenFingerprint(token);
+  if(fingerprint)sessionStorage.setItem(SHOP_REJECTED_TOKEN_STORAGE_KEY,fingerprint);
 }
 function usableSupabaseAccessToken(value){
   const token=cleanBearerToken(value);

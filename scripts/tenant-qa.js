@@ -8,7 +8,7 @@ const crypto = require('crypto');
 
 const JWT_SECRET = 'tenant-qa-secret-not-production';
 const SUPABASE_URL = 'https://xgqidqyctypfbuhhzwai.supabase.co';
-const port = String(6600 + Math.floor(Math.random() * 500));
+const port = String(6700 + Math.floor(Math.random() * 400));
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-tenant-'));
 const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
   cwd: path.join(__dirname, '..'),
@@ -74,6 +74,8 @@ async function runOptionalMembershipQa() {
       await sleep(50);
       if (i === 99) throw new Error(`Optional membership QA server did not start:\n${optionalOutput}`);
     }
+    const nullOriginHealth = await fetch(optionalUrl('/api/health'), { headers: { Origin: 'null' } });
+    assert.strictEqual(nullOriginHealth.headers.get('access-control-allow-origin'), 'null', 'Desktop compatibility mode should still allow file/null origin clients');
     const optionalDb = new Database(path.join(optionalDataDir, 'wrenchpro.db'));
     const shop = optionalDb.prepare("INSERT INTO shops (name, owner_email) VALUES ('Optional Shop', 'owner@example.com')").run().lastInsertRowid;
     optionalDb.close();
@@ -119,10 +121,14 @@ async function runMissingJwtSecretQa() {
 async function main() {
   await waitForServer();
 
+  const hostedNullOriginHealth = await fetch(url('/api/health'), { headers: { Origin: 'null' } });
+  assert.strictEqual(hostedNullOriginHealth.headers.get('access-control-allow-origin'), null, 'Hosted SaaS mode must not allow browser CORS from file/null origins');
+
   const db = new Database(path.join(dataDir, 'wrenchpro.db'));
   const shopA = db.prepare("INSERT INTO shops (name, owner_email) VALUES ('A Mobile Repair', 'owner-a@example.com')").run().lastInsertRowid;
   const shopB = db.prepare("INSERT INTO shops (name, owner_email) VALUES ('B Mobile Repair', 'owner-b@example.com')").run().lastInsertRowid;
   const suspendedShop = db.prepare("INSERT INTO shops (name, owner_email, plan_status) VALUES ('Suspended Mobile Repair', 'owner-suspended@example.com', 'suspended')").run().lastInsertRowid;
+  db.prepare("UPDATE settings SET business_name = 'Desktop Only Repair', owner_name = 'Desktop Owner', tax_id = 'LOCAL-TAX-123' WHERE id = 1").run();
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'tech-a@example.com', 'owner', 'Tech A', 'user-a')").run(shopA);
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'tech-b@example.com', 'owner', 'Tech B', 'user-b')").run(shopB);
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'owner-suspended@example.com', 'owner', 'Suspended Owner', 'user-suspended')").run(suspendedShop);
@@ -140,6 +146,9 @@ async function main() {
   const badSignatureTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' }, { badSignature: true });
   const unsupportedAlgTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' }, { alg: 'none' });
   const multiAudienceTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com', aud: ['anon', 'authenticated'] });
+  const noEmailTokenA = signToken({ sub: 'user-a' });
+  const noEmailSpoofToken = signToken({ sub: 'user-spoof' });
+  const linkedEmailSpoofToken = signToken({ sub: 'user-spoof', email: 'tech-a@example.com' });
   const aHeaders = { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${tokenA}` };
   const bHeaders = { 'x-wrenchpro-shop-id': String(shopB), authorization: `Bearer ${tokenB}` };
 
@@ -164,6 +173,9 @@ async function main() {
   assert.strictEqual(suspendedResponse.status, 403, 'Suspended/canceled SaaS shops must be blocked even with a valid member token');
   assert.strictEqual(suspendedResponse.body.field, 'plan_status');
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), 'x-wrenchpro-user-email': 'tech-b@example.com', authorization: `Bearer ${tokenA}` })).status, 200);
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${noEmailTokenA}` })).status, 200, 'Verified Supabase user IDs should authorize membership even without an email claim');
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), 'x-wrenchpro-user-email': 'tech-a@example.com', authorization: `Bearer ${noEmailSpoofToken}` })).status, 403, 'Bearer-authenticated requests must not trust spoofed membership email headers');
+  assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${linkedEmailSpoofToken}` })).status, 403, 'Linked hosted memberships must require the matching Supabase user ID, not just a matching token email');
 
   const shopContextA = await request('GET', '/api/shop-context', undefined, aHeaders);
   assert.strictEqual(shopContextA.status, 200, JSON.stringify(shopContextA.body));
@@ -187,6 +199,12 @@ async function main() {
   const visibleToB = await request('GET', '/api/customers', undefined, bHeaders);
   assert.deepStrictEqual(visibleToB.body.map(customer => customer.id), [customerB.body.id]);
   assert.strictEqual((await request('GET', `/api/customers/${customerB.body.id}`, undefined, aHeaders)).status, 404);
+
+  const initialSettingsB = await request('GET', '/api/settings', undefined, bHeaders);
+  assert.strictEqual(initialSettingsB.status, 200, JSON.stringify(initialSettingsB.body));
+  assert.strictEqual(initialSettingsB.body.business_name, '', 'New hosted shops must not inherit or leak desktop/global settings');
+  assert.strictEqual(initialSettingsB.body.owner_name, '', 'New hosted shops must not expose desktop owner identity');
+  assert.strictEqual(initialSettingsB.body.tax_id, '', 'New hosted shops must not expose desktop tax identifiers');
 
   const settingsA = await request('PUT', '/api/settings', { business_name: 'A Mobile Repair', default_labor_rate: 125 }, aHeaders);
   assert.strictEqual(settingsA.status, 200, JSON.stringify(settingsA.body));
