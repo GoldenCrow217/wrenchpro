@@ -10,6 +10,10 @@ function publicShop(row) {
     name: row.name || '',
     owner_email: row.owner_email || '',
     plan_status: row.plan_status || '',
+    plan_code: row.plan_code || '',
+    billing_email: row.billing_email || '',
+    trial_ends_at: row.trial_ends_at || '',
+    current_period_ends_at: row.current_period_ends_at || '',
     created_at: row.created_at || '',
   };
 }
@@ -32,7 +36,7 @@ router.get('/', (req, res) => {
     return res.json({ mode: 'desktop', shop: null, membership: null });
   }
 
-  const shop = db.prepare('SELECT id, name, owner_email, plan_status, created_at FROM shops WHERE id = ?').get(shopId);
+  const shop = db.prepare('SELECT id, name, owner_email, billing_email, plan_status, plan_code, trial_ends_at, current_period_ends_at, created_at FROM shops WHERE id = ?').get(shopId);
   res.json({
     mode: 'shop',
     shop: publicShop(shop),

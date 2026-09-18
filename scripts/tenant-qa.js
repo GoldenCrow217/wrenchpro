@@ -125,18 +125,21 @@ async function main() {
   assert.strictEqual(hostedNullOriginHealth.headers.get('access-control-allow-origin'), null, 'Hosted SaaS mode must not allow browser CORS from file/null origins');
 
   const db = new Database(path.join(dataDir, 'wrenchpro.db'));
-  const shopA = db.prepare("INSERT INTO shops (name, owner_email) VALUES ('A Mobile Repair', 'owner-a@example.com')").run().lastInsertRowid;
+  const shopA = db.prepare("INSERT INTO shops (name, owner_email, billing_email, plan_code, trial_ends_at) VALUES ('A Mobile Repair', 'owner-a@example.com', 'billing-a@example.com', 'founding_mechanic', '2099-12-31')").run().lastInsertRowid;
   const shopB = db.prepare("INSERT INTO shops (name, owner_email) VALUES ('B Mobile Repair', 'owner-b@example.com')").run().lastInsertRowid;
   const suspendedShop = db.prepare("INSERT INTO shops (name, owner_email, plan_status) VALUES ('Suspended Mobile Repair', 'owner-suspended@example.com', 'suspended')").run().lastInsertRowid;
+  const expiredTrialShop = db.prepare("INSERT INTO shops (name, owner_email, plan_status, trial_ends_at) VALUES ('Expired Trial Repair', 'owner-expired@example.com', 'trial', '2000-01-01')").run().lastInsertRowid;
   db.prepare("UPDATE settings SET business_name = 'Desktop Only Repair', owner_name = 'Desktop Owner', tax_id = 'LOCAL-TAX-123' WHERE id = 1").run();
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'tech-a@example.com', 'owner', 'Tech A', 'user-a')").run(shopA);
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'tech-b@example.com', 'owner', 'Tech B', 'user-b')").run(shopB);
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'owner-suspended@example.com', 'owner', 'Suspended Owner', 'user-suspended')").run(suspendedShop);
+  db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'owner-expired@example.com', 'owner', 'Expired Trial Owner', 'user-expired')").run(expiredTrialShop);
   db.close();
 
   const tokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' });
   const tokenB = signToken({ sub: 'user-b', email: 'tech-b@example.com' });
   const suspendedToken = signToken({ sub: 'user-suspended', email: 'owner-suspended@example.com' });
+  const expiredTrialToken = signToken({ sub: 'user-expired', email: 'owner-expired@example.com' });
   const expiredTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com', exp: Math.floor(Date.now() / 1000) - 10 });
   const noSubjectTokenA = signToken({ email: 'tech-a@example.com' });
   const noExpiryTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' }, { skipDefaults: true });
@@ -172,6 +175,9 @@ async function main() {
   const suspendedResponse = await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(suspendedShop), authorization: `Bearer ${suspendedToken}` });
   assert.strictEqual(suspendedResponse.status, 403, 'Suspended/canceled SaaS shops must be blocked even with a valid member token');
   assert.strictEqual(suspendedResponse.body.field, 'plan_status');
+  const expiredTrialResponse = await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(expiredTrialShop), authorization: `Bearer ${expiredTrialToken}` });
+  assert.strictEqual(expiredTrialResponse.status, 403, 'Expired SaaS trials must be blocked even with a valid member token');
+  assert.strictEqual(expiredTrialResponse.body.field, 'plan_status');
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), 'x-wrenchpro-user-email': 'tech-b@example.com', authorization: `Bearer ${tokenA}` })).status, 200);
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${noEmailTokenA}` })).status, 200, 'Verified Supabase user IDs should authorize membership even without an email claim');
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': String(shopA), 'x-wrenchpro-user-email': 'tech-a@example.com', authorization: `Bearer ${noEmailSpoofToken}` })).status, 403, 'Bearer-authenticated requests must not trust spoofed membership email headers');
@@ -181,6 +187,10 @@ async function main() {
   assert.strictEqual(shopContextA.status, 200, JSON.stringify(shopContextA.body));
   assert.strictEqual(shopContextA.body.mode, 'shop');
   assert.strictEqual(shopContextA.body.shop.id, shopA);
+  assert.strictEqual(shopContextA.body.shop.plan_code, 'founding_mechanic');
+  assert.strictEqual(shopContextA.body.shop.billing_email, 'billing-a@example.com');
+  assert.strictEqual(shopContextA.body.shop.trial_ends_at, '2099-12-31');
+  assert.ok(!Object.prototype.hasOwnProperty.call(shopContextA.body.shop, 'supabase_org_id'), 'Shop context must not expose provider organization IDs');
   assert.strictEqual(shopContextA.body.membership.role, 'owner');
   assert.strictEqual(shopContextA.body.membership.email, 'tech-a@example.com');
   assert.ok(!Object.prototype.hasOwnProperty.call(shopContextA.body.membership, 'supabase_user_id'), 'Shop context must not expose provider user IDs');

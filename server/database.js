@@ -363,7 +363,11 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     owner_email TEXT DEFAULT '',
+    billing_email TEXT DEFAULT '',
     plan_status TEXT DEFAULT 'trial',
+    plan_code TEXT DEFAULT 'founding_mechanic',
+    trial_ends_at TEXT DEFAULT '',
+    current_period_ends_at TEXT DEFAULT '',
     supabase_org_id TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now'))
   );
@@ -440,10 +444,14 @@ db.prepare(`INSERT OR IGNORE INTO settings (id) VALUES (1)`).run();
 
 // Migrate: shops and hosted SaaS memberships
 const shopCols = db.prepare(`PRAGMA table_info(shops)`).all().map(c => c.name);
-if (!shopCols.includes('owner_email'))     db.prepare(`ALTER TABLE shops ADD COLUMN owner_email TEXT DEFAULT ''`).run();
-if (!shopCols.includes('plan_status'))     db.prepare(`ALTER TABLE shops ADD COLUMN plan_status TEXT DEFAULT 'trial'`).run();
-if (!shopCols.includes('supabase_org_id')) db.prepare(`ALTER TABLE shops ADD COLUMN supabase_org_id TEXT DEFAULT ''`).run();
-if (!shopCols.includes('created_at'))      db.prepare(`ALTER TABLE shops ADD COLUMN created_at TEXT DEFAULT ''`).run();
+if (!shopCols.includes('owner_email'))             db.prepare(`ALTER TABLE shops ADD COLUMN owner_email TEXT DEFAULT ''`).run();
+if (!shopCols.includes('billing_email'))           db.prepare(`ALTER TABLE shops ADD COLUMN billing_email TEXT DEFAULT ''`).run();
+if (!shopCols.includes('plan_status'))             db.prepare(`ALTER TABLE shops ADD COLUMN plan_status TEXT DEFAULT 'trial'`).run();
+if (!shopCols.includes('plan_code'))               db.prepare(`ALTER TABLE shops ADD COLUMN plan_code TEXT DEFAULT 'founding_mechanic'`).run();
+if (!shopCols.includes('trial_ends_at'))           db.prepare(`ALTER TABLE shops ADD COLUMN trial_ends_at TEXT DEFAULT ''`).run();
+if (!shopCols.includes('current_period_ends_at'))  db.prepare(`ALTER TABLE shops ADD COLUMN current_period_ends_at TEXT DEFAULT ''`).run();
+if (!shopCols.includes('supabase_org_id'))         db.prepare(`ALTER TABLE shops ADD COLUMN supabase_org_id TEXT DEFAULT ''`).run();
+if (!shopCols.includes('created_at'))              db.prepare(`ALTER TABLE shops ADD COLUMN created_at TEXT DEFAULT ''`).run();
 
 const memberCols = db.prepare(`PRAGMA table_info(shop_memberships)`).all().map(c => c.name);
 if (!memberCols.includes('role'))             db.prepare(`ALTER TABLE shop_memberships ADD COLUMN role TEXT DEFAULT 'mechanic'`).run();

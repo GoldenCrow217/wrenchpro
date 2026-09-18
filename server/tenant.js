@@ -15,7 +15,7 @@ const REQUIRE_MEMBERSHIP = String(process.env.WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP 
 const SUPABASE_JWT_SECRET = String(process.env.WRENCHPRO_SUPABASE_JWT_SECRET || process.env.SUPABASE_JWT_SECRET || '').trim();
 const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.WRENCHPRO_SUPABASE_URL || '').replace(/\/$/, '');
 const ACTIVE_ROLES = new Set(['owner', 'admin', 'mechanic', 'service_writer']);
-const BLOCKED_PLAN_STATUSES = new Set(['canceled', 'cancelled', 'suspended', 'disabled', 'inactive', 'deleted']);
+const BLOCKED_PLAN_STATUSES = new Set(['canceled', 'cancelled', 'suspended', 'disabled', 'inactive', 'deleted', 'trial_expired']);
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -146,7 +146,7 @@ function requestedUserEmail(req) {
 
 function shopRecord(shopId) {
   if (!shopId) return null;
-  return db.prepare('SELECT id, plan_status FROM shops WHERE id = ?').get(shopId) || null;
+  return db.prepare('SELECT id, plan_status, trial_ends_at FROM shops WHERE id = ?').get(shopId) || null;
 }
 
 function shopExists(shopId) {
@@ -155,7 +155,13 @@ function shopExists(shopId) {
 
 function shopPlanAllowsAccess(shop) {
   const status = String(shop?.plan_status || 'trial').trim().toLowerCase();
-  return !BLOCKED_PLAN_STATUSES.has(status);
+  if (BLOCKED_PLAN_STATUSES.has(status)) return false;
+  const trialEndsAt = String(shop?.trial_ends_at || '').trim();
+  if (status === 'trial' && trialEndsAt) {
+    const trialEnd = Date.parse(trialEndsAt.length === 10 ? `${trialEndsAt}T23:59:59Z` : trialEndsAt);
+    if (Number.isFinite(trialEnd) && trialEnd < Date.now()) return false;
+  }
+  return true;
 }
 
 function membershipFor(shopId, email, userId = '') {

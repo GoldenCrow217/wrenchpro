@@ -13,6 +13,7 @@ All notable WrenchPro changes should be documented here before release.
 - Focus-refresh QA now includes hosted shop context state so SaaS auth-refresh error handling stays covered by automated checks.
 - Hosted membership checks no longer trust spoofable email headers once a Supabase bearer token is verified; linked memberships now require the matching Supabase user ID instead of allowing email-only fallback for a different token subject.
 - Hosted shop-context API now requires an explicit shop context when membership enforcement is enabled, instead of falling back to desktop compatibility mode.
+- Hosted shops now carry billing-readiness metadata (`plan_code`, `billing_email`, `trial_ends_at`, `current_period_ends_at`) in the local schema, expose safe account details through shop context, and fail closed for expired trials.
 - Hosted shop access now fails closed for suspended/canceled SaaS shop plan statuses only after bearer authentication and membership pass, avoiding plan-status disclosure to invalid tokens or non-members.
 - Hosted auth recovery UX now distinguishes expired sessions, non-member access, and inactive shop accounts during initial load, focus refresh, and API failures.
 - Hosted membership enforcement now requires bearer authentication before revealing whether a requested shop context exists.
