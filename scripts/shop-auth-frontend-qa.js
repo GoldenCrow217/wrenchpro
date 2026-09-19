@@ -73,6 +73,7 @@ assert.strictEqual(context.usableSupabaseAccessToken(multiAudience), multiAudien
 assert.match(context.shopAuthErrorMessage(401, 'server said no'), /session expired or is missing/, 'Hosted 401s should guide users back to the hosted shell sign-in');
 assert.match(context.shopAuthErrorMessage(403, 'Shop account is not active', 'plan_status'), /shop account is not active/, 'Blocked SaaS accounts should get a subscription/account-status recovery message');
 assert.match(context.shopAuthErrorMessage(403, 'User is not an active member'), /not an active member/, 'Membership 403s should keep their membership recovery message');
+assert.match(context.shopAuthErrorMessage(503, 'Shop membership authentication is not configured'), /hosted authentication is not configured/, 'Hosted auth misconfiguration should show a support/configuration recovery message');
 const normalizedHostedContext = context.normalizeHostedShopContext({ shop_id: '42', shop_email: 'TECH@EXAMPLE.COM', access_token: valid });
 assert.strictEqual(normalizedHostedContext.shopId, 42, 'Hosted shell context should normalize snake_case shop IDs');
 assert.strictEqual(normalizedHostedContext.email, 'tech@example.com', 'Hosted shell context should normalize snake_case emails');

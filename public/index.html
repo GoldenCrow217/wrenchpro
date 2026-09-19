@@ -2111,6 +2111,7 @@ function shopAuthErrorMessage(status,msg,field){
   if(status===401)return 'Your shop session expired or is missing. Sign in again from the hosted WrenchPro shell, then reopen this shop.';
   if(status===403&&field==='plan_status')return 'This shop account is not active. Update the WrenchPro subscription or contact support to reopen this shop.';
   if(status===403)return 'Your signed-in account is not an active member of this shop.';
+  if(status===503)return 'Shop sign-in is temporarily unavailable because hosted authentication is not configured. Contact WrenchPro support before entering shop data.';
   return msg||'Request failed';
 }
 function shopContextLabel(){
@@ -2271,7 +2272,7 @@ async function api(method, path, body, {silentError=false}={}){
   const r = await fetch(API+path, opts);
   if(!r.ok){
     const err = await r.json().catch(()=>({error:'Request failed'}));
-    const msg = shopContext.shopId&&[401,403].includes(r.status)?shopAuthErrorMessage(r.status,err.error,err.field):err.error||'Request failed';
+    const msg = shopContext.shopId&&[401,403,503].includes(r.status)?shopAuthErrorMessage(r.status,err.error,err.field):err.error||'Request failed';
     if(shopContext.shopId&&r.status===401)clearStoredShopAccessToken();
     if(!silentError)toast(msg,8000);
     const error = new Error(msg);
@@ -2293,7 +2294,7 @@ async function refreshOnFocus(){
     await loadAll({silentErrors:true});
   }catch(error){
     console.error('Focus refresh failed:',error);
-    const authRefreshFailed=shopContext.shopId&&[401,403].includes(Number(error?.status));
+    const authRefreshFailed=shopContext.shopId&&[401,403,503].includes(Number(error?.status));
     toast(authRefreshFailed?error.message:'Some data could not be refreshed. Your existing information is still available.',8000);
   }finally{
     _focusRefreshInFlight=false;
@@ -2377,7 +2378,7 @@ async function initializeApp(){
     }
   }catch(error){
     console.error('Initial data load failed:',error);
-    const authLoadFailed=shopContext.shopId&&[401,403].includes(Number(error?.status));
+    const authLoadFailed=shopContext.shopId&&[401,403,503].includes(Number(error?.status));
     toast(authLoadFailed?error.message:'WrenchPro could not finish loading. Check the application logs and try reopening it.',8000);
   }
 }

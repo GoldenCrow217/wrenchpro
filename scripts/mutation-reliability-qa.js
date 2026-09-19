@@ -34,6 +34,8 @@ assert.match(html, /isRejectedSupabaseAccessToken\(token\)/, 'hosted token disco
 assert.match(html, /for\(const store of \[sessionStorage,localStorage\]\)/, 'hosted token discovery should prefer short-lived session storage before long-lived local storage');
 assert.match(html, /delete persisted\.accessToken/, 'hosted auth failures must remove legacy bearer tokens from saved shop context');
 assert.match(html, /shopAuthErrorMessage\(r\.status,err\.error,err\.field\)/, 'hosted shop auth failures must show field-specific session, membership, or account-status recovery messages');
+assert.match(html, /\[401,403,503\]\.includes\(r\.status\)/, 'hosted auth failures must include backend auth misconfiguration responses in actionable recovery UX');
+assert.match(html, /hosted authentication is not configured/, 'hosted auth misconfiguration must show a support/configuration recovery message');
 assert.match(html, /field==='plan_status'/, 'suspended or canceled hosted shops should show account-status recovery guidance instead of a membership-only error');
 assert.match(html, /authLoadFailed\?error\.message/, 'initial hosted auth failures should surface the actionable auth recovery message');
 assert.match(html, /authRefreshFailed\?error\.message/, 'focus-refresh hosted auth failures should surface the actionable auth recovery message');
