@@ -13,7 +13,8 @@ const SHOP_HEADER = 'x-wrenchpro-shop-id';
 const EMAIL_HEADER = 'x-wrenchpro-user-email';
 const REQUIRE_MEMBERSHIP = String(process.env.WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP || '').toLowerCase() === 'true';
 const SUPABASE_JWT_SECRET = String(process.env.WRENCHPRO_SUPABASE_JWT_SECRET || process.env.SUPABASE_JWT_SECRET || '').trim();
-const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.WRENCHPRO_SUPABASE_URL || '').replace(/\/$/, '');
+const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.WRENCHPRO_SUPABASE_URL || '').trim().replace(/\/$/, '');
+const SUPABASE_AUTH_CONFIGURED = Boolean(SUPABASE_JWT_SECRET && SUPABASE_URL);
 const ACTIVE_ROLES = new Set(['owner', 'admin', 'mechanic', 'service_writer']);
 const BLOCKED_PLAN_STATUSES = new Set(['canceled', 'cancelled', 'suspended', 'disabled', 'inactive', 'deleted', 'trial_expired']);
 
@@ -41,6 +42,11 @@ function timingSafeEqualText(a, b) {
 
 function verifiedBearerPayload(req) {
   if (!SUPABASE_JWT_SECRET) return null;
+  if (!SUPABASE_URL) {
+    const error = new Error('Shop membership authentication is not configured');
+    error.status = 503;
+    throw error;
+  }
   const auth = String(req?.headers?.authorization || '').trim();
   const match = auth.match(/^Bearer\s+(.+)$/i);
   if (!match) {
@@ -197,7 +203,7 @@ function validateRequestedShopContext(req, res, next) {
       }
       return next();
     }
-    if (REQUIRE_MEMBERSHIP && !SUPABASE_JWT_SECRET) {
+    if (REQUIRE_MEMBERSHIP && !SUPABASE_AUTH_CONFIGURED) {
       return res.status(503).json({ error: 'Shop membership authentication is not configured' });
     }
 

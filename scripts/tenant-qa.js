@@ -88,12 +88,12 @@ async function runOptionalMembershipQa() {
   }
 }
 
-async function runMissingJwtSecretQa() {
+async function runHostedAuthConfigQa({ env, label, requestHeaders, assertion }) {
   const configPort = String(7200 + Math.floor(Math.random() * 500));
-  const configDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-tenant-config-'));
+  const configDataDir = fs.mkdtempSync(path.join(os.tmpdir(), `wrenchpro-tenant-${label}-`));
   const configChild = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: configPort, WRENCHPRO_DATA: configDataDir, NODE_ENV: 'test', WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'true', WRENCHPRO_SUPABASE_JWT_SECRET: '', SUPABASE_JWT_SECRET: '', SUPABASE_URL },
+    env: { ...process.env, PORT: configPort, WRENCHPRO_DATA: configDataDir, NODE_ENV: 'test', WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'true', ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let configOutput = '';
@@ -109,13 +109,31 @@ async function runMissingJwtSecretQa() {
     }
     const configDb = new Database(path.join(configDataDir, 'wrenchpro.db'));
     const shop = configDb.prepare("INSERT INTO shops (name, owner_email) VALUES ('Misconfigured Shop', 'owner@example.com')").run().lastInsertRowid;
-    configDb.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name) VALUES (?, 'owner@example.com', 'owner', 'Owner')").run(shop);
+    configDb.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'owner@example.com', 'owner', 'Owner', 'user-config')").run(shop);
     configDb.close();
-    const response = await fetch(configUrl('/api/customers'), { headers: { 'x-wrenchpro-shop-id': String(shop), 'x-wrenchpro-user-email': 'owner@example.com' } });
-    assert.strictEqual(response.status, 503, 'Hosted membership enforcement must fail closed when no Supabase JWT secret is configured');
+    const response = await fetch(configUrl('/api/customers'), { headers: { 'x-wrenchpro-shop-id': String(shop), ...requestHeaders(shop) } });
+    assertion(response);
   } finally {
     configChild.kill();
   }
+}
+
+async function runMissingJwtSecretQa() {
+  await runHostedAuthConfigQa({
+    label: 'config-secret',
+    env: { WRENCHPRO_SUPABASE_JWT_SECRET: '', SUPABASE_JWT_SECRET: '', SUPABASE_URL },
+    requestHeaders: () => ({ 'x-wrenchpro-user-email': 'owner@example.com' }),
+    assertion: response => assert.strictEqual(response.status, 503, 'Hosted membership enforcement must fail closed when no Supabase JWT secret is configured'),
+  });
+}
+
+async function runMissingSupabaseUrlQa() {
+  await runHostedAuthConfigQa({
+    label: 'config-url',
+    env: { WRENCHPRO_SUPABASE_JWT_SECRET: JWT_SECRET, SUPABASE_JWT_SECRET: '', SUPABASE_URL: '', WRENCHPRO_SUPABASE_URL: '' },
+    requestHeaders: () => ({ authorization: `Bearer ${signToken({ sub: 'user-config', email: 'owner@example.com' })}` }),
+    assertion: response => assert.strictEqual(response.status, 503, 'Hosted membership enforcement must fail closed when no Supabase project URL is configured'),
+  });
 }
 
 async function main() {
@@ -246,6 +264,7 @@ async function main() {
 
   await runOptionalMembershipQa();
   await runMissingJwtSecretQa();
+  await runMissingSupabaseUrlQa();
 
   console.log('Tenant membership QA passed:', JSON.stringify({ shopA, shopB, customerA: customerA.body.id, customerB: customerB.body.id }));
 }
