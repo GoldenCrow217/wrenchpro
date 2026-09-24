@@ -2072,8 +2072,8 @@ function loadShopContext(){
 }
 function saveShopContext(next){
   const providedToken=cleanBearerToken(next.accessToken);
-  if(providedToken&&isRejectedSupabaseAccessToken(providedToken))sessionStorage.removeItem(SHOP_REJECTED_TOKEN_STORAGE_KEY);
   const activeProvidedToken=usableSupabaseAccessToken(providedToken);
+  if(providedToken&&activeProvidedToken)sessionStorage.removeItem(SHOP_REJECTED_TOKEN_STORAGE_KEY);
   if(providedToken&&!activeProvidedToken){
     rememberRejectedSupabaseAccessToken(providedToken);
     sessionStorage.removeItem('wrenchpro.supabaseAccessToken');

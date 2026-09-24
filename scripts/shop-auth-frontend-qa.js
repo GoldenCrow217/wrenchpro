@@ -11,7 +11,8 @@ function base64urlJson(value) {
   return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 }
 function unsignedToken(payload) {
-  return `${base64urlJson({ alg: 'HS256', typ: 'JWT' })}.${base64urlJson(payload)}.signature`;
+  const encodedPayload = base64urlJson(payload);
+  return `${base64urlJson({ alg: 'HS256', typ: 'JWT' })}.${encodedPayload}.sig-${encodedPayload.slice(-12)}`;
 }
 function createStorage(initial = {}) {
   const map = new Map(Object.entries(initial));
@@ -132,8 +133,16 @@ context.rememberRejectedSupabaseAccessToken(valid);
 assert.strictEqual(context.usableSupabaseAccessToken(valid), '', 'Rejected tokens should not be retried in the same tab');
 assert.notStrictEqual(context.rejectedSupabaseAccessToken(), valid, 'Rejected-token retry guard must not store the bearer token itself');
 assert.match(context.rejectedSupabaseAccessToken(), /^sig:/, 'Rejected-token retry guard should store only a non-bearer token fingerprint');
+context.saveShopContext({ shopId: 42, email: 'fallback@example.com', accessToken: valid });
+assert.strictEqual(context.shopContext.accessToken, '', 'Saving the same rejected hosted token must not clear the retry guard');
+assert.strictEqual(context.sessionStorage.getItem('wrenchpro.supabaseAccessToken'), null, 'Rejected hosted tokens must not be persisted again by saveShopContext');
+const replacementToken = unsignedToken({ sub: 'user-a', email: 'tech@example.com', iss: trustedIssuer, aud: 'authenticated', exp: now + 7200 });
+context.saveShopContext({ shopId: 42, email: 'fallback@example.com', accessToken: replacementToken });
+assert.strictEqual(context.shopContext.accessToken, replacementToken, 'A fresh active hosted token should replace a rejected session token');
+assert.strictEqual(context.rejectedSupabaseAccessToken(), '', 'Accepting a fresh hosted token should clear the rejected-token retry guard');
 context.localStorage.removeItem('sb-xgqidqyctypfbuhhzwai-auth-token');
 context.sessionStorage.removeItem('sb-xgqidqyctypfbuhhzwai-auth-token');
+context.sessionStorage.removeItem('wrenchpro.supabaseAccessToken');
 context.sessionStorage.removeItem('wrenchpro.rejectedSupabaseAccessTokenFingerprint');
 context.sessionStorage.setItem('sb-xgqidqyctypfbuhhzwai-auth-token', JSON.stringify({ currentSession: { access_token: valid } }));
 context.shopContext = { shopId: 42, email: 'fallback@example.com', accessToken: '' };
