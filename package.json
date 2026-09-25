@@ -28,6 +28,7 @@
     "qa:printing": "node scripts/print-qa.js && node scripts/run-print-preload-qa.js",
     "qa:tenant": "node scripts/tenant-qa.js",
     "qa:shop-auth-frontend": "node scripts/shop-auth-frontend-qa.js",
+    "qa:hosted-security": "node scripts/hosted-security-qa.js",
     "qa:reliability-corrections": "node scripts/reliability-corrections-qa.js",
     "qa:accounting-integrity": "node scripts/accounting-integrity-qa.js",
     "qa:finance-corrections": "node scripts/finance-corrections-qa.js",

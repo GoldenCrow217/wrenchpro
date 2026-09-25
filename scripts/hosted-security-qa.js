@@ -1,0 +1,81 @@
+const assert = require('assert');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function startServer(envOverrides, label) {
+  const port = String(8200 + Math.floor(Math.random() * 900));
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), `wrenchpro-hosted-security-${label}-`));
+  const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, PORT: port, WRENCHPRO_DATA: dataDir, NODE_ENV: 'test', ...envOverrides },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let output = '';
+  child.stdout.on('data', chunk => { output += chunk; });
+  child.stderr.on('data', chunk => { output += chunk; });
+  const baseUrl = `http://127.0.0.1:${port}`;
+  for (let i = 0; i < 100; i += 1) {
+    if (child.exitCode !== null) throw new Error(`${label} server exited early:\n${output}`);
+    try { if ((await fetch(`${baseUrl}/api/health`)).ok) return { child, baseUrl, output: () => output }; } catch {}
+    await sleep(50);
+  }
+  child.kill();
+  throw new Error(`${label} server did not start:\n${output}`);
+}
+
+async function corsHeader(baseUrl, origin, route = '/api/health') {
+  const response = await fetch(`${baseUrl}${route}`, { headers: { Origin: origin } });
+  return {
+    status: response.status,
+    allowOrigin: response.headers.get('access-control-allow-origin'),
+    noStore: response.headers.get('cache-control'),
+    nosniff: response.headers.get('x-content-type-options'),
+    frameOptions: response.headers.get('x-frame-options'),
+    referrerPolicy: response.headers.get('referrer-policy'),
+    permissionsPolicy: response.headers.get('permissions-policy'),
+    csp: response.headers.get('content-security-policy'),
+  };
+}
+
+async function main() {
+  const hosted = await startServer({
+    WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'true',
+    WRENCHPRO_ALLOWED_ORIGINS: 'https://app.wrenchpro.test/, http://not-allowed.test, https://portal.wrenchpro.test:8443',
+  }, 'hosted');
+  try {
+    const trusted = await corsHeader(hosted.baseUrl, 'https://app.wrenchpro.test');
+    assert.strictEqual(trusted.status, 200);
+    assert.strictEqual(trusted.allowOrigin, 'https://app.wrenchpro.test', 'Configured HTTPS hosted origins should be allowed with trailing slash normalized');
+    assert.strictEqual(trusted.noStore, 'no-store', 'API responses must not be browser cached');
+    assert.strictEqual(trusted.nosniff, 'nosniff', 'API responses should include nosniff');
+    assert.strictEqual(trusted.frameOptions, 'DENY', 'Hosted responses should not be frameable by arbitrary origins');
+    assert.strictEqual(trusted.referrerPolicy, 'no-referrer', 'Hosted responses should not leak referrers');
+    assert.match(trusted.permissionsPolicy || '', /camera=\(\)/, 'Dangerous browser permissions should be disabled');
+    assert.match(trusted.csp || '', /frame-ancestors 'none'/, 'CSP should forbid framing');
+
+    assert.strictEqual((await corsHeader(hosted.baseUrl, 'https://portal.wrenchpro.test:8443')).allowOrigin, 'https://portal.wrenchpro.test:8443', 'Configured HTTPS ports should be allowed');
+    assert.strictEqual((await corsHeader(hosted.baseUrl, 'http://not-allowed.test')).allowOrigin, null, 'Configured non-HTTPS origins must be ignored');
+    assert.strictEqual((await corsHeader(hosted.baseUrl, 'https://evil.example')).allowOrigin, null, 'Unconfigured HTTPS origins must not receive CORS access');
+    assert.strictEqual((await corsHeader(hosted.baseUrl, 'null')).allowOrigin, null, 'Hosted SaaS mode must reject file/null browser origins');
+    assert.strictEqual((await corsHeader(hosted.baseUrl, 'http://localhost:5173')).allowOrigin, 'http://localhost:5173', 'Localhost development origins should remain allowed');
+    assert.strictEqual((await corsHeader(hosted.baseUrl, 'http://localhost.evil.test')).allowOrigin, null, 'Lookalike localhost origins must not be allowed');
+  } finally {
+    hosted.child.kill();
+  }
+
+  const desktop = await startServer({ WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'false' }, 'desktop');
+  try {
+    assert.strictEqual((await corsHeader(desktop.baseUrl, 'null')).allowOrigin, 'null', 'Desktop compatibility mode should still support Electron/file null origins');
+    assert.strictEqual((await corsHeader(desktop.baseUrl, 'https://evil.example')).allowOrigin, null, 'Desktop mode should not allow arbitrary web origins');
+  } finally {
+    desktop.child.kill();
+  }
+
+  console.log('Hosted security QA passed');
+}
+
+main().catch(error => { console.error(error.stack || error.message || String(error)); process.exitCode = 1; });
