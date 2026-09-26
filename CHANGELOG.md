@@ -8,6 +8,7 @@ All notable WrenchPro changes should be documented here before release.
 
 - Hosted frontend shop-context bootstrap for SaaS shells via `window.WrenchProShopContext` or URL/hash context parameters, with active-token persistence limited to session storage, legacy local tokens migrated out of localStorage, rejected-token retry guards stored as non-bearer fingerprints, and secret-bearing URL/global handoff parameters scrubbed after bootstrap.
 - Hosted SaaS mode now rejects browser CORS from `file`/`null` origins while preserving desktop/Electron compatibility when hosted membership enforcement is disabled.
+- Hosted security QA now covers CORS preflight behavior for bearer-authenticated shop APIs, including allowed auth/shop headers, trusted origin variance, and untrusted origin denial.
 - Hosted shop settings now start from safe SaaS defaults instead of inheriting the desktop/global settings row, preventing business identity or tax configuration leakage between local desktop mode and new hosted shops.
 - Hosted tenant QA now avoids browser/fetch-forbidden ports so daily SaaS conversion checks do not false-fail after the server starts successfully.
 - Focus-refresh QA now includes hosted shop context state so SaaS auth-refresh error handling stays covered by automated checks.

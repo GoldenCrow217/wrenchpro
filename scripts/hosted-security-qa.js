@@ -41,6 +41,23 @@ async function corsHeader(baseUrl, origin, route = '/api/health') {
   };
 }
 
+async function corsPreflight(baseUrl, origin, route = '/api/customers') {
+  const response = await fetch(`${baseUrl}${route}`, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: origin,
+      'Access-Control-Request-Method': 'GET',
+      'Access-Control-Request-Headers': 'authorization,x-wrenchpro-shop-id,content-type',
+    },
+  });
+  return {
+    status: response.status,
+    allowOrigin: response.headers.get('access-control-allow-origin'),
+    allowHeaders: response.headers.get('access-control-allow-headers'),
+    vary: response.headers.get('vary'),
+  };
+}
+
 async function main() {
   const hosted = await startServer({
     WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'true',
@@ -63,6 +80,14 @@ async function main() {
     assert.strictEqual((await corsHeader(hosted.baseUrl, 'null')).allowOrigin, null, 'Hosted SaaS mode must reject file/null browser origins');
     assert.strictEqual((await corsHeader(hosted.baseUrl, 'http://localhost:5173')).allowOrigin, 'http://localhost:5173', 'Localhost development origins should remain allowed');
     assert.strictEqual((await corsHeader(hosted.baseUrl, 'http://localhost.evil.test')).allowOrigin, null, 'Lookalike localhost origins must not be allowed');
+
+    const trustedPreflight = await corsPreflight(hosted.baseUrl, 'https://app.wrenchpro.test');
+    assert.strictEqual(trustedPreflight.status, 204, 'Trusted hosted origins should pass API preflight requests');
+    assert.strictEqual(trustedPreflight.allowOrigin, 'https://app.wrenchpro.test');
+    assert.match(trustedPreflight.allowHeaders || '', /authorization/i, 'Preflight must allow bearer auth headers for hosted sessions');
+    assert.match(trustedPreflight.allowHeaders || '', /x-wrenchpro-shop-id/i, 'Preflight must allow shop context headers for hosted sessions');
+    assert.match(trustedPreflight.vary || '', /Origin/i, 'CORS responses must vary by Origin to avoid cache confusion');
+    assert.strictEqual((await corsPreflight(hosted.baseUrl, 'https://evil.example')).allowOrigin, null, 'Untrusted hosted preflight requests must not receive CORS access');
   } finally {
     hosted.child.kill();
   }
