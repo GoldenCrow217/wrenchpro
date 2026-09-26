@@ -4,6 +4,16 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+## v1.1.1 - 2026-09-26
+
+### Security
+
+- Updated `qs` (6.15.3 → 6.16.0, used by Express to parse requests) and `js-yaml` (4.3.1 → 4.3.2, used by the auto-updater) to clear known advisories. Production dependencies now report 0 known vulnerabilities in `npm audit`.
+
+### Changed
+
+- Refreshed `docs/KNOWN_ISSUES.md`: marked the tracked-docs, app-icon, and release-test-gate issues verified, and logged ISSUE-009 (Electron 39 is out of support; upgrade planned as its own release).
+
 ## v1.1.0 - 2026-09-26
 
 ### Security
