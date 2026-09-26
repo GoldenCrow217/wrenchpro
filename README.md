@@ -102,6 +102,7 @@ npm start              # Start local Express server (port 3000)
 npm run dev            # Start server with nodemon (auto-restart on changes)
 npm run electron:dev   # Launch Electron app in dev mode
 npm test               # Run smoke test (alias for npm run smoke)
+npm run test:all       # Run every QA script with a pass/fail summary (what CI runs)
 npm run smoke          # Start server, hit /api/dashboard, verify 200
 npm run qa:api         # Full API workflow: lead → customer → estimate → job
 npm run electron:build # Build Windows installer → dist/
@@ -129,7 +130,7 @@ GH_TOKEN=your_token npm run electron:build
 
 Pushing a `v*` tag triggers `.github/workflows/release.yml`, which:
 1. Installs dependencies (`npm ci`)
-2. Runs the smoke test (`npm test`)
+2. Runs every QA script (`npm run test:all`)
 3. Rebuilds native modules for Electron
 4. Builds the Windows installer via `electron-builder`
 5. Publishes the installer and `latest.yml` as a GitHub Release
@@ -241,12 +242,12 @@ Internal workflow and product docs in this repo:
 
 Do not publish releases, push tags, or distribute builds without Brandon's approval.
 
-Release candidates must pass at minimum:
+Every pull request and push to `main` runs `npm run test:all` on Windows via `.github/workflows/ci.yml`. Release candidates must pass at minimum:
 
 ```bash
-npm test
-npm run qa:api
+npm run test:all
 npm run electron:build
+npm run qa:package
 ```
 
 ---
