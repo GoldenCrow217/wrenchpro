@@ -4,6 +4,8 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+## v1.1.0 - 2026-09-26
+
 ### Security
 
 - The local server now rejects requests whose `Host` header is not `localhost`, `127.0.0.1`, `[::1]`, or a configured hosted domain (`WRENCHPRO_ALLOWED_ORIGINS`/`CORS_ORIGINS` hostnames or `WRENCHPRO_ALLOWED_HOSTS`), closing a DNS-rebinding path where a malicious web page could read local shop data. Covered by `npm run smoke`.
@@ -16,6 +18,17 @@ All notable WrenchPro changes should be documented here before release.
 - Brand fonts (Inter Tight, JetBrains Mono) bundled under `public/fonts/` as variable WOFF2 with their SIL OFL licenses, so the Claude Design typography renders offline instead of falling back to system fonts.
 - WrenchPro app icon (`electron/assets/icon.svg` → `icon.ico`/`icon.png`) and `public/favicon.svg`, built from the design handoff's sidebar brand mark. Regenerate with `npm run build:icons`.
 - Package QA now asserts fonts, font licenses, favicon, and app icon are inside the packaged ASAR.
+
+### Changed
+
+- Every pull request and push to `main` now runs the full QA suite (`npm run test:all`, 24 scripts) on Windows, and releases gate on it instead of the smoke test alone.
+- The smoke test probes for a free port instead of picking a random one that could collide with another local service.
+- Internal planning docs moved from the repo root into `docs/` with an index; the user guide stays at the root because **Help > User Guide** links to it.
+
+### Hosted mode (off in the desktop app)
+
+These changes only apply when hosted shop membership enforcement is explicitly enabled; the offline desktop app is unaffected.
+
 - Hosted frontend shop-context bootstrap for SaaS shells via `window.WrenchProShopContext` or URL/hash context parameters, with active-token persistence limited to session storage, legacy local tokens migrated out of localStorage, rejected-token retry guards stored as non-bearer fingerprints, and secret-bearing URL/global handoff parameters scrubbed after bootstrap.
 - Hosted SaaS mode now rejects browser CORS from `file`/`null` origins while preserving desktop/Electron compatibility when hosted membership enforcement is disabled.
 - Hosted security QA now covers CORS preflight behavior for bearer-authenticated shop APIs, including allowed auth/shop headers, trusted origin variance, and untrusted origin denial.
@@ -29,18 +42,17 @@ All notable WrenchPro changes should be documented here before release.
 - Hosted membership enforcement now also fails closed when the Supabase project URL is missing, so bearer tokens are always checked against the expected issuer.
 - Hosted auth recovery UX now distinguishes expired sessions, non-member access, inactive shop accounts, and hosted auth misconfiguration during initial load, focus refresh, and API failures.
 - Hosted membership enforcement now requires bearer authentication before revealing whether a requested shop context exists.
+
+### Early development notes
+
+Carried over from the long-running Unreleased list; these shipped in earlier versions.
+
 - Project/company operating docs for the AI-assisted WrenchPro software company workflow.
 - Initial internal strategy, business workflow assumptions, QA checklist, release checklist, support/docs plan, and Telegram bot plan.
 - Basic smoke test script: `npm run smoke` / `npm test`.
 - Initial README, security policy, license notice, and GitHub issue templates.
-
-### Changed
-
 - `electron:dev` script updated to a Windows-friendly `electron .` command.
 - `package-lock.json` metadata synced with `package.json` version.
-
-### Fixed
-
 - Local `better-sqlite3` native dependency rebuilt for the active local Node runtime.
 - Removed accidental `%TEMP%runs.json` generated file from repo root.
 
