@@ -31,78 +31,30 @@ WrenchPro has installed-app update checking:
 - Manual update check is under **Help > Check for Updates...**.
 - Updates may download in the background and prompt for restart.
 
-Before updating:
+Before updating, use **File > Back Up Now** (or **Settings > Backup > Back up now**). After the update, verify old customers, vehicles, jobs, payments, and settings are still present.
 
-1. Close WrenchPro.
-2. Back up the database files.
-3. Install the new version or accept the update prompt.
-4. Reopen WrenchPro.
-5. Verify old customers, vehicles, jobs, payments, and settings are still present.
+## Backups
 
-## Data Location
+WrenchPro backs up your data automatically **once a day** while the app is open. Each backup is a single `.db` file that holds everything: customers, vehicles, jobs, payments, settings, and inspection photos.
 
-WrenchPro stores data in a local SQLite database named:
-
-```text
-wrenchpro.db
-```
-
-Installed Electron app path, based on the current code:
-
-```text
-%APPDATA%\WrenchPro\wrenchpro.db
-```
-
-Developer/plain server path:
-
-```text
-C:\Users\imajo\wrenchpro\wrenchpro.db
-```
-
-Because the database uses SQLite WAL mode, also back up these companion files if present:
-
-```text
-wrenchpro.db-wal
-wrenchpro.db-shm
-```
-
-## Manual Backup
-
-1. Close WrenchPro completely.
-2. Open File Explorer.
-3. Paste this in the address bar:
-
-```text
-%APPDATA%\WrenchPro
-```
-
-4. Copy these files if they exist:
-
-```text
-wrenchpro.db
-wrenchpro.db-wal
-wrenchpro.db-shm
-```
-
-5. Paste them into a dated backup folder, for example:
-
-```text
-Documents\WrenchPro Backups\2026-04-29-before-update\
-```
-
-6. Keep more than one backup while testing.
+- **Where:** `%APPDATA%\WrenchPro\Backups` by default. The last 14 automatic backups are kept; manual backups are never deleted automatically.
+- **Protect against losing the computer:** go to **Settings > Backup > Change folder…** and pick a OneDrive, Dropbox, or USB-drive folder. WrenchPro makes a backup there straight away to confirm it works.
+- **If that folder goes missing** (USB drive unplugged), backups are saved to the default folder instead and Settings shows a warning.
+- **Back up any time:** **File > Back Up Now**, or **Settings > Backup > Back up now**.
+- **Save a copy somewhere else:** **File > Save Backup As…** (for example, before handing the laptop in for repair).
+- **Status:** **Settings > Backup** shows when the last backup ran and turns amber if there hasn't been one for 3 days.
 
 ## Restore From Backup
 
-Only restore while WrenchPro is closed.
+1. Open **File > Restore from Backup…** (or **Settings > Backup > Restore…**).
+2. Choose a backup `.db` file.
+3. WrenchPro checks the file and shows what it contains (business name, number of customers and jobs). Damaged files and files that aren't WrenchPro backups are refused.
+4. Click **Restore and restart**. Your current data is saved first as a `WrenchPro-before-restore-….db` safety backup, so a restore can be undone by restoring that file.
+5. WrenchPro restarts with the restored data. Confirm customers, jobs, payments, and settings look correct.
 
-1. Close WrenchPro.
-2. Open `%APPDATA%\WrenchPro`.
-3. Make a safety copy of the current database files first.
-4. Copy the backed-up `wrenchpro.db` into the folder.
-5. Copy `wrenchpro.db-wal` and `wrenchpro.db-shm` too if they were included in the backup.
-6. Reopen WrenchPro.
-7. Confirm customers, vehicles, jobs, payments, and settings look correct.
+## Data Location
+
+WrenchPro stores data in a local SQLite database, `%APPDATA%\WrenchPro\wrenchpro.db` for the installed app (`wrenchpro.db` in the project folder when running the plain dev server). **Tools > Open Data Folder** opens it. Don't copy the live `wrenchpro.db` by hand while the app is running; use the backup features above, which produce a consistent copy.
 
 ## Uninstall Note
 
@@ -112,7 +64,7 @@ The Windows installer config currently has:
 deleteAppDataOnUninstall: false
 ```
 
-That means uninstalling should not intentionally delete app data. Still, make a manual backup before uninstalling.
+That means uninstalling should not intentionally delete app data. Still, use **File > Save Backup As…** before uninstalling.
 
 ## Post-Install / Post-Update Smoke Test
 
@@ -130,7 +82,6 @@ Verify:
 
 ## Current Limitations / Assumptions
 
-- **Assumption:** There is not yet a dedicated in-app backup/export button.
-- Backups are currently manual file copies.
-- Data is local to the computer where WrenchPro is installed.
-- No cloud sync, cloud backup, or account recovery process is documented yet.
+- Data is local to the computer where WrenchPro is installed. Point automatic backups at a synced or external folder to protect against losing the computer.
+- Backup and restore are available in the desktop app only, not when running the plain browser/dev server.
+- There is no CSV/spreadsheet export yet (**File > Export Data** is disabled).

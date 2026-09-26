@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WrenchPro — Mobile Mechanic Manager</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/inter-tight-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* ── Brand fonts (bundled locally for offline use; SIL OFL, see /fonts/OFL-*.txt) ── */
+@font-face{font-family:'Inter Tight';font-style:normal;font-display:swap;font-weight:100 900;src:url(/fonts/inter-tight-latin-wght-normal.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'Inter Tight';font-style:normal;font-display:swap;font-weight:100 900;src:url(/fonts/inter-tight-latin-ext-wght-normal.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-display:swap;font-weight:100 800;src:url(/fonts/jetbrains-mono-latin-wght-normal.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-display:swap;font-weight:100 800;src:url(/fonts/jetbrains-mono-latin-ext-wght-normal.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
 /* ── Design Tokens ── */
 :root {
   --font-sans: 'Inter Tight', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -335,6 +343,11 @@ tr:hover td{background:var(--bg-subtle);}
 .settings-grid>.card{padding:var(--pad-card);}
 .settings-wide{grid-column:1/-1;}
 .settings-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted);margin-bottom:.75rem;}
+.backup-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.backup-row .backup-meta{font-size:13px;display:flex;flex-direction:column;gap:4px;min-width:0;}
+.backup-row .backup-folder{font-size:12px;color:var(--fg-muted);overflow-wrap:anywhere;}
+.backup-row .backup-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.backup-row .backup-error{font-size:12px;color:var(--danger-fg);}
 .settings-hint{font-size:11px;color:var(--fg-faint);margin-top:-8px;margin-bottom:8px;}
 .settings-markup-table input{min-width:90px;}
 .settings-markup-table .gross-margin{white-space:nowrap;font-variant-numeric:tabular-nums;}
@@ -825,6 +838,10 @@ tr:hover td{background:var(--bg-subtle);}
             </table>
           </div>
           <button type="button" class="btn btn-sm" onclick="addPartsMarkupTier()" style="margin-top:.75rem;">+ Add price tier</button>
+        </div>
+        <div class="card settings-wide" id="s-backup-card">
+          <div class="settings-section-title">Backup</div>
+          <div class="backup-row" id="s-backup-body"></div>
         </div>
       </div>
       <div style="margin-top:1rem;display:flex;gap:8px;align-items:center;">
@@ -4651,7 +4668,55 @@ function readPartsMarkupSettings(){
   return tiers;
 }
 
+const BACKUP_STALE_DAYS = 3;
+function backupButtons(status){
+  const buttons=[
+    ['openFolder','Open backup folder'],
+    ['chooseFolder','Change folder…'],
+    ...(status.usingDefaultFolder?[]:[['useDefaultFolder','Use default folder']]),
+    ['saveAs','Save a copy…'],
+    ['restore','Restore…'],
+  ].map(([action,label])=>`<button type="button" class="btn btn-sm" data-backup-action="${action}" onclick="runBackupAction('${action}')">${label}</button>`);
+  buttons.push(`<button type="button" class="btn btn-sm btn-primary" data-backup-action="backupNow" onclick="runBackupAction('backupNow')">Back up now</button>`);
+  return buttons.join('');
+}
+async function renderBackupCard(){
+  const body=document.getElementById('s-backup-body');
+  if(!body)return;
+  const backup=window.electronAPI?.backup;
+  if(!backup){body.innerHTML=`<div class="backup-meta"><span>Backups are managed by the WrenchPro desktop app.</span><span class="backup-folder">Open WrenchPro on your computer to back up or restore your data.</span></div>`;return;}
+  let status;
+  try{status=await backup.status();}catch(error){status=null;}
+  if(!status){body.innerHTML=`<div class="backup-meta"><span>Backup status is not available yet.</span></div>`;return;}
+  const last=status.lastBackupAt?new Date(status.lastBackupAt):null;
+  const stale=!last||(Date.now()-last.getTime())>BACKUP_STALE_DAYS*864e5;
+  const lastLabel=last?`<span class="mono">${esc(last.toLocaleString([], {dateStyle:'medium',timeStyle:'short'}))}</span>`:'never';
+  body.innerHTML=`<div class="backup-meta">
+      <span>Last backup: ${lastLabel} ${stale?`<span class="pill pill-amber"><span class="dot"></span>${last?'Overdue':'No backup yet'}</span>`:'<span class="pill pill-green"><span class="dot"></span>Up to date</span>'}</span>
+      <span class="backup-folder">Automatic daily backups to <span class="mono">${esc(status.folder)}</span>${status.usingDefaultFolder?' (default). Choose a OneDrive, Dropbox, or USB folder to protect against losing this computer.':''}</span>
+      ${status.lastError?`<span class="backup-error">${esc(status.lastError)}</span>`:''}
+    </div>
+    <div class="backup-actions">${backupButtons(status)}</div>`;
+}
+const BACKUP_SUCCESS = { backupNow:'Backup saved', saveAs:'Backup copy saved', chooseFolder:'Backup folder changed and a backup was saved there', useDefaultFolder:'Backups will be saved to the default folder' };
+async function runBackupAction(action){
+  const backup=window.electronAPI?.backup;
+  if(!backup||typeof backup[action]!=='function')return;
+  const buttons=[...document.querySelectorAll('[data-backup-action]')];
+  buttons.forEach(button=>{button.disabled=true;});
+  try{
+    const result=await backup[action]();
+    if(result?.success&&BACKUP_SUCCESS[action])toast(BACKUP_SUCCESS[action]);
+    else if(result&&!result.success&&!result.canceled&&result.error)toast(`Backup problem: ${result.error}`,8000);
+  }catch(error){
+    toast(`Backup problem: ${error.message||error}`,8000);
+  }finally{
+    buttons.forEach(button=>{button.disabled=false;});
+    renderBackupCard();
+  }
+}
 function renderSettings(){
+  renderBackupCard();
   const s = state.settings;
   document.getElementById('s-biz-name').value = s.business_name||'';
   document.getElementById('s-owner').value    = s.owner_name||'';
@@ -5790,14 +5855,39 @@ function inspectionQuickNotes(item){
   try{return JSON.parse(definition?.quick_notes||'[]').filter(Boolean);}catch(_){return [];}
 }
 function setInspQuickNote(idx,value){if(!value||!inspItems[idx])return;inspItems[idx].notes=value;renderInspChecklist();}
-function addInspectionPhoto(idx,input){
+// Phone photos are usually 2-5 MB. Shrink them in the browser (max 1600px,
+// JPEG, EXIF rotation applied) so they fit the server's 750 KB photo limit
+// and keep the single-file database backups small.
+const PHOTO_MAX_DIMENSION = 1600;
+const PHOTO_MAX_DATA_URL_BYTES = 700000;
+async function compressPhoto(file){
+  if(!/^image\/(?:jpeg|png|webp)$/.test(file?.type||''))throw new Error('Choose a JPEG, PNG, or WebP photo.');
+  if(file.size>40e6)throw new Error('That photo file is too large to use.');
+  let bitmap;
+  try{bitmap=await createImageBitmap(file,{imageOrientation:'from-image'});}catch(error){throw new Error('The photo could not be read.');}
+  try{
+    let dimension=PHOTO_MAX_DIMENSION;
+    for(const quality of [0.82,0.72,0.62,0.6,0.6,0.6]){
+      const scale=Math.min(1,dimension/Math.max(bitmap.width,bitmap.height));
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+      const dataUrl=canvas.toDataURL('image/jpeg',quality);
+      if(dataUrl.length<=PHOTO_MAX_DATA_URL_BYTES)return dataUrl;
+      if(quality<=0.62)dimension=Math.round(dimension*0.75);
+    }
+  }finally{bitmap.close();}
+  throw new Error('The photo could not be made small enough. Try a different photo.');
+}
+async function addInspectionPhoto(idx,input){
   const item=inspItems[idx],file=input.files?.[0];if(!item||!file)return;
   if(!editInspId||!item.id){toast('Save the inspection once before adding photos.',8000);input.value='';return;}
-  if(file.size>540000){toast('Inspection photos must be smaller than 540 KB.',8000);input.value='';return;}
-  const reader=new FileReader();
-  reader.onload=async()=>{await runMutation(`inspection-photo-${item.id}`,{action:'Adding inspection photo',request:()=>api('POST',`/api/inspections/${editInspId}/items/${item.id}/photos`,{data_url:reader.result,caption:item.item_name}),apply:photo=>{item.photos=[...(item.photos||[]),photo];},render:renderInspChecklist,success:'Inspection photo added'});};
-  reader.onerror=()=>toast('The inspection photo could not be read.',8000);
-  reader.readAsDataURL(file);
+  let dataUrl;
+  try{dataUrl=await compressPhoto(file);}catch(error){toast(error.message,8000);input.value='';return;}
+  input.value='';
+  await runMutation(`inspection-photo-${item.id}`,{action:'Adding inspection photo',request:()=>api('POST',`/api/inspections/${editInspId}/items/${item.id}/photos`,{data_url:dataUrl,caption:item.item_name}),apply:photo=>{item.photos=[...(item.photos||[]),photo];},render:renderInspChecklist,success:'Inspection photo added'});
 }
 async function deleteInspectionPhoto(itemIndex,photoId){
   const item=inspItems[itemIndex];if(!item?.id)return;
@@ -6354,10 +6444,12 @@ async function addVendor(){
 }
 async function deleteWorkflowColumn(id){if(!id||!confirm('Remove this unused workflow column?'))return;await runMutation(`workflow-column-delete-${id}`,{action:'Removing workflow column',request:()=>api('DELETE',`/api/operations/workflow-columns/${id}`),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-workflow-column',success:'Workflow column removed'});}
 async function deleteShopResource(id){if(!id||!confirm('Remove this unused bay or mobile unit?'))return;await runMutation(`resource-delete-${id}`,{action:'Removing shop resource',request:()=>api('DELETE',`/api/operations/resources/${id}`),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-resource',success:'Shop resource removed'});}
-function addServiceEventPhoto(input){
+async function addServiceEventPhoto(input){
   const file=input.files?.[0];if(!file)return;
-  if(file.size>540000){toast('Condition photos must be smaller than 540 KB.',8000);input.value='';return;}
-  const reader=new FileReader();reader.onload=()=>{serviceEventPhotos=[String(reader.result)];document.getElementById('sef-photo-preview').innerHTML=`<img src="${safeImageSrc(reader.result)}" alt="Vehicle condition" style="width:100px;height:72px;object-fit:cover;border-radius:6px;">`;};reader.onerror=()=>toast('The condition photo could not be read.',8000);reader.readAsDataURL(file);
+  let dataUrl;
+  try{dataUrl=await compressPhoto(file);}catch(error){toast(error.message,8000);input.value='';return;}
+  serviceEventPhotos=[dataUrl];
+  document.getElementById('sef-photo-preview').innerHTML=`<img src="${safeImageSrc(dataUrl)}" alt="Vehicle condition" style="width:100px;height:72px;object-fit:cover;border-radius:6px;">`;
 }
 
 const htmlEnc=esc;

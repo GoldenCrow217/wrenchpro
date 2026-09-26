@@ -37,8 +37,10 @@
     "qa:inspection-renderer": "node scripts/run-inspection-renderer-qa.js",
     "qa:operations": "node scripts/operations-qa.js",
     "qa:package": "node scripts/package-qa.js",
+    "qa:backup": "node scripts/backup-qa.js",
     "test:render-security": "node scripts/run-render-security.js",
-    "rebuild-node": "npm rebuild better-sqlite3"
+    "rebuild-node": "npm rebuild better-sqlite3",
+    "build:icons": "electron scripts/build-icons.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
@@ -73,6 +75,7 @@
       "buildResources": "electron/assets"
     },
     "win": {
+      "icon": "electron/assets/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -91,6 +94,7 @@
       "deleteAppDataOnUninstall": false
     },
     "mac": {
+      "icon": "electron/assets/icon.png",
       "target": [
         {
           "target": "dmg",
@@ -103,6 +107,7 @@
       "category": "public.app-category.business"
     },
     "linux": {
+      "icon": "electron/assets/icon.png",
       "target": [
         "AppImage"
       ],

@@ -4,8 +4,18 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+### Security
+
+- The local server now rejects requests whose `Host` header is not `localhost`, `127.0.0.1`, `[::1]`, or a configured hosted domain (`WRENCHPRO_ALLOWED_ORIGINS`/`CORS_ORIGINS` hostnames or `WRENCHPRO_ALLOWED_HOSTS`), closing a DNS-rebinding path where a malicious web page could read local shop data. Covered by `npm run smoke`.
+- The main Electron window now runs with `sandbox: true` and blocks in-window navigation away from the local app origin.
+
 ### Added
 
+- Built-in backup and restore for the desktop app. Automatic daily backups (last 14 kept) go to `%APPDATA%\WrenchPro\Backups` or a user-chosen folder (OneDrive/Dropbox/USB), falling back to the default folder with a visible warning if the chosen one is unavailable. **File** menu and **Settings > Backup** offer Back up now, Save a copy, Change folder, Open folder, and Restore. Backups use SQLite's online backup API, are converted to self-contained single files, and are integrity-checked before they count. Restore checks the file, shows what it contains, saves a before-restore safety copy, then restarts. All file choices go through native dialogs in the main process; nothing is exposed over the HTTP API. Covered by `npm run qa:backup`.
+- Inspection and vehicle-condition photos are now resized in the app (max 1600px JPEG, phone rotation applied) before upload, so normal 2–8 MB phone photos no longer hit the old 540 KB rejection.
+- Brand fonts (Inter Tight, JetBrains Mono) bundled under `public/fonts/` as variable WOFF2 with their SIL OFL licenses, so the Claude Design typography renders offline instead of falling back to system fonts.
+- WrenchPro app icon (`electron/assets/icon.svg` → `icon.ico`/`icon.png`) and `public/favicon.svg`, built from the design handoff's sidebar brand mark. Regenerate with `npm run build:icons`.
+- Package QA now asserts fonts, font licenses, favicon, and app icon are inside the packaged ASAR.
 - Hosted frontend shop-context bootstrap for SaaS shells via `window.WrenchProShopContext` or URL/hash context parameters, with active-token persistence limited to session storage, legacy local tokens migrated out of localStorage, rejected-token retry guards stored as non-bearer fingerprints, and secret-bearing URL/global handoff parameters scrubbed after bootstrap.
 - Hosted SaaS mode now rejects browser CORS from `file`/`null` origins while preserving desktop/Electron compatibility when hosted membership enforcement is disabled.
 - Hosted security QA now covers CORS preflight behavior for bearer-authenticated shop APIs, including allowed auth/shop headers, trusted origin variance, and untrusted origin denial.

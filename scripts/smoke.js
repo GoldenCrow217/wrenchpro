@@ -1,6 +1,7 @@
 ﻿const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
 const path = require('path');
 const Database = require('better-sqlite3');
 const pkg = require('../package.json');
@@ -62,6 +63,28 @@ child.stderr.on('data', chunk => { output += chunk.toString(); });
 const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 15000);
 const startedAt = Date.now();
 
+function statusForHost(host) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/customers', headers: { Host: host } }, res => {
+      res.resume();
+      resolve(res.statusCode);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function checkHostAllowlist() {
+  for (const host of [`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`]) {
+    const status = await statusForHost(host);
+    if (status !== 200) throw new Error(`Local Host header ${host} should be allowed, got ${status}`);
+  }
+  for (const host of [`attacker.example:${port}`, `localhost.attacker.example:${port}`, `127.0.0.1.nip.io:${port}`]) {
+    const status = await statusForHost(host);
+    if (status !== 421) throw new Error(`Foreign Host header "${host}" should be rejected (DNS rebinding), got ${status}`);
+  }
+}
+
 async function waitForDashboard() {
   const healthUrl = `http://localhost:${port}/api/health`;
   const dashboardUrl = `http://localhost:${port}/api/dashboard`;
@@ -116,6 +139,7 @@ async function waitForDashboard() {
 (async () => {
   try {
     const body = await waitForDashboard();
+    await checkHostAllowlist();
     console.log('Smoke test passed:', JSON.stringify({
       port,
       dataDir,

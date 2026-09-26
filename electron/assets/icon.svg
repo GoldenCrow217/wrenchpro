@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26" width="512" height="512">
+  <!-- WrenchPro mark — mirrors .brand-mark in public/index.html (26px box, 7px radius,
+       16px wrench glyph, 20% accent diagonal stripe). Colors are the design tokens
+       --fg / --bg / --accent converted from OKLCH to sRGB. -->
+  <defs>
+    <clipPath id="r"><rect width="26" height="26" rx="7"/></clipPath>
+    <linearGradient id="stripe" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="26" y2="26">
+      <stop offset="0.4" stop-color="#cf630d" stop-opacity="0"/>
+      <stop offset="0.4" stop-color="#cf630d" stop-opacity="0.2"/>
+      <stop offset="0.6" stop-color="#cf630d" stop-opacity="0.2"/>
+      <stop offset="0.6" stop-color="#cf630d" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect width="26" height="26" fill="#1e1a16"/>
+    <g transform="translate(5 5) scale(0.6667)" fill="none" stroke="#faf8f5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2.7-2.7 2-2.6Z"/>
+    </g>
+    <rect width="26" height="26" fill="url(#stripe)"/>
+  </g>
+</svg>

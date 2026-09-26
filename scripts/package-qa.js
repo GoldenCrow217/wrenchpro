@@ -4,7 +4,13 @@ const asar = require('@electron/asar');
 
 const archive = path.join(__dirname, '..', 'dist', 'win-unpacked', 'resources', 'app.asar');
 const files = asar.listPackage(archive).map(file=>file.replaceAll('\\','/'));
-for (const expected of ['/server/routes/operations.js', '/public/index.html', '/server/database.js']) {
+for (const expected of [
+  '/server/routes/operations.js', '/public/index.html', '/server/database.js',
+  // Brand assets must ship inside the app so the UI renders offline.
+  '/public/favicon.svg', '/electron/assets/icon.ico',
+  '/public/fonts/inter-tight-latin-wght-normal.woff2', '/public/fonts/jetbrains-mono-latin-wght-normal.woff2',
+  '/public/fonts/OFL-InterTight.txt', '/public/fonts/OFL-JetBrainsMono.txt',
+]) {
   assert.ok(files.includes(expected), `Packaged ASAR is missing ${expected}`);
 }
 const operations = asar.extractFile(archive, 'server\\routes\\operations.js').toString('utf8');
