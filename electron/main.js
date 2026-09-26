@@ -234,15 +234,26 @@ function createWindow(port) {
     minWidth:  960,
     minHeight: 640,
     title: 'WrenchPro',
+    icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
     show: false,
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${port}`);
+  const appOrigin = `http://127.0.0.1:${port}`;
+  mainWindow.loadURL(appOrigin);
+
+  // Keep the app window pinned to the local server. External links go through
+  // setWindowOpenHandler below and open in the user's browser instead.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    let origin = '';
+    try { origin = new URL(url).origin; } catch {}
+    if (origin !== appOrigin) event.preventDefault();
+  });
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

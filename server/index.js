@@ -28,6 +28,26 @@ function configuredAllowedOrigins() {
     .map(origin => origin.trim().replace(/\/$/, ''))
     .filter(origin => /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(origin));
 }
+// Reject requests whose Host header names anything other than this machine or
+// an explicitly configured hosted domain. CORS alone does not stop DNS
+// rebinding: a malicious page can point its own hostname at 127.0.0.1 and then
+// read API responses as a same-origin request.
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+function configuredAllowedHosts() {
+  const fromOrigins = configuredAllowedOrigins().map(origin => new URL(origin).hostname);
+  const explicit = String(process.env.WRENCHPRO_ALLOWED_HOSTS || '').split(',');
+  return new Set([...fromOrigins, ...explicit].map(host => host.trim().toLowerCase()).filter(Boolean));
+}
+function requestHostname(hostHeader) {
+  const host = String(hostHeader || '').trim().toLowerCase();
+  if (host.startsWith('[')) return host.slice(0, host.indexOf(']') + 1);
+  return host.replace(/:\d+$/, '');
+}
+app.use((req, res, next) => {
+  const hostname = requestHostname(req.headers.host);
+  if (LOCAL_HOSTNAMES.has(hostname) || configuredAllowedHosts().has(hostname)) return next();
+  res.status(421).json({ error: 'Request host is not allowed' });
+});
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
