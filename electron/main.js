@@ -3,11 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { findFreePort } = require('./find-free-port');
+const { createBackupManager } = require('./backup');
 
 let mainWindow = null;
 let appPort    = 3000;
 let _autoUpdater = null;
 let _manualCheck = false;
+let backups = null;
+let autoBackupTimer = null;
 
 const MENU_COMMANDS = new Set([
   'navigate:dashboard',
@@ -108,6 +111,156 @@ ipcMain.handle('document:save-pdf', async (event, payload) => {
   }
 });
 
+// ── Backups ──────────────────────────────────────────────────────────────────
+// All file-system choices happen here through native dialogs; the renderer can
+// only ask for an action, never pass a path.
+let backupQueue = Promise.resolve();
+function serializedBackup(task) {
+  const run = backupQueue.then(task, task);
+  backupQueue = run.catch(() => {});
+  return run;
+}
+
+function requireMainWindowSender(event) {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+    throw new Error('Backup request was not sent by the WrenchPro window');
+  }
+}
+
+async function runAutoBackup() {
+  if (!backups) return;
+  try {
+    const file = await serializedBackup(() => backups.runAutoBackupIfDue());
+    if (file) console.log('Automatic backup saved:', file);
+  } catch (err) {
+    console.error('Automatic backup failed:', err.message);
+  }
+}
+
+function startAutoBackups() {
+  setTimeout(runAutoBackup, 60 * 1000);
+  autoBackupTimer = setInterval(runAutoBackup, 60 * 60 * 1000);
+}
+
+function backupNow() {
+  return serializedBackup(async () => ({ success: true, filePath: await backups.backupNow(), status: backups.status() }));
+}
+
+async function saveBackupAs() {
+  const selection = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save a copy of your WrenchPro data',
+    defaultPath: path.join(app.getPath('documents'), `WrenchPro-backup-${new Date().toISOString().slice(0, 10)}.db`),
+    filters: [{ name: 'WrenchPro backup', extensions: ['db'] }],
+    properties: ['createDirectory', 'showOverwriteConfirmation'],
+  });
+  if (selection.canceled || !selection.filePath) return { success: false, canceled: true };
+  const filePath = await serializedBackup(() => backups.saveCopyTo(selection.filePath));
+  return { success: true, filePath, status: backups.status() };
+}
+
+async function chooseBackupFolder() {
+  const selection = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose where automatic backups are saved',
+    defaultPath: backups.folder(),
+    buttonLabel: 'Use this folder',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (selection.canceled || !selection.filePaths?.[0]) return { success: false, canceled: true };
+  backups.setFolder(selection.filePaths[0]);
+  // Back up straight away so the user knows the new location works.
+  return backupNow();
+}
+
+async function useDefaultBackupFolder() {
+  backups.setFolder(backups.defaultFolder);
+  return { success: true, status: backups.status() };
+}
+
+async function openBackupFolder() {
+  fs.mkdirSync(backups.folder(), { recursive: true });
+  const error = await shell.openPath(backups.folder());
+  return error ? { success: false, error } : { success: true };
+}
+
+async function restoreFromBackup() {
+  const selection = await dialog.showOpenDialog(mainWindow, {
+    title: 'Restore WrenchPro data from a backup',
+    defaultPath: backups.folder(),
+    filters: [{ name: 'WrenchPro backup', extensions: ['db'] }],
+    properties: ['openFile'],
+  });
+  if (selection.canceled || !selection.filePaths?.[0]) return { success: false, canceled: true };
+  const file = selection.filePaths[0];
+  let summary;
+  try {
+    summary = backups.inspectBackupFile(file);
+  } catch (err) {
+    await dialog.showMessageBox(mainWindow, { type: 'error', title: 'Cannot restore this file', message: 'This backup cannot be restored.', detail: err.message, buttons: ['OK'] });
+    return { success: false, error: err.message };
+  }
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: 'Restore from backup',
+    message: 'Replace your current WrenchPro data with this backup?',
+    detail: [
+      `Backup: ${path.basename(file)}`,
+      `Saved: ${new Date(summary.modifiedAt).toLocaleString()}`,
+      ...(summary.businessName ? [`Business: ${summary.businessName}`] : []),
+      `Contains ${summary.customers} customer(s) and ${summary.jobs} job(s).`,
+      '',
+      'Your current data will be saved as a safety backup first. WrenchPro will restart when the restore finishes.',
+    ].join('\n'),
+    buttons: ['Restore and restart', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (response !== 0) return { success: false, canceled: true };
+  await serializedBackup(() => backups.restoreFrom(file));
+  clearInterval(autoBackupTimer);
+  app.relaunch();
+  app.exit(0);
+  return { success: true };
+}
+
+async function menuBackupAction(action, successMessage) {
+  if (!backups) return;
+  try {
+    const result = await action();
+    if (result?.success && successMessage) {
+      await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Backup saved', message: successMessage, detail: result.filePath || '', buttons: ['OK'] });
+    } else if (result && !result.success && result.error) {
+      dialog.showErrorBox('WrenchPro backup', result.error);
+    }
+  } catch (err) {
+    dialog.showErrorBox('WrenchPro backup', err.message);
+  }
+}
+
+const BACKUP_ACTIONS = {
+  'backup:now': backupNow,
+  'backup:save-as': saveBackupAs,
+  'backup:choose-folder': chooseBackupFolder,
+  'backup:use-default-folder': useDefaultBackupFolder,
+  'backup:open-folder': openBackupFolder,
+  'backup:restore': restoreFromBackup,
+};
+ipcMain.handle('backup:status', (event) => {
+  requireMainWindowSender(event);
+  return backups ? backups.status() : null;
+});
+Object.entries(BACKUP_ACTIONS).forEach(([channel, action]) => {
+  ipcMain.handle(channel, async (event) => {
+    requireMainWindowSender(event);
+    if (!backups) return { success: false, error: 'Backups are not ready yet' };
+    try {
+      return await action();
+    } catch (err) {
+      return { success: false, error: err.message, status: backups.status() };
+    }
+  });
+});
+
 // ── Menu ─────────────────────────────────────────────────────────────────────
 function buildMenu() {
   const sendMenuCommand = (command) => {
@@ -131,7 +284,10 @@ function buildMenu() {
         commandItem('New Job', 'action:new-job', 'CmdOrCtrl+N'),
         commandItem('New Appointment', 'action:new-appointment', 'CmdOrCtrl+Shift+A'),
         { type: 'separator' },
-        { label: 'Backup Database', enabled: false },
+        { label: 'Back Up Now', click: () => menuBackupAction(backupNow, 'Your WrenchPro data was backed up.') },
+        { label: 'Save Backup As...', click: () => menuBackupAction(saveBackupAs, 'A copy of your WrenchPro data was saved.') },
+        { label: 'Restore from Backup...', click: () => menuBackupAction(restoreFromBackup) },
+        { label: 'Open Backups Folder', click: () => menuBackupAction(openBackupFolder) },
         { label: 'Export Data', enabled: false },
         { type: 'separator' },
         { label: 'Exit', role: 'quit' },
@@ -292,6 +448,15 @@ if (!hasSingleInstanceLock) {
 
       require('../server/index');
       await waitForServer(appPort);
+
+      const userData = app.getPath('userData');
+      backups = createBackupManager({
+        db: require('../server/database'),
+        dbPath: path.join(userData, 'wrenchpro.db'),
+        dataDir: userData,
+        configPath: path.join(userData, 'backup-settings.json'),
+      });
+      startAutoBackups();
 
       createWindow(appPort);
 

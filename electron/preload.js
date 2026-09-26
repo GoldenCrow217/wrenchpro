@@ -29,6 +29,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     if (!payload || typeof payload.html !== 'string') return Promise.reject(new Error('Invalid PDF request'));
     return ipcRenderer.invoke('document:save-pdf', { html: payload.html, title: payload.title, filename: payload.filename });
   },
+  // Backup actions take no arguments: every file/folder choice is made in a
+  // native dialog owned by the main process.
+  backup: {
+    status: () => ipcRenderer.invoke('backup:status'),
+    backupNow: () => ipcRenderer.invoke('backup:now'),
+    saveAs: () => ipcRenderer.invoke('backup:save-as'),
+    chooseFolder: () => ipcRenderer.invoke('backup:choose-folder'),
+    useDefaultFolder: () => ipcRenderer.invoke('backup:use-default-folder'),
+    openFolder: () => ipcRenderer.invoke('backup:open-folder'),
+    restore: () => ipcRenderer.invoke('backup:restore'),
+  },
   onMenuCommand(callback) {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, command) => {

@@ -37,6 +37,7 @@
     "qa:inspection-renderer": "node scripts/run-inspection-renderer-qa.js",
     "qa:operations": "node scripts/operations-qa.js",
     "qa:package": "node scripts/package-qa.js",
+    "qa:backup": "node scripts/backup-qa.js",
     "test:render-security": "node scripts/run-render-security.js",
     "rebuild-node": "npm rebuild better-sqlite3",
     "build:icons": "electron scripts/build-icons.js"
