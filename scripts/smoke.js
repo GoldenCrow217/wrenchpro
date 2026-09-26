@@ -6,7 +6,11 @@ const path = require('path');
 const Database = require('better-sqlite3');
 const pkg = require('../package.json');
 
-const port = process.env.SMOKE_PORT || String(3300 + Math.floor(Math.random() * 1000));
+const { findFreePort } = require('../electron/find-free-port');
+
+// A random port can collide with another local service, which then answers the
+// health check and makes the test time out. Probe for a genuinely free port.
+let port = process.env.SMOKE_PORT || '';
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-smoke-'));
 const serverPath = path.join(__dirname, '..', 'server', 'index.js');
 
@@ -45,20 +49,22 @@ legacyDb.exec(`
 `);
 legacyDb.close();
 
-const child = spawn(process.execPath, [serverPath], {
-  cwd: path.join(__dirname, '..'),
-  env: {
-    ...process.env,
-    PORT: port,
-    WRENCHPRO_DATA: dataDir,
-    NODE_ENV: 'test',
-  },
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
-
+let child = null;
 let output = '';
-child.stdout.on('data', chunk => { output += chunk.toString(); });
-child.stderr.on('data', chunk => { output += chunk.toString(); });
+function startServer() {
+  child = spawn(process.execPath, [serverPath], {
+    cwd: path.join(__dirname, '..'),
+    env: {
+      ...process.env,
+      PORT: port,
+      WRENCHPRO_DATA: dataDir,
+      NODE_ENV: 'test',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  child.stdout.on('data', chunk => { output += chunk.toString(); });
+  child.stderr.on('data', chunk => { output += chunk.toString(); });
+}
 
 const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 15000);
 const startedAt = Date.now();
@@ -138,6 +144,8 @@ async function waitForDashboard() {
 
 (async () => {
   try {
+    if (!port) port = String(await findFreePort(3300 + Math.floor(Math.random() * 1000)));
+    startServer();
     const body = await waitForDashboard();
     await checkHostAllowlist();
     console.log('Smoke test passed:', JSON.stringify({
@@ -147,10 +155,10 @@ async function waitForDashboard() {
       activeJobs: body.activeJobs,
     }));
   } finally {
-    child.kill();
+    if (child) child.kill();
   }
 })().catch(err => {
-  child.kill();
+  if (child) child.kill();
   console.error(err.stack || err.message || String(err));
   process.exit(1);
 });

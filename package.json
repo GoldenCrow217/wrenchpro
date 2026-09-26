@@ -15,6 +15,7 @@
     "rebuild-native": "electron-rebuild -f -w better-sqlite3",
     "smoke": "node scripts/smoke.js",
     "test": "npm run smoke",
+    "test:all": "node scripts/run-all-qa.js",
     "qa:api": "node scripts/api-qa.js",
     "qa:ports": "node scripts/port-qa.js",
     "qa:installments": "node scripts/installment-qa.js",
