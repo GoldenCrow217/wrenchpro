@@ -44,7 +44,7 @@ Before writing code, read these files in the repo:
 | `server/routes/*.js` | The 17 REST routers. Keep every fetch endpoint identical. |
 | `server/index.js` | Express app + `/api/dashboard` aggregate. |
 | `electron/main.js`, `electron/preload.js` | App shell, auto-updater, context bridge. Do not touch. |
-| `README.md`, `BUSINESS_WORKFLOW.md` | Domain context — job lifecycle, terminology. |
+| `README.md`, `docs/BUSINESS_WORKFLOW.md` | Domain context — job lifecycle, terminology. |
 
 ### Real database schema (from `server/database.js`) — map the mock to THESE columns
 

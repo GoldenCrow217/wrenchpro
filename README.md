@@ -179,7 +179,7 @@ Migrations run automatically on startup — no manual SQL required and existing 
 - Restore process
 - Data persistence across reinstalls
 
-See `INSTALL_AND_BACKUP_GUIDE.md` and `RELEASE_CHECKLIST.md`.
+See [INSTALL_AND_BACKUP_GUIDE.md](INSTALL_AND_BACKUP_GUIDE.md) and [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
 ---
 
@@ -226,15 +226,9 @@ wrenchpro/
 
 ## Operating Docs
 
-Internal workflow and product docs in this repo:
-
-- `PROJECT_COMMAND_CENTER.md`
-- `COMPANY_OPERATING_MODEL.md`
-- `ROADMAP.md`
-- `KNOWN_ISSUES.md`
-- `TESTING_CHECKLIST.md`
-- `RELEASE_CHECKLIST.md`
-- `INSTALL_AND_BACKUP_GUIDE.md`
+- [INSTALL_AND_BACKUP_GUIDE.md](INSTALL_AND_BACKUP_GUIDE.md): user guide for install, updates, backup, and restore (opened from **Help > User Guide**, so it stays at the repo root)
+- [docs/](docs/): internal product, QA, release, and business planning docs, including [ROADMAP](docs/ROADMAP.md), [KNOWN_ISSUES](docs/KNOWN_ISSUES.md), [TESTING_CHECKLIST](docs/TESTING_CHECKLIST.md), [RELEASE_CHECKLIST](docs/RELEASE_CHECKLIST.md), and [PROJECT_COMMAND_CENTER](docs/PROJECT_COMMAND_CENTER.md)
+- [design_handoff_wrenchpro_redesign/](design_handoff_wrenchpro_redesign/): Claude Design handoff (visual system and screen specs)
 
 ---
 
