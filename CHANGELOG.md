@@ -4,6 +4,17 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+### Fixed (UI)
+
+- Table action buttons (Jobs, Estimates, Leads, Payments' repair-order balances) now sit inside proper table cells, so row dividers line up and buttons are vertically centered. The cells were `display:flex`, which stops a `<td>` from stretching to the row height.
+- Jobs table: customer and vehicle share one column (the vehicle and plate as a muted line under the customer, per the design handoff), with sorting by customer and by vehicle kept in the combined header. RO numbers and dates no longer wrap mid-value.
+- Pages no longer scroll sideways at narrow window widths: the Jobs table's screen-reader-only header escaped its scroll box and widened the page to 1100 px at the 960 px minimum window width.
+- Schedule chips truncate with an ellipsis (full text on hover) instead of cutting service names at 14 characters.
+- Time Tracking: the technician work-queue card has padding and a standard card title; long job names end in an ellipsis instead of a mid-word cut.
+- Dashboard "Today's route": the customer name and vehicle each stay on one line instead of breaking word by word.
+- Stat cards on Leads, Parts, Payments, Employees, Expenses, and Time Tracking use the same uppercase label style as the Dashboard KPIs.
+- New `qa:ui-layout` guard fails if a table cell uses `display:flex`, the table scroll box stops containing its content, or calendar chips go back to chopping text.
+
 ### Changed
 
 - **Monorepo (Phase 1, ADR-0003):** the desktop app moved into `apps/desktop` as an npm workspace (`electron/`, `server/`, `public/`, `scripts/`, and its `package.json`), with file history preserved. The root `package.json` is the workspace root and forwards `start`, `test`, `test:all`, `smoke`, `qa:api`, `qa:package`, `electron:dev`, `electron:build`, and `build:icons`. The release workflow reads build output from `apps/desktop/dist`. The dependency tree is unchanged, and the packaged app has the same 878 files as before the move.
