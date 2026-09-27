@@ -21,8 +21,6 @@ npm run electron:dev
 npm run electron:build
 npm run electron:build:mac
 npm run electron:build:linux
-npm run rebuild-native
-npm run rebuild-node
 npm run smoke
 npm run qa:api
 ```
@@ -51,20 +49,9 @@ As of initial workflow setup, the repo had active uncommitted changes in multipl
 
 ## Native Dependency Note
 
-`better-sqlite3` is a native dependency. Electron packaging may rebuild it for Electron's runtime ABI, while plain `node server/index.js` needs it built for the active local Node ABI.
+`better-sqlite3` 13+ is built on N-API and ships prebuilt binaries inside the npm package, so one build works under both plain Node and Electron. There is no rebuild step between `npm start`/tests and `npm run electron:build` (the old `rebuild-native`/`rebuild-node` scripts were removed with the Electron 44 upgrade).
 
-If local Node-based checks fail after an Electron build, run:
-
-```bash
-npm run rebuild-node
-```
-
-Then rerun:
-
-```bash
-npm test
-npm run qa:api
-```
+Electron 42+ downloads its binary the first time it runs rather than during `npm install`. CI fetches it up front with `node node_modules/electron/install.js`.
 
 ## Future Technical Improvements To Consider
 

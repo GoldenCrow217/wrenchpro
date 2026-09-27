@@ -27,11 +27,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Download Electron
+        run: node node_modules/electron/install.js
+
       - name: Run all QA scripts
         run: npm run test:all
-
-      - name: Rebuild native modules for Electron
-        run: npm run rebuild-native
 
       - name: Build Windows installer
         run: npm run electron:build

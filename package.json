@@ -1,6 +1,6 @@
 {
   "name": "wrenchpro",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "WrenchPro Mobile Mechanic Manager",
   "author": "GoldenCrow217",
   "main": "electron/main.js",
@@ -8,11 +8,10 @@
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
     "electron:dev": "electron .",
-    "electron:build": "npm run rebuild-native && electron-builder --win --publish never",
+    "electron:build": "electron-builder --win --publish never",
     "electron:publish": "npm run electron:build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux",
-    "rebuild-native": "electron-rebuild -f -w better-sqlite3",
     "smoke": "node scripts/smoke.js",
     "test": "npm run smoke",
     "test:all": "node scripts/run-all-qa.js",
@@ -40,18 +39,17 @@
     "qa:package": "node scripts/package-qa.js",
     "qa:backup": "node scripts/backup-qa.js",
     "test:render-security": "node scripts/run-render-security.js",
-    "rebuild-node": "npm rebuild better-sqlite3",
     "build:icons": "electron scripts/build-icons.js"
   },
   "dependencies": {
-    "better-sqlite3": "^12.8.0",
+    "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "electron-updater": "^6.1.7",
     "express": "^4.18.2"
   },
   "devDependencies": {
-    "electron": "^39.8.5",
+    "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "nodemon": "^3.1.0"
   },
@@ -77,6 +75,10 @@
     },
     "win": {
       "icon": "electron/assets/icon.ico",
+      "files": [
+        "!node_modules/better-sqlite3/{deps,src}/**",
+        "!node_modules/better-sqlite3/prebuilds/{darwin-*,linux*,win32-arm64}.node"
+      ],
       "target": [
         {
           "target": "nsis",

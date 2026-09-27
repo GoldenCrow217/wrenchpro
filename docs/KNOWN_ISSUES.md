@@ -41,9 +41,16 @@ Screenshots, logs, files, or observations.
 
 ## Open Issues
 
+_No open issues._
+
+---
+
+## Fixed / Verified Issues
+
 ## ISSUE-009: Electron 39 is out of support
 
-- Status: Open
+- Status: Verified
+- Fixed date: 2026-09-26
 - Severity: High
 - Area: Dependencies / Security / Desktop Shell
 - Found by: Maintenance pass
@@ -69,9 +76,19 @@ Electron 39, about five months without security updates.
 - Treat it as its own workstream: upgrade `electron` (and `electron-builder` if needed), rebuild `better-sqlite3` for the new ABI, run `npm run test:all` including the Electron renderer and print-preload QA, build the installer, and check auto-update from the previous release on a real install.
 - Check with `npm view electron dist-tags` and the Electron release schedule.
 
+### Fix
+
+Upgraded to Electron 44.4.5 (v1.2.0), together with `better-sqlite3` 13 (N-API prebuilt binaries, no per-runtime rebuild).
+
+### Verification
+
+`npm run test:all` passes (including Electron renderer, print, and PDF QA); the packaged app runs sandboxed on Electron 44; data and backups created by the packaged 1.1.1 app open, update, and validate for restore in 1.2.0.
+
+
 ## ISSUE-007: Dev-only dependency advisory in Electron's installer (`extract-zip`)
 
-- Status: Open (accepted risk until ISSUE-009)
+- Status: Verified
+- Fixed date: 2026-09-26
 - Severity: Low
 - Area: Dependencies / Build Tooling
 - Found by: Stabilization Pass
@@ -92,9 +109,10 @@ Electron 39, about five months without security updates.
 
 The only fix is a major Electron upgrade, tracked as ISSUE-009. Do not run `npm audit fix --force` casually.
 
----
+### Fix
 
-## Fixed / Verified Issues
+Resolved by the Electron 44 upgrade (ISSUE-009): Electron 42+ no longer uses `extract-zip`. Full `npm audit` reports 0 vulnerabilities.
+
 
 ## ISSUE-002: Project docs and issue tracker are untracked locally
 
@@ -172,7 +190,7 @@ The icon extracted from the built `WrenchPro.exe` shows the WrenchPro mark, and 
 
 ### Fix
 
-Rebuilt `better-sqlite3` for the active local Node runtime.
+Rebuilt `better-sqlite3` for the active local Node runtime. Permanently resolved in v1.2.0: `better-sqlite3` 13 uses N-API prebuilt binaries that work under both Node and Electron, so there is no ABI mismatch to rebuild for.
 
 ### Verification
 

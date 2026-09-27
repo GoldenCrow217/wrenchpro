@@ -4,7 +4,24 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
-## v1.1.1 - 2026-09-26
+## v1.2.0 - 2026-09-26
+
+### Security
+
+- Upgraded Electron 39 → 44 (44.4.5). Electron 39 stopped receiving security fixes on 2026-05-05; 44 is the newest supported major version, so the bundled Chromium is current again. Full `npm audit` now reports 0 vulnerabilities, including the dev-only `extract-zip` advisory.
+
+### Changed
+
+- Upgraded `better-sqlite3` 12 → 13. Version 13 uses N-API with prebuilt binaries bundled in the package, so one build works under both Node and Electron. The `rebuild-native` / `rebuild-node` scripts and the release workflow's native rebuild step are removed; `npm start` and the tests work right after an installer build.
+- The Windows installer ships only the Windows SQLite binary (other platforms' binaries and SQLite source are excluded), shrinking the unpacked native module from 27 MB to 2 MB. Package QA asserts the Windows binary is present.
+- CI and release workflows download Electron explicitly before running QA, because Electron 42+ fetches its binary on first use instead of during `npm install`.
+- `npm run build:icons` waits for the offscreen frame before capturing, which Electron 44 requires.
+
+### Verified
+
+- Data created by the packaged 1.1.1 app (Electron 39, better-sqlite3 12), including its automatic backup, opens, updates, and validates for restore in the packaged 1.2.0 app.
+
+
 
 ### Security
 

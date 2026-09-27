@@ -63,7 +63,7 @@ Current status: **private beta**.
 
 | Layer | Stack |
 |---|---|
-| Desktop shell | Electron 39 |
+| Desktop shell | Electron 44 |
 | Backend | Node.js · Express |
 | Database | SQLite via `better-sqlite3` |
 | Frontend | Vanilla HTML/CSS/JS — single file, no build step |
@@ -106,12 +106,10 @@ npm run test:all       # Run every QA script with a pass/fail summary (what CI r
 npm run smoke          # Start server, hit /api/dashboard, verify 200
 npm run qa:api         # Full API workflow: lead → customer → estimate → job
 npm run electron:build # Build Windows installer → dist/
-npm run rebuild-native # Rebuild better-sqlite3 for Electron packaging
-npm run rebuild-node   # Rebuild better-sqlite3 for local Node (run after electron:build breaks npm start)
 npm run build:icons    # Regenerate app icon (.ico/.png) + favicon from electron/assets/icon.svg
 ```
 
-> **Note:** `npm run electron:build` rebuilds native modules for Electron's Node ABI. If `npm start` or `npm test` fails with a `better-sqlite3` ABI mismatch afterward, run `npm run rebuild-node` to restore local dev.
+> **Note:** `better-sqlite3` 13+ uses N-API with prebuilt binaries bundled in the package, so the same build works under plain Node (`npm start`, tests) and Electron. No native rebuild step is needed. Electron 42+ downloads its own binary the first time it runs (or via `node node_modules/electron/install.js`).
 
 ---
 
@@ -120,9 +118,8 @@ npm run build:icons    # Regenerate app icon (.ico/.png) + favicon from electron
 ### Manual (local)
 ```bash
 # 1. Bump version in package.json
-# 2. Rebuild and build
-npm run rebuild-native
-GH_TOKEN=your_token npm run electron:build
+# 2. Build
+npm run electron:build
 # Installer is created at dist/WrenchPro Setup x.x.x.exe
 ```
 

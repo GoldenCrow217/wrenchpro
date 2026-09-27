@@ -13,6 +13,9 @@ async function render(win, size) {
   const sized = svg.replace(/width="\d+" height="\d+"/, `width="${size}" height="${size}"`);
   const html = `<html><body style="margin:0;background:transparent">${sized}</body></html>`;
   await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  // Electron 44 fails capturePage (UnknownVizError) if no frame has been
+  // produced yet, so give the offscreen compositor a moment to paint.
+  await new Promise(resolve => setTimeout(resolve, 300));
   return win.webContents.capturePage({ x: 0, y: 0, width: size, height: size });
 }
 
