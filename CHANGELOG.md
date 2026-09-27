@@ -6,6 +6,7 @@ All notable WrenchPro changes should be documented here before release.
 
 ### Fixed
 
+- **Installer packaging (security):** since the Electron 44 upgrade, the Windows build config's platform-level `files` list replaced the top-level allow-list, so local installer builds packed the whole project, including `.env`, `.claude/` settings, the local dev database, scripts, and docs. No published release was affected (all were built on CI before the change, where those files don't exist). The Windows list now repeats the full allow-list, `qa:package` fails if anything outside `electron/`, `server/`, `public/`, `node_modules/`, and `package.json` (or any `.env`/database file) is packaged, and both the PR QA workflow and the release workflow now build the installer and run that check.
 - Clean installs (`npm ci`) work again on machines without a C++ toolchain. `better-sqlite3` 13 ships prebuilt binaries, but npm (npm/cli#9837) still ran an implicit `node-gyp rebuild` when installing from the lockfile. `.npmrc` now sets `ignore-scripts=true`; no dependency needs an install script.
 
 ### Added
