@@ -38,3 +38,10 @@ jobs:
 
       - name: Run all QA scripts
         run: npm run test:all
+
+      # Catch packaging mistakes (e.g. extra files in the installer) before merge.
+      - name: Build Windows installer (not published)
+        run: npm run electron:build
+
+      - name: Check packaged app contents
+        run: npm run qa:package

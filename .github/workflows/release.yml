@@ -36,6 +36,11 @@ jobs:
       - name: Build Windows installer
         run: npm run electron:build
 
+      # Refuses to publish if anything outside the app allow-list (secrets,
+      # databases, docs, scripts) ended up in the package.
+      - name: Check packaged app contents
+        run: npm run qa:package
+
       # The desktop app lives in apps/desktop (npm workspace); its build output
       # and publish script are relative to that folder.
       - name: Verify updater release artifacts

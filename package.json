@@ -13,7 +13,10 @@
     "test:all": "npm run test:all -w apps/desktop",
     "electron:dev": "npm run electron:dev -w apps/desktop",
     "electron:build": "npm run electron:build -w apps/desktop",
-    "qa:package": "npm run qa:package -w apps/desktop"
+    "qa:package": "npm run qa:package -w apps/desktop",
+    "smoke": "npm run smoke -w apps/desktop",
+    "qa:api": "npm run qa:api -w apps/desktop",
+    "build:icons": "npm run build:icons -w apps/desktop"
   },
   "engines": {
     "node": ">=22"
