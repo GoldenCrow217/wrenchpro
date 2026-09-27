@@ -80,6 +80,15 @@ function statusForHost(host) {
   });
 }
 
+async function checkSharedPricing() {
+  const res = await fetch(`http://127.0.0.1:${port}/shared/pricing.js`);
+  if (!res.ok) throw new Error(`Shared pricing module should be served, got ${res.status}`);
+  if (!/javascript/.test(res.headers.get('content-type') || '')) throw new Error('Shared pricing module must be served as JavaScript');
+  const served = await res.text();
+  const onDisk = fs.readFileSync(path.join(__dirname, '..', 'server', 'pricing.js'), 'utf8');
+  if (served !== onDisk) throw new Error('The UI must receive the exact server pricing module');
+}
+
 async function checkHostAllowlist() {
   for (const host of [`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`]) {
     const status = await statusForHost(host);
@@ -148,6 +157,7 @@ async function waitForDashboard() {
     startServer();
     const body = await waitForDashboard();
     await checkHostAllowlist();
+    await checkSharedPricing();
     console.log('Smoke test passed:', JSON.stringify({
       port,
       dataDir,

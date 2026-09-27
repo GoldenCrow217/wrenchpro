@@ -1,6 +1,10 @@
 # WrenchPro Docs
 
-Internal documentation. The user-facing guide, [INSTALL_AND_BACKUP_GUIDE.md](../INSTALL_AND_BACKUP_GUIDE.md), stays at the repo root because the app's **Help > User Guide** menu links to it.
+Internal documentation.
+
+**Start here for the SaaS roadmap:** [architecture/ARCHITECTURE_AUDIT.md](architecture/ARCHITECTURE_AUDIT.md) (current architecture, KEEP/REFACTOR/REPLACE/MISSING, migration plan, phases) and the decision records in [architecture/adr/](architecture/adr/).
+
+ The user-facing guide, [INSTALL_AND_BACKUP_GUIDE.md](../INSTALL_AND_BACKUP_GUIDE.md), stays at the repo root because the app's **Help > User Guide** menu links to it.
 
 ## Product and users
 

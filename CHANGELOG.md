@@ -4,24 +4,19 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
-## v1.2.0 - 2026-09-26
-
 ### Security
 
-- Upgraded Electron 39 → 44 (44.4.5). Electron 39 stopped receiving security fixes on 2026-05-05; 44 is the newest supported major version, so the bundled Chromium is current again. Full `npm audit` now reports 0 vulnerabilities, including the dev-only `extract-zip` advisory.
+- Hosted access now fails closed: a request that arrives through a configured hosted domain is refused (503) unless `WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP=true`, so a misconfigured deployment can't serve desktop-mode (all-shops) data. Local desktop access is unchanged. Covered by `qa:hosted-security`, including a check that fails if the guard is removed.
 
 ### Changed
 
-- Upgraded `better-sqlite3` 12 → 13. Version 13 uses N-API with prebuilt binaries bundled in the package, so one build works under both Node and Electron. The `rebuild-native` / `rebuild-node` scripts and the release workflow's native rebuild step are removed; `npm start` and the tests work right after an installer build.
-- The Windows installer ships only the Windows SQLite binary (other platforms' binaries and SQLite source are excluded), shrinking the unpacked native module from 27 MB to 2 MB. Package QA asserts the Windows binary is present.
-- CI and release workflows download Electron explicitly before running QA, because Electron 42+ fetches its binary on first use instead of during `npm install`.
-- `npm run build:icons` waits for the offscreen frame before capturing, which Electron 44 requires.
+- One implementation of pricing math (ADR-0005): the UI now loads `server/pricing.js` from `/shared/pricing.js` instead of keeping hand copies of estimate totals, repair-order totals, parts markup, default markup tiers, and currency rounding. `qa:pricing` and the smoke test fail if a copy reappears or the served module differs from the server's.
 
-### Verified
+### Added
 
-- Data created by the packaged 1.1.1 app (Electron 39, better-sqlite3 12), including its automatic backup, opens, updates, and validates for restore in the packaged 1.2.0 app.
+- Architecture audit and SaaS migration plan (`docs/architecture/ARCHITECTURE_AUDIT.md`) with ADRs 0001–0006 (NestJS/TypeScript API, PostgreSQL on Supabase with Kysely, npm-workspaces monorepo, Supabase Auth with fail-closed tenancy and server-side roles, single-source business logic, desktop transition via backup-file importer).
 
-
+## v1.1.1 - 2026-09-26
 
 ### Security
 
