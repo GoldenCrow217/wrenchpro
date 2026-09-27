@@ -1,131 +1,24 @@
 {
-  "name": "wrenchpro",
-  "version": "1.2.0",
-  "description": "WrenchPro Mobile Mechanic Manager",
-  "author": "GoldenCrow217",
-  "main": "electron/main.js",
+  "name": "wrenchpro-monorepo",
+  "private": true,
+  "description": "WrenchPro: desktop app today, web/mobile SaaS in progress (see docs/architecture)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "nodemon server/index.js",
-    "electron:dev": "electron .",
-    "electron:build": "electron-builder --win --publish never",
-    "electron:publish": "npm run electron:build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
-    "electron:build:mac": "electron-builder --mac",
-    "electron:build:linux": "electron-builder --linux",
-    "smoke": "node scripts/smoke.js",
-    "test": "npm run smoke",
-    "test:all": "node scripts/run-all-qa.js",
-    "qa:api": "node scripts/api-qa.js",
-    "qa:ports": "node scripts/port-qa.js",
-    "qa:installments": "node scripts/installment-qa.js",
-    "qa:payment-schedule": "node scripts/payment-schedule-qa.js",
-    "qa:mutations": "node scripts/mutation-reliability-qa.js",
-    "qa:validation": "node scripts/validation-qa.js",
-    "qa:inventory-values": "node scripts/inventory-negative-qa.js",
-    "qa:focus-refresh": "node scripts/focus-refresh-qa.js",
-    "qa:pricing": "node scripts/pricing-qa.js",
-    "qa:dashboard": "node scripts/dashboard-qa.js",
-    "qa:printing": "node scripts/print-qa.js && node scripts/run-print-preload-qa.js",
-    "qa:tenant": "node scripts/tenant-qa.js",
-    "qa:shop-auth-frontend": "node scripts/shop-auth-frontend-qa.js",
-    "qa:hosted-security": "node scripts/hosted-security-qa.js",
-    "qa:reliability-corrections": "node scripts/reliability-corrections-qa.js",
-    "qa:accounting-integrity": "node scripts/accounting-integrity-qa.js",
-    "qa:finance-corrections": "node scripts/finance-corrections-qa.js",
-    "qa:jobs-renderer": "node scripts/run-jobs-renderer-qa.js",
-    "qa:inspection-measurements": "node scripts/inspection-measurement-qa.js",
-    "qa:inspection-renderer": "node scripts/run-inspection-renderer-qa.js",
-    "qa:operations": "node scripts/operations-qa.js",
-    "qa:package": "node scripts/package-qa.js",
-    "qa:backup": "node scripts/backup-qa.js",
-    "test:render-security": "node scripts/run-render-security.js",
-    "build:icons": "electron scripts/build-icons.js"
+    "start": "npm run start -w apps/desktop",
+    "dev": "npm run dev -w apps/desktop",
+    "test": "npm test -w apps/desktop",
+    "test:all": "npm run test:all -w apps/desktop",
+    "electron:dev": "npm run electron:dev -w apps/desktop",
+    "electron:build": "npm run electron:build -w apps/desktop",
+    "qa:package": "npm run qa:package -w apps/desktop",
+    "smoke": "npm run smoke -w apps/desktop",
+    "qa:api": "npm run qa:api -w apps/desktop",
+    "build:icons": "npm run build:icons -w apps/desktop"
   },
-  "dependencies": {
-    "better-sqlite3": "^13.0.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.1",
-    "electron-updater": "^6.1.7",
-    "express": "^4.18.2"
-  },
-  "devDependencies": {
-    "electron": "^44.4.5",
-    "electron-builder": "^26.15.3",
-    "nodemon": "^3.1.0"
-  },
-  "build": {
-    "appId": "com.wrenchpro.app",
-    "productName": "WrenchPro",
-    "artifactName": "${productName}-Setup-${version}.${ext}",
-    "copyright": "Copyright © 2025",
-    "asar": true,
-    "npmRebuild": false,
-    "asarUnpack": [
-      "node_modules/better-sqlite3/**/*"
-    ],
-    "files": [
-      "electron/**/*",
-      "server/**/*",
-      "public/**/*",
-      "package.json"
-    ],
-    "directories": {
-      "output": "dist",
-      "buildResources": "electron/assets"
-    },
-    "win": {
-      "icon": "electron/assets/icon.ico",
-      "files": [
-        "electron/**/*",
-        "server/**/*",
-        "public/**/*",
-        "package.json",
-        "!node_modules/better-sqlite3/{deps,src}/**",
-        "!node_modules/better-sqlite3/prebuilds/{darwin-*,linux*,win32-arm64}.node"
-      ],
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "WrenchPro",
-      "deleteAppDataOnUninstall": false
-    },
-    "mac": {
-      "icon": "electron/assets/icon.png",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ],
-      "category": "public.app-category.business"
-    },
-    "linux": {
-      "icon": "electron/assets/icon.png",
-      "target": [
-        "AppImage"
-      ],
-      "category": "Office"
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "GoldenCrow217",
-      "repo": "wrenchpro",
-      "releaseType": "release"
-    }
-  },
-  "license": "UNLICENSED"
+  "engines": {
+    "node": ">=22"
+  }
 }

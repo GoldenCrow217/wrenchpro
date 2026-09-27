@@ -166,7 +166,7 @@ All data is stored locally in SQLite. No account or internet connection required
 | Environment | Database path |
 |---|---|
 | Installed (Electron) | `%APPDATA%\wrenchpro\wrenchpro.db` (Windows) |
-| Development | `wrenchpro.db` in project root |
+| Development | `apps/desktop/wrenchpro.db` |
 
 Migrations run automatically on startup — no manual SQL required and existing data is never lost on upgrade.
 
@@ -182,42 +182,25 @@ See [INSTALL_AND_BACKUP_GUIDE.md](INSTALL_AND_BACKUP_GUIDE.md) and [docs/RELEASE
 
 ## Project Structure
 
+The repository is an **npm workspaces monorepo** (see [ADR-0003](docs/architecture/adr/0003-monorepo-npm-workspaces.md)). Today it contains the desktop app; the API, web app, mobile app, and shared packages are added in later phases of the [SaaS roadmap](docs/architecture/ARCHITECTURE_AUDIT.md).
+
 ```
 wrenchpro/
-├── .github/
-│   └── workflows/
-│       └── release.yml      # CI: build + publish on v* tag push
-├── electron/
-│   ├── main.js              # App entry, window, auto-updater, menu
-│   └── preload.js           # Context bridge (exposes version/platform)
-├── server/
-│   ├── index.js             # Express app, route registration, dashboard API
-│   ├── database.js          # SQLite schema, migrations
-│   └── routes/
-│       ├── customers.js
-│       ├── vehicles.js
-│       ├── jobs.js
-│       ├── estimates.js
-│       ├── inspections.js
-│       ├── inventory.js
-│       ├── catalog.js
-│       ├── warranties.js
-│       ├── leads.js
-│       ├── time.js
-│       ├── payments.js
-│       ├── plans.js
-│       ├── expenses.js
-│       ├── employees.js
-│       ├── appointments.js
-│       ├── settings.js
-│       └── crm.js
-├── public/
-│   └── index.html           # Entire frontend (HTML + CSS + JS, no build step)
-├── scripts/
-│   ├── smoke.js             # Startup smoke test
-│   └── api-qa.js            # API workflow QA
-└── package.json
+├── package.json             # workspace root: forwards npm start / test:all / electron:build to apps/desktop
+├── apps/
+│   └── desktop/             # Electron + Express + SQLite desktop app (published as WrenchPro)
+│       ├── package.json     # app version, dependencies, electron-builder config
+│       ├── electron/        # main process, preload, backups, icons
+│       ├── server/          # Express API, SQLite schema/migrations, pricing and finance logic
+│       ├── public/          # desktop UI (index.html, fonts, favicon)
+│       └── scripts/         # QA suites, icon builder, release publisher
+├── packages/                # shared TypeScript packages (Phase 1+)
+├── docs/                    # internal docs; architecture audit and ADRs in docs/architecture/
+├── design_handoff_wrenchpro_redesign/  # Claude Design visual spec (React prototype)
+└── .github/workflows/       # QA on every PR; build + publish on v* tags
 ```
+
+Run commands from the repository root (they forward to `apps/desktop`), or target a workspace directly, e.g. `npm run qa:api -w apps/desktop`.
 
 ---
 

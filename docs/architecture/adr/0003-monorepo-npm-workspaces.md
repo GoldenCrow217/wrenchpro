@@ -1,6 +1,6 @@
 # ADR-0003: Monorepo in this repository with npm workspaces
 
-- Status: Accepted (2026-09-26)
+- Status: Accepted (2026-09-26); desktop relocation implemented 2026-09-26
 
 ## Context
 

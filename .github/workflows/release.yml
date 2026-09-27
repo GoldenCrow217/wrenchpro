@@ -41,8 +41,11 @@ jobs:
       - name: Check packaged app contents
         run: npm run qa:package
 
+      # The desktop app lives in apps/desktop (npm workspace); its build output
+      # and publish script are relative to that folder.
       - name: Verify updater release artifacts
         shell: pwsh
+        working-directory: apps/desktop
         run: |
           if (-not (Test-Path -LiteralPath 'dist/latest.yml')) {
             throw 'dist/latest.yml was not generated'
@@ -61,6 +64,7 @@ jobs:
 
       - name: Publish release artifacts
         shell: pwsh
+        working-directory: apps/desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -72,6 +76,6 @@ jobs:
         with:
           name: build-logs
           path: |
-            dist/
+            apps/desktop/dist/
             npm-debug.log*
           if-no-files-found: ignore
