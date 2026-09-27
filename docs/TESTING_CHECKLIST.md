@@ -14,7 +14,6 @@ Use this for manual QA before releases.
 
 - [ ] `npm test` passes.
 - [ ] `npm run qa:api` passes.
-- [ ] If either fails after `electron:build` with a `better-sqlite3` ABI error, run `npm run rebuild-node` and retry.
 
 ## Smoke Test
 

@@ -19,4 +19,10 @@ assert.match(operations, /router\.post\('\/service-events'/, 'Packaged operation
 assert.match(html, /function renderWorkflowBoard\(\)/, 'Packaged workflow renderer is missing');
 assert.match(html, /function openInspectionReport\(/, 'Packaged inspection reports are missing');
 assert.match(html, /function openCustomerStatement\(/, 'Packaged customer statements are missing');
+// The Windows build strips other platforms' SQLite binaries; make sure the one
+// the app loads at startup is still unpacked next to the ASAR.
+const fs = require('fs');
+const unpacked = path.join(__dirname, '..', 'dist', 'win-unpacked', 'resources', 'app.asar.unpacked', 'node_modules', 'better-sqlite3');
+assert.ok(fs.existsSync(path.join(unpacked, 'prebuilds', 'win32-x64.node')), 'Packaged app is missing the win32-x64 SQLite binary');
+assert.ok(fs.existsSync(path.join(unpacked, 'lib', 'binding.js')), 'Packaged app is missing better-sqlite3 runtime code');
 console.log('Packaged ASAR QA passed: connected operations and printable reports are present');
