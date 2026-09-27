@@ -13,7 +13,8 @@ function assert(condition, message) {
 
 app.whenReady().then(async () => {
   const html=fs.readFileSync(path.join(__dirname,'..','public','index.html'),'utf8');
-  const server=http.createServer((req,res)=>{if(req.url==='/'||req.url==='/index.html'){res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(html);}else{res.writeHead(503,{'content-type':'application/json'});res.end('{"error":"Renderer QA has no API server"}');}});
+  const pricingSource=fs.readFileSync(path.join(__dirname,'..','server','pricing.js'),'utf8');
+  const server=http.createServer((req,res)=>{if(req.url==='/'||req.url==='/index.html'){res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(html);}else if(req.url==='/shared/pricing.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8'});res.end(pricingSource);}else{res.writeHead(503,{'content-type':'application/json'});res.end('{"error":"Renderer QA has no API server"}');}});
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   const window = new BrowserWindow({
     show: false,

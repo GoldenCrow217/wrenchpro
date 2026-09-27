@@ -84,6 +84,32 @@ function testExplicitDiscountLines() {
   assert.match(html, /Discount applies to/, 'discount lines must prompt the user to identify the eligible work');
 }
 
+// ADR-0005: the browser must use server/pricing.js, never its own copy of the math.
+function testSingleSourcePricing() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const sharedTag = html.indexOf('<script src="/shared/pricing.js"></script>');
+  const mainScript = html.search(/\r?\n<script>\r?\n/);
+  assert.ok(sharedTag >= 0 && mainScript > sharedTag, 'the UI must load the shared pricing module before its own script');
+  assert.match(html, /function calculateEstimateTotals\(items,discount,taxRate\)\{\r?\n  return WrenchProPricing\.calculateEstimateTotals\(/, 'estimate totals must delegate to the shared module');
+  assert.match(html, /function jobPricingTotals\([^)]*\)\{\r?\n  return WrenchProPricing\.calculateJobTotals\(/, 'repair-order totals must delegate to the shared module');
+  assert.match(html, /WrenchProPricing\.markupForCost\(/, 'parts markup must delegate to the shared module');
+  assert.match(html, /const DEFAULT_PARTS_MARKUP_TIERS=WrenchProPricing\.DEFAULT_PARTS_MARKUP_TIERS;/, 'default markup tiers must come from the shared module');
+  assert.ok(!html.includes('Number.EPSILON'), 'the UI must use WrenchProPricing.roundCurrency instead of re-implementing currency rounding');
+
+  // The same file must also work as a plain browser script (no require/module).
+  const vm = require('vm');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'server', 'pricing.js'), 'utf8');
+  const browser = {};
+  vm.runInNewContext(source, browser);
+  // Compare plain values: objects from the sandbox have a different prototype.
+  const plain = value => JSON.parse(JSON.stringify(value));
+  assert.deepStrictEqual(
+    plain(browser.WrenchProPricing.calculateJobTotals(100, 50, 25, 30, 10)),
+    plain(calculateJobTotals(100, 50, 25, 30, 10)),
+    'the browser build of pricing.js must compute exactly what the server computes',
+  );
+}
+
 function testSettingsPropagationWiring() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
   const settingsRoute = fs.readFileSync(path.join(__dirname, '..', 'server', 'routes', 'settings.js'), 'utf8');
@@ -106,4 +132,5 @@ testTierEditingControls();
 testPartsOnlyTax();
 testExplicitDiscountLines();
 testSettingsPropagationWiring();
-console.log('Pricing QA passed: markup tiers, cent rounding, validation, parts-only tax, and explicit discount lines.');
+testSingleSourcePricing();
+console.log('Pricing QA passed: markup tiers, cent rounding, validation, parts-only tax, explicit discount lines, and one shared implementation for server and UI.');

@@ -2,6 +2,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+// The page loads server/pricing.js as window.WrenchProPricing.
+const WrenchProPricing = require('../server/pricing');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const helperStart = html.indexOf('const DASHBOARD_KPI_DEFINITIONS');
@@ -9,6 +11,7 @@ const helperEnd = html.indexOf('\nasync function renderDashboard()', helperStart
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'dashboard calculation helpers must be extractable');
 
 const context = {
+  WrenchProPricing,
   fmt$: value => `$${Number(value || 0).toFixed(2)}`,
   planBalance: plan => Number(plan.balance || 0),
   buildSpark: () => '<svg></svg>',
