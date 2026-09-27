@@ -256,7 +256,7 @@ textarea.input{height:auto;padding:8px 10px;min-height:64px;resize:vertical;}
 .search-bar input:focus,.search-bar select:focus{border-color:var(--accent);}
 .filter-bar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center;}
 .filter-bar select,.filter-bar input{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-elev);color:var(--fg);font-size:12px;font-family:inherit;outline:none;}
-.table-wrap{overflow-x:auto;}
+.table-wrap{overflow-x:auto;position:relative;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--fg-faint);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-subtle);}
 .job-sort-btn{display:inline-flex;align-items:center;gap:5px;border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;white-space:nowrap;}
@@ -277,10 +277,15 @@ tr:hover td{background:var(--bg-subtle);}
 .b-purple{background:oklch(94% 0.04 290);color:oklch(40% 0.13 290);}
 .b-teal{background:oklch(94% 0.04 200);color:oklch(40% 0.12 200);}
 .b-indigo{background:oklch(94% 0.04 260);color:oklch(40% 0.13 260);}
+td.cell-actions{white-space:nowrap;}
+.td-sub{font-size:12px;color:var(--fg-muted);margin-top:2px;}
+.job-sort-sep{color:var(--fg-faint);margin:0 5px 0 -1px;}
+.cell-actions-inner{display:flex;gap:4px;align-items:center;}
+.cell-truncate{max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.5rem;}
 .stats-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:1.5rem;}
 .stat{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;}
-.stat-label{font-size:11px;color:var(--fg-muted);margin-bottom:5px;font-weight:500;}
+.stat-label{font-size:11px;color:var(--fg-muted);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
 .stat-value{font-size:22px;font-weight:600;}
 .stat-sub{font-size:11px;margin-top:3px;}
 .green{color:var(--success-fg);}.red{color:var(--danger-fg);}.amber{color:var(--warning-fg);}.blue{color:var(--info-fg);}
@@ -603,8 +608,7 @@ tr:hover td{background:var(--bg-subtle);}
           <table><thead><tr>
             <th><button type="button" class="job-sort-btn" data-job-sort="ro" onclick="setJobSort('ro')">RO # <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
             <th><button type="button" class="job-sort-btn" data-job-sort="date" onclick="setJobSort('date')">Date <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
-            <th><button type="button" class="job-sort-btn" data-job-sort="customer" onclick="setJobSort('customer')">Customer <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
-            <th><button type="button" class="job-sort-btn" data-job-sort="vehicle" onclick="setJobSort('vehicle')">Vehicle <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
+            <th><button type="button" class="job-sort-btn" data-job-sort="customer" onclick="setJobSort('customer')">Customer <span class="job-sort-indicator" aria-hidden="true"></span></button><span class="job-sort-sep" aria-hidden="true">/</span><button type="button" class="job-sort-btn" data-job-sort="vehicle" onclick="setJobSort('vehicle')">Vehicle <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
             <th><button type="button" class="job-sort-btn" data-job-sort="service" onclick="setJobSort('service')">Service <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
             <th><button type="button" class="job-sort-btn" data-job-sort="employee" onclick="setJobSort('employee')">Assigned to <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
             <th><button type="button" class="job-sort-btn" data-job-sort="labor" onclick="setJobSort('labor')">Labor <span class="job-sort-indicator" aria-hidden="true"></span></button></th>
@@ -972,7 +976,7 @@ tr:hover td{background:var(--bg-subtle);}
         <select id="time-date-filter" onchange="renderTime()"><option value="">All time</option></select>
       </div>
       <div class="stats-grid-3" id="time-stats"></div>
-      <div id="task-queue" class="card" style="margin-bottom:12px;"></div>
+      <div id="task-queue" class="card card-pad" style="margin-bottom:12px;"></div>
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="table-wrap">
           <table><thead><tr><th>Employee</th><th>Type</th><th>Clock in</th><th>Clock out</th><th>Duration</th><th>Job</th><th>Notes</th><th></th></tr></thead>
@@ -2741,7 +2745,7 @@ async function renderDashboard(){
     <div onclick="openJobModal(${safeId(j.id)})" style="display:grid;grid-template-columns:36px 1fr 140px 110px;gap:14px;align-items:center;padding:14px 18px;border-top:${i===0?'none':'1px solid var(--border)'};cursor:pointer;transition:background .12s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background=''">
       <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-subtle);color:var(--fg-muted);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:600;">${String(i+1).padStart(2,'0')}</div>
       <div style="min-width:0;">
-        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:600;">${esc((j.first||'')+' '+(j.last||''))}</span>${j.year?`<span class="muted" style="font-size:12px;">· ${esc(j.year)} ${esc(j.make)} ${esc(j.model)}</span>`:''}</div>
+        <div style="display:flex;align-items:baseline;flex-wrap:wrap;column-gap:8px;"><span style="font-size:14px;font-weight:600;white-space:nowrap;">${esc((j.first||'')+' '+(j.last||''))}</span>${j.year?`<span class="muted" style="font-size:12px;white-space:nowrap;">${esc(j.year)} ${esc(j.make)} ${esc(j.model)}</span>`:''}</div>
         <div class="muted" style="font-size:12px;margin-top:3px;">${esc(j.service||'—')}</div>
       </div>
       <div>
@@ -2867,7 +2871,9 @@ function updateJobSortHeaders(){
   document.querySelectorAll('[data-job-sort]').forEach(button=>{
     const active=button.dataset.jobSort===jobSortKey;
     const direction=active?jobSortDirection:'';
-    button.closest('th')?.setAttribute('aria-sort',active?(direction==='asc'?'ascending':'descending'):'none');
+    const th=button.closest('th');
+    const activeInHeader=[...(th?.querySelectorAll('.job-sort-btn')||[])].some(headerButton=>headerButton.dataset.jobSort===jobSortKey);
+    th?.setAttribute('aria-sort',activeInHeader?(jobSortDirection==='asc'?'ascending':'descending'):'none');
     button.querySelector('.job-sort-indicator').textContent=active?(direction==='asc'?'▲':'▼'):'';
     button.setAttribute('aria-label',`${button.textContent.trim().replace(/[▲▼]/g,'')} — ${active?`sorted ${direction}ending; activate to sort ${direction==='asc'?'descending':'ascending'}`:'activate to sort ascending'}`);
   });
@@ -2886,19 +2892,18 @@ function renderJobs(){
   if(jobSortKey)jobs.sort((a,b)=>compareJobsForSort(a,b,jobSortKey,jobSortDirection));
   updateJobSortHeaders();
   const tbody = document.getElementById('jobs-tbody');
-  if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="11" class="empty">No jobs found</td></tr>`; return; }
+  if(!jobs.length){ tbody.innerHTML=`<tr><td colspan="10" class="empty">No jobs found</td></tr>`; return; }
   tbody.innerHTML = jobs.map(j=>`<tr>
-    <td style="font-family:var(--font-mono);font-size:12px;">${esc(j.repair_order_number||'—')}</td>
-    <td style="color:#888;font-size:12px;">${esc(j.date||'—')}</td>
-    <td class="td-name">${esc(j.first||'')} ${esc(j.last||'')}</td>
-    <td style="font-size:12px;">${esc(j.year||'')} ${esc(j.make||'')} ${esc(j.model||'')}<br><span style="color:#aaa;">${esc(j.plate||'')}</span></td>
+    <td style="font-family:var(--font-mono);font-size:12px;white-space:nowrap;">${esc(j.repair_order_number||'—')}</td>
+    <td style="color:#888;font-size:12px;white-space:nowrap;">${esc(j.date||'—')}</td>
+    <td><div class="td-name">${esc(j.first||'')} ${esc(j.last||'')}</div><div class="td-sub">${esc([j.year,j.make,j.model].filter(Boolean).join(' ')||'—')}${j.plate?`<span style="white-space:nowrap;"> · <span class="mono">${esc(j.plate)}</span></span>`:''}</div></td>
     <td>${esc((j.service||'').slice(0,35))}${(j.service||'').length>35?'…':''}</td>
     <td style="font-size:12px;color:#555;">${j.emp_first?esc(j.emp_first+' '+j.emp_last):'<span style="color:#ccc;">—</span>'}</td>
     <td style="color:#3B6D11;">${fmt$(j.labor)}${j.labor_hours?`<br><span style="font-size:10px;color:#888;">${j.labor_hours} hrs</span>`:''}</td>
     <td style="color:#888;">${fmt$(j.parts)}</td>
     <td style="font-weight:600;">${fmt$(dashboardJobTotal(j,state.settings.tax_rate))}</td>
     <td>${statusBadge(j.status)}</td>
-    <td style="display:flex;gap:4px;">${isJobLocked(j)?'<button type="button" class="btn btn-sm" disabled title="Completed and paid repair orders are locked">Locked</button>':`<button type="button" class="btn btn-sm" onclick="openJobModal(${safeId(j.id)})">Edit</button>`}<button type="button" class="btn btn-sm" onclick="openInvoice(${safeId(j.id)})">Invoice</button></td>
+    <td class="cell-actions"><div class="cell-actions-inner">${isJobLocked(j)?'<button type="button" class="btn btn-sm" disabled title="Completed and paid repair orders are locked">Locked</button>':`<button type="button" class="btn btn-sm" onclick="openJobModal(${safeId(j.id)})">Edit</button>`}<button type="button" class="btn btn-sm" onclick="openInvoice(${safeId(j.id)})">Invoice</button></div></td>
   </tr>`).join('');
 }
 
@@ -2918,8 +2923,8 @@ function renderCalendar(){
     const dayJobs=state.jobs.filter(j=>j.date===ds);
     const dayAppts=(state.appts||[]).filter(a=>a.date===ds);
     const evs=[
-      ...dayAppts.map(a=>`<div class="cal-ev" data-appointment-id="${safeId(a.id)}" onclick="event.stopPropagation();openApptModal(null,${safeId(a.id)})">${a.time?esc(fmtTime(a.time))+' ':''} ${esc(a.cust)}</div>`),
-      ...dayJobs.map(j=>`<div class="cal-ev ${j.status==='Complete'?'green':j.status==='Pending'?'amber':''}">${esc((j.service||'').slice(0,14))}</div>`)
+      ...dayAppts.map(a=>`<div class="cal-ev" title="${a.time?esc(fmtTime(a.time))+' ':''}${esc(a.cust)}" data-appointment-id="${safeId(a.id)}" onclick="event.stopPropagation();openApptModal(null,${safeId(a.id)})">${a.time?esc(fmtTime(a.time))+' ':''} ${esc(a.cust)}</div>`),
+      ...dayJobs.map(j=>`<div class="cal-ev ${j.status==='Complete'?'green':j.status==='Pending'?'amber':''}" title="${esc(j.service||'')}">${esc(j.service||'')}</div>`)
     ].join('');
     cells+=`<div class="cal-cell${isToday?' today':''}" onclick="openApptModal('${ds}')"><div class="cal-num">${d}</div>${evs}</div>`;
   }
@@ -3247,7 +3252,7 @@ function renderFinance(){
     <td style="color:#3B6D11;font-weight:600;">${fmt$(paid)}</td>
     <td style="color:${remaining>0?'#A32D2D':'#3B6D11'};font-weight:700;">${fmt$(remaining)}</td>
     <td>${statusBadge(paymentStatus)}</td>
-    <td style="display:flex;gap:4px;"><button type="button" class="btn btn-sm" onclick="openInvoice(${safeId(job.id)})">Invoice</button>${remaining>0?`<button type="button" class="btn btn-sm btn-primary" onclick="openPmtModal(${safeId(job.customer_id)},${safeId(job.id)})">Add payment</button>`:''}</td>
+    <td class="cell-actions"><div class="cell-actions-inner"><button type="button" class="btn btn-sm" onclick="openInvoice(${safeId(job.id)})">Invoice</button>${remaining>0?`<button type="button" class="btn btn-sm btn-primary" onclick="openPmtModal(${safeId(job.customer_id)},${safeId(job.id)})">Add payment</button>`:''}</div></td>
   </tr>`).join(''):'<tr><td colspan="7" class="empty">No repair orders to track</td></tr>';
   const tbody=document.getElementById('ledger-tbody');
   tbody.innerHTML=pmts.length?pmts.map(p=>`<tr>
@@ -5312,10 +5317,10 @@ function renderLeads(){
     <td style="font-size:12px;${l.follow_up_date&&l.follow_up_date<now?'color:#A32D2D;font-weight:600;':''}">${esc(l.follow_up_date||'—')}</td>
     <td style="font-weight:500;">${l.estimated_value?fmt$(l.estimated_value):'—'}</td>
     <td>${leadStatusBadge(l.status)}</td>
-    <td style="display:flex;gap:4px;">
+    <td class="cell-actions"><div class="cell-actions-inner">
       <button class="btn btn-sm" onclick="openLeadModal(${safeId(l.id)})">Edit</button>
       ${l.status!=='Won'?`<button class="btn btn-sm btn-success" id="lead-convert-${safeId(l.id)}" onclick="convertLeadToCustomer(${safeId(l.id)})" style="font-size:10px;">Convert</button>`:''}
-    </td>
+    </div></td>
   </tr>`).join('');
 }
 
@@ -5419,10 +5424,10 @@ function renderEstimates(){
     <td style="font-size:12px;${e.expires_date&&e.expires_date<today()?'color:#A32D2D;':''}">${esc(e.expires_date||'—')}</td>
     <td style="font-weight:600;">${fmt$(e.total)}</td>
     <td>${estStatusBadge(e.status)}</td>
-    <td style="display:flex;gap:4px;">
+    <td class="cell-actions"><div class="cell-actions-inner">
       <button class="btn btn-sm" onclick="openEstimateModal(${safeId(e.id)})">Edit</button>
       <button class="btn btn-sm" onclick="openEstimateInvoice(${safeId(e.id)})">Print</button>
-    </td>
+    </div></td>
   </tr>`).join('');
 }
 
@@ -6230,7 +6235,7 @@ function renderTime(){
     <div class="stat"><div class="stat-label">Est. wage cost</div><div class="stat-value green">${fmt$(laborCost)}</div></div>
   `;
   const tasks=(operationsState().tasks||[]).filter(task=>(!empF||String(task.employee_id)===empF)&&task.status!=='Complete');
-  document.getElementById('task-queue').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;"><h3 style="margin:0;">Technician work queue</h3><span class="pill">${tasks.length} open</span></div>${tasks.map(task=>{const job=state.jobs.find(row=>Number(row.id)===Number(task.job_id));return `<div class="ops-list-item"><div style="flex:1;"><strong>${esc(task.description)}</strong><div class="settings-hint">${esc(job?.repair_order_number||`RO-${task.job_id}`)} · ${task.first?esc(`${task.first} ${task.last||''}`):'Unassigned'} · ${Number(task.estimated_hours||0)} planned hrs</div></div>${statusBadge(task.status)}<button type="button" class="btn btn-sm" onclick="updateJobTaskStatus(${safeId(task.id)},'${task.status==='In Progress'?'Complete':'In Progress'}')">${task.status==='In Progress'?'Complete':'Start'}</button></div>`;}).join('')||'<div class="empty" style="padding:12px;">No open technician tasks</div>'}`;
+  document.getElementById('task-queue').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;"><div class="card-title">Technician work queue</div><span class="pill">${tasks.length} open</span></div>${tasks.map(task=>{const job=state.jobs.find(row=>Number(row.id)===Number(task.job_id));return `<div class="ops-list-item"><div style="flex:1;"><strong>${esc(task.description)}</strong><div class="settings-hint">${esc(job?.repair_order_number||`RO-${task.job_id}`)} · ${task.first?esc(`${task.first} ${task.last||''}`):'Unassigned'} · ${Number(task.estimated_hours||0)} planned hrs</div></div>${statusBadge(task.status)}<button type="button" class="btn btn-sm" onclick="updateJobTaskStatus(${safeId(task.id)},'${task.status==='In Progress'?'Complete':'In Progress'}')">${task.status==='In Progress'?'Complete':'Start'}</button></div>`;}).join('')||'<div class="empty" style="padding:12px;">No open technician tasks</div>'}`;
   const tbody=document.getElementById('time-tbody');
   if(!filtered.length){tbody.innerHTML=`<tr><td colspan="8" class="empty">No time entries found</td></tr>`;return;}
   tbody.innerHTML=filtered.map(t=>{
@@ -6245,7 +6250,7 @@ function renderTime(){
       <td style="font-size:12px;">${esc(t.clock_in?t.clock_in.replace('T',' ').slice(0,16):'—')}</td>
       <td style="font-size:12px;">${esc(t.clock_out?t.clock_out.replace('T',' ').slice(0,16):'—')}</td>
       <td style="font-weight:500;">${dur}</td>
-      <td style="font-size:12px;color:#888;">${esc(t.job_service?(t.job_service||'').slice(0,30):'—')}</td>
+      <td class="cell-truncate" style="font-size:12px;color:#888;" title="${esc(t.job_service||'')}">${esc(t.job_service||'—')}</td>
       <td style="font-size:12px;color:#888;">${esc(t.notes||'')}</td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteTimeLog(${safeId(t.id)})">×</button></td>
     </tr>`;

@@ -38,6 +38,7 @@
     "qa:operations": "node scripts/operations-qa.js",
     "qa:package": "node scripts/package-qa.js",
     "qa:backup": "node scripts/backup-qa.js",
+    "qa:ui-layout": "node scripts/ui-layout-qa.js",
     "test:render-security": "node scripts/run-render-security.js",
     "build:icons": "electron scripts/build-icons.js"
   },
