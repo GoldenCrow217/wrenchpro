@@ -4,6 +4,14 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+### Fixed
+
+- Clean installs (`npm ci`) work again on machines without a C++ toolchain. `better-sqlite3` 13 ships prebuilt binaries, but npm (npm/cli#9837) still ran an implicit `node-gyp rebuild` when installing from the lockfile. `.npmrc` now sets `ignore-scripts=true`; no dependency needs an install script.
+
+### Added
+
+- ADR-0007: hosting on Supabase (data, auth, storage), Vercel (web app and portal), and Render (API).
+
 ### Security
 
 - Hosted access now fails closed: a request that arrives through a configured hosted domain is refused (503) unless `WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP=true`, so a misconfigured deployment can't serve desktop-mode (all-shops) data. Local desktop access is unchanged. Covered by `qa:hosted-security`, including a check that fails if the guard is removed.

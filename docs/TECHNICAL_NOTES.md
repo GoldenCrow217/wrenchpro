@@ -51,6 +51,8 @@ As of initial workflow setup, the repo had active uncommitted changes in multipl
 
 `better-sqlite3` 13+ is built on N-API and ships prebuilt binaries inside the npm package, so one build works under both plain Node and Electron. There is no rebuild step between `npm start`/tests and `npm run electron:build` (the old `rebuild-native`/`rebuild-node` scripts were removed with the Electron 44 upgrade).
 
+The repo's `.npmrc` sets `ignore-scripts=true`: npm (npm/cli#9837) would otherwise try to compile `better-sqlite3` from source during `npm ci` despite its bundled binaries, which fails without Visual Studio Build Tools. If a future dependency genuinely needs an install script, revisit this setting.
+
 Electron 42+ downloads its binary the first time it runs rather than during `npm install`. CI fetches it up front with `node node_modules/electron/install.js`.
 
 ## Future Technical Improvements To Consider

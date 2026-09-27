@@ -10,3 +10,4 @@ Short records of significant technical decisions: context, decision, consequence
 | [0004](0004-auth-supabase-roles.md) | Auth: Supabase Auth (JWKS), fail-closed tenant context, server-side roles | Accepted |
 | [0005](0005-single-source-business-logic.md) | One implementation of business calculations; API is authoritative | Accepted |
 | [0006](0006-desktop-transition.md) | Desktop app stays supported until the existing shop is migrated by importer | Accepted |
+| [0007](0007-hosting-supabase-vercel-render.md) | Hosting: Supabase (data/auth/storage), Vercel (web), Render (API) | Accepted |

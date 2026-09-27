@@ -244,7 +244,7 @@ wrenchpro/                     (this repo, converted to npm workspaces)
 
 | Decision | Needed by | Options / default |
 |---|---|---|
-| Hosting and monthly cost | Phase 2 | Default: Supabase (Postgres + auth + storage; free for development, Pro ~$25/mo for production backups and no pausing) + a Node host for the API (~$7–25/mo). |
+| ~~Hosting and monthly cost~~ | Decided | Supabase + Vercel + Render, see [ADR-0007](adr/0007-hosting-supabase-vercel-render.md). |
 | When to move the existing shop to the web app | Before cut-over | Default: when their daily workflow is covered and they agree. |
 | SMS/email provider and who pays | Phase 13 | Twilio/Telnyx for SMS, Resend/Postmark for email; pay-per-message. |
 | Online payments provider | Phase 9/13 | Stripe (card fees per transaction). |
