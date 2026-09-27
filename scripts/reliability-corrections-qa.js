@@ -4,6 +4,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const vm = require('vm');
+// The page loads server/pricing.js as window.WrenchProPricing.
+const WrenchProPricing = require('../server/pricing');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
@@ -22,7 +24,7 @@ const planEnd = html.indexOf('\nfunction renderPlans(', planStart);
 const reportStart = html.indexOf('function reportMetrics(');
 const reportEnd = html.indexOf('\nfunction renderReport(', reportStart);
 assert.ok(dashboardStart >= 0 && dashboardEnd > dashboardStart && planStart >= 0 && planEnd > planStart && reportStart >= 0 && reportEnd > reportStart);
-const reportContext = { state: { payments: [] }, Math, Number, Array, String, Set };
+const reportContext = { state: { payments: [] }, Math, Number, Array, String, Set, WrenchProPricing };
 vm.runInNewContext(`${html.slice(dashboardStart, dashboardEnd)}${html.slice(planStart, planEnd)}${html.slice(reportStart, reportEnd)};globalThis.qa=reportMetrics;`, reportContext);
 const report = reportContext.qa({
   settings: { tax_rate: 10 },

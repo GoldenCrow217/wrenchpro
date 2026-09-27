@@ -45,8 +45,16 @@ function requestHostname(hostHeader) {
 }
 app.use((req, res, next) => {
   const hostname = requestHostname(req.headers.host);
-  if (LOCAL_HOSTNAMES.has(hostname) || configuredAllowedHosts().has(hostname)) return next();
-  res.status(421).json({ error: 'Request host is not allowed' });
+  if (LOCAL_HOSTNAMES.has(hostname)) return next();
+  if (!configuredAllowedHosts().has(hostname)) return res.status(421).json({ error: 'Request host is not allowed' });
+  // Fail closed (ADR-0004): traffic through a hosted domain must go through
+  // shop membership checks. Without WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP, tenancy
+  // is the single-shop desktop mode, which would expose every shop's data.
+  if (!HOSTED_SAAS_MODE) {
+    console.error(`Refused hosted request for ${hostname}: WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP is not enabled`);
+    return res.status(503).json({ error: 'Hosted access is not configured' });
+  }
+  return next();
 });
 app.use(cors({
   origin(origin, callback) {
@@ -80,6 +88,11 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.static(path.join(__dirname, '..', 'public')));
+// The browser UI uses the server's own pricing module so estimate, repair
+// order, and markup math has exactly one implementation (ADR-0005).
+app.get('/shared/pricing.js', (req, res) => {
+  res.type('application/javascript').sendFile(path.join(__dirname, 'pricing.js'));
+});
 
 // API payloads contain private shop/customer data. Prevent browser caches from
 // retaining API responses.

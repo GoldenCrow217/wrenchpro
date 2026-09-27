@@ -1883,6 +1883,7 @@ tr:hover td{background:var(--bg-subtle);}
   </div>
 </div>
 
+<script src="/shared/pricing.js"></script>
 <script>
 const API = '';
 const SHOP_CONTEXT_STORAGE_KEY = 'wrenchpro.shopContext.v1';
@@ -2539,14 +2540,10 @@ function dashboardJobTotal(job,taxRate=0){
   return jobPricingTotals(labor,parts,travel,job.discount,effectiveTaxRate).total;
 }
 
+// Pricing math lives in server/pricing.js (loaded as WrenchProPricing) so the
+// screen and the saved record can never disagree.
 function jobPricingTotals(labor=0,parts=0,travelFee=0,discount=0,taxRate=0){
-  const round=value=>Math.round((Number(value)+Number.EPSILON)*100)/100;
-  const laborSubtotal=round(Math.max(0,Number(labor)||0)),partsSubtotal=round(Math.max(0,Number(parts)||0));
-  const subtotal=round(laborSubtotal+partsSubtotal),safeDiscount=Math.max(0,Number(discount)||0);
-  const afterDiscount=round(Math.max(0,subtotal-safeDiscount)),discountFactor=subtotal>0?afterDiscount/subtotal:0;
-  const netLabor=round(laborSubtotal*discountFactor),netParts=round(partsSubtotal*discountFactor);
-  const tax=round(netParts*Math.max(0,Number(taxRate)||0)/100),travel=round(Math.max(0,Number(travelFee)||0));
-  return{labor:laborSubtotal,parts:partsSubtotal,subtotal,discount:safeDiscount,netLabor,netParts,tax,travelFee:travel,total:round(afterDiscount+tax+travel)};
+  return WrenchProPricing.calculateJobTotals(labor,parts,travelFee,discount,taxRate);
 }
 
 function paymentsLinkedToJob(jobOrId,payments=state.payments){
@@ -2565,7 +2562,7 @@ function isJobLocked(job){
 
 function dashboardJobBalance(job,payments,taxRate=0){
   const paid=jobAmountPaid(job,payments);
-  return Math.max(0,Math.round((dashboardJobTotal(job,taxRate)-paid+Number.EPSILON)*100)/100);
+  return Math.max(0,WrenchProPricing.roundCurrency(dashboardJobTotal(job,taxRate)-paid));
 }
 
 function dashboardMetrics(snapshot,now=new Date()){
@@ -3686,7 +3683,7 @@ function _calcJob(){
   set('job-total-val', fmt$(totals.total));
   const paid=editJobId?jobAmountPaid(editJobId,state.payments):0;
   set('job-paid-val',fmt$(paid));
-  set('job-balance-val',fmt$(Math.max(0,Math.round((totals.total-paid+Number.EPSILON)*100)/100)));
+  set('job-balance-val',fmt$(Math.max(0,WrenchProPricing.roundCurrency(totals.total-paid))));
   const depositEnabled=document.getElementById('jf-require-parts-deposit');
   const depositInput=document.getElementById('jf-parts-deposit');
   if(depositEnabled&&depositInput){depositInput.disabled=!depositEnabled.checked;if(depositEnabled.checked&&!depositInput.dataset.manual)depositInput.value=(Math.round((totals.netParts+totals.tax)*(Number(state.settings.parts_deposit_percent??100)/100)*100)/100).toFixed(2);if(!depositEnabled.checked)depositInput.value='0.00';}
@@ -4592,11 +4589,7 @@ async function saveAppt(){
 }
 
 // ── Settings ──
-const DEFAULT_PARTS_MARKUP_TIERS=[
-  {up_to:1,markup:125},{up_to:5,markup:75},{up_to:10,markup:60},{up_to:25,markup:45},
-  {up_to:150,markup:32.5},{up_to:300,markup:30},{up_to:500,markup:25},
-  {up_to:1000,markup:18},{up_to:5000,markup:17.5},{up_to:null,markup:15},
-];
+const DEFAULT_PARTS_MARKUP_TIERS=WrenchProPricing.DEFAULT_PARTS_MARKUP_TIERS;
 let settingsMarkupDraft=[];
 
 function partsMarkupTiers(){
@@ -5533,17 +5526,7 @@ function setEstItemType(index,type){
 }
 
 function calculateEstimateTotals(items,discount,taxRate){
-  const round=value=>Math.round((Number(value)+Number.EPSILON)*100)/100;
-  const discountItems=items.filter(item=>String(item.type||'').toLowerCase()==='discount');
-  const subtotal=round(items.filter(item=>String(item.type||'').toLowerCase()!=='discount').reduce((sum,item)=>sum+(Number(item.amount)||0),0));
-  const taxableParts=round(items.filter(item=>['part','parts','shop_supply'].includes(String(item.type||'').toLowerCase())).reduce((sum,item)=>sum+(Number(item.amount)||0),0));
-  const explicitDiscount=round(discountItems.reduce((sum,item)=>sum+(Number(item.amount)||0),0));
-  const safeDiscount=Math.max(0,discountItems.length?explicitDiscount:(Number(discount)||0));
-  const afterDiscount=round(Math.max(0,subtotal-safeDiscount));
-  const discountFactor=subtotal>0?afterDiscount/subtotal:0;
-  const taxableAfterDiscount=round(taxableParts*discountFactor);
-  const tax=round(taxableAfterDiscount*Math.max(0,Number(taxRate)||0)/100);
-  return{subtotal,discount:safeDiscount,tax,total:round(afterDiscount+tax)};
+  return WrenchProPricing.calculateEstimateTotals(items,discount,taxRate);
 }
 
 function _calcEst(){
@@ -5988,7 +5971,7 @@ function renderInventory(){
 }
 
 function partPriceToCents(value){
-  return Math.round((Number(value)+Number.EPSILON)*100)/100;
+  return WrenchProPricing.roundCurrency(value);
 }
 
 function formatPartPercent(value){
@@ -5996,10 +5979,8 @@ function formatPartPercent(value){
 }
 
 function markupForPartCost(cost){
-  const numericCost=Number(cost);
-  if(!Number.isFinite(numericCost)||numericCost<0)return null;
-  const tier=partsMarkupTiers().find(item=>item.up_to===null||numericCost<=item.up_to);
-  return tier&&Number.isFinite(tier.markup)?tier.markup:null;
+  // An unsaved or invalid tier draft yields no suggestion rather than a guess.
+  try{return WrenchProPricing.markupForCost(cost,partsMarkupTiers());}catch{return null;}
 }
 
 function updatePartPricingFromCost(){

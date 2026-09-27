@@ -4,6 +4,18 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+### Security
+
+- Hosted access now fails closed: a request that arrives through a configured hosted domain is refused (503) unless `WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP=true`, so a misconfigured deployment can't serve desktop-mode (all-shops) data. Local desktop access is unchanged. Covered by `qa:hosted-security`, including a check that fails if the guard is removed.
+
+### Changed
+
+- One implementation of pricing math (ADR-0005): the UI now loads `server/pricing.js` from `/shared/pricing.js` instead of keeping hand copies of estimate totals, repair-order totals, parts markup, default markup tiers, and currency rounding. `qa:pricing` and the smoke test fail if a copy reappears or the served module differs from the server's.
+
+### Added
+
+- Architecture audit and SaaS migration plan (`docs/architecture/ARCHITECTURE_AUDIT.md`) with ADRs 0001–0006 (NestJS/TypeScript API, PostgreSQL on Supabase with Kysely, npm-workspaces monorepo, Supabase Auth with fail-closed tenancy and server-side roles, single-source business logic, desktop transition via backup-file importer).
+
 ## v1.1.1 - 2026-09-26
 
 ### Security

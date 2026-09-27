@@ -58,6 +58,21 @@ async function corsPreflight(baseUrl, origin, route = '/api/customers') {
   };
 }
 
+// fetch() cannot override Host, so use http.request to simulate traffic that
+// arrives through a hosted domain (e.g. behind a reverse proxy).
+function requestWithHost(baseUrl, host, route) {
+  const { port } = new URL(baseUrl);
+  return new Promise((resolve, reject) => {
+    const req = require('http').request({ host: '127.0.0.1', port, path: route, headers: { Host: host } }, res => {
+      let body = '';
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, body }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 async function main() {
   const hosted = await startServer({
     WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'true',
@@ -88,8 +103,29 @@ async function main() {
     assert.match(trustedPreflight.allowHeaders || '', /x-wrenchpro-shop-id/i, 'Preflight must allow shop context headers for hosted sessions');
     assert.match(trustedPreflight.vary || '', /Origin/i, 'CORS responses must vary by Origin to avoid cache confusion');
     assert.strictEqual((await corsPreflight(hosted.baseUrl, 'https://evil.example')).allowOrigin, null, 'Untrusted hosted preflight requests must not receive CORS access');
+
+    // A correctly configured hosted server accepts its domain and then applies
+    // membership rules (no shop context → 400, not data).
+    assert.strictEqual((await requestWithHost(hosted.baseUrl, 'app.wrenchpro.test', '/api/health')).status, 200, 'Configured hosted domains should reach the API');
+    assert.strictEqual((await requestWithHost(hosted.baseUrl, 'app.wrenchpro.test', '/api/customers')).status, 400, 'Hosted API requests without a shop context must be rejected');
   } finally {
     hosted.child.kill();
+  }
+
+  // Fail closed (ADR-0004): a hosted domain configured WITHOUT membership
+  // enforcement must refuse hosted traffic instead of serving desktop-mode data.
+  const misconfigured = await startServer({
+    WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'false',
+    WRENCHPRO_ALLOWED_ORIGINS: 'https://app.wrenchpro.test',
+  }, 'misconfigured');
+  try {
+    const refused = await requestWithHost(misconfigured.baseUrl, 'app.wrenchpro.test', '/api/customers');
+    assert.strictEqual(refused.status, 503, 'Hosted traffic must be refused when membership enforcement is off');
+    assert.ok(!refused.body.includes('"first"'), 'A refused hosted request must not include customer data');
+    assert.strictEqual((await requestWithHost(misconfigured.baseUrl, 'app.wrenchpro.test', '/')).status, 503, 'The hosted UI must not be served either');
+    assert.strictEqual((await requestWithHost(misconfigured.baseUrl, `127.0.0.1:${new URL(misconfigured.baseUrl).port}`, '/api/customers')).status, 200, 'Local desktop access must keep working');
+  } finally {
+    misconfigured.child.kill();
   }
 
   const desktop = await startServer({ WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP: 'false' }, 'desktop');
