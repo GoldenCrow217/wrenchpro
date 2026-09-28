@@ -4,7 +4,9 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
-### Fixed (UI)
+## v1.2.1 - 2026-09-27
+
+### Fixed
 
 - Table action buttons (Jobs, Estimates, Leads, Payments' repair-order balances) now sit inside proper table cells, so row dividers line up and buttons are vertically centered. The cells were `display:flex`, which stops a `<td>` from stretching to the row height.
 - Jobs table: customer and vehicle share one column (the vehicle and plate as a muted line under the customer, per the design handoff), with sorting by customer and by vehicle kept in the combined header. RO numbers and dates no longer wrap mid-value.
@@ -20,6 +22,21 @@ All notable WrenchPro changes should be documented here before release.
 - **Monorepo (Phase 1, ADR-0003):** the desktop app moved into `apps/desktop` as an npm workspace (`electron/`, `server/`, `public/`, `scripts/`, and its `package.json`), with file history preserved. The root `package.json` is the workspace root and forwards `start`, `test`, `test:all`, `smoke`, `qa:api`, `qa:package`, `electron:dev`, `electron:build`, and `build:icons`. The release workflow reads build output from `apps/desktop/dist`. The dependency tree is unchanged, and the packaged app has the same 878 files as before the move.
 - Electron is pinned to an exact version (`44.4.5`). electron-builder needs it to find Electron when packages are hoisted to the workspace root, and exact pins keep desktop builds reproducible.
 
+## v1.2.0 - 2026-09-27
+
+### Security
+
+- Upgraded Electron 39 → 44 (44.4.5). Electron 39 stopped receiving security fixes on 2026-05-05; 44 is the newest supported major version, so the bundled Chromium is current again. Full `npm audit` now reports 0 vulnerabilities, including the dev-only `extract-zip` advisory.
+- Hosted access now fails closed: a request that arrives through a configured hosted domain is refused (503) unless `WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP=true`, so a misconfigured deployment can't serve desktop-mode (all-shops) data. Local desktop access is unchanged. Covered by `qa:hosted-security`, including a check that fails if the guard is removed.
+
+### Changed
+
+- Upgraded `better-sqlite3` 12 → 13. Version 13 uses N-API with prebuilt binaries bundled in the package, so one build works under both Node and Electron. The `rebuild-native` / `rebuild-node` scripts and the release workflow's native rebuild step are removed; `npm start` and the tests work right after an installer build.
+- The Windows installer ships only the Windows SQLite binary (other platforms' binaries and SQLite source are excluded), shrinking the unpacked native module from 27 MB to 2 MB. Package QA asserts the Windows binary is present.
+- CI and release workflows download Electron explicitly before running QA, because Electron 42+ fetches its binary on first use instead of during `npm install`.
+- `npm run build:icons` waits for the offscreen frame before capturing, which Electron 44 requires.
+- One implementation of pricing math (ADR-0005): the UI now loads `server/pricing.js` from `/shared/pricing.js` instead of keeping hand copies of estimate totals, repair-order totals, parts markup, default markup tiers, and currency rounding. `qa:pricing` and the smoke test fail if a copy reappears or the served module differs from the server's.
+
 ### Fixed
 
 - **Installer packaging (security):** since the Electron 44 upgrade, the Windows build config's platform-level `files` list replaced the top-level allow-list, so local installer builds packed the whole project, including `.env`, `.claude/` settings, the local dev database, scripts, and docs. No published release was affected (all were built on CI before the change, where those files don't exist). The Windows list now repeats the full allow-list, `qa:package` fails if anything outside `electron/`, `server/`, `public/`, `node_modules/`, and `package.json` (or any `.env`/database file) is packaged, and both the PR QA workflow and the release workflow now build the installer and run that check.
@@ -27,19 +44,12 @@ All notable WrenchPro changes should be documented here before release.
 
 ### Added
 
+- Architecture audit and SaaS migration plan (`docs/architecture/ARCHITECTURE_AUDIT.md`) with ADRs 0001–0006 (NestJS/TypeScript API, PostgreSQL on Supabase with Kysely, npm-workspaces monorepo, Supabase Auth with fail-closed tenancy and server-side roles, single-source business logic, desktop transition via backup-file importer).
 - ADR-0007: hosting on Supabase (data, auth, storage), Vercel (web app and portal), and Render (API).
 
-### Security
+### Verified
 
-- Hosted access now fails closed: a request that arrives through a configured hosted domain is refused (503) unless `WRENCHPRO_REQUIRE_SHOP_MEMBERSHIP=true`, so a misconfigured deployment can't serve desktop-mode (all-shops) data. Local desktop access is unchanged. Covered by `qa:hosted-security`, including a check that fails if the guard is removed.
-
-### Changed
-
-- One implementation of pricing math (ADR-0005): the UI now loads `server/pricing.js` from `/shared/pricing.js` instead of keeping hand copies of estimate totals, repair-order totals, parts markup, default markup tiers, and currency rounding. `qa:pricing` and the smoke test fail if a copy reappears or the served module differs from the server's.
-
-### Added
-
-- Architecture audit and SaaS migration plan (`docs/architecture/ARCHITECTURE_AUDIT.md`) with ADRs 0001–0006 (NestJS/TypeScript API, PostgreSQL on Supabase with Kysely, npm-workspaces monorepo, Supabase Auth with fail-closed tenancy and server-side roles, single-source business logic, desktop transition via backup-file importer).
+- Data created by the packaged 1.1.1 app (Electron 39, better-sqlite3 12), including its automatic backup, opens, updates, and validates for restore in the packaged 1.2.0 app.
 
 ## v1.1.1 - 2026-09-26
 
