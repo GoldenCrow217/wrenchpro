@@ -1,11 +1,12 @@
 const assert=require('assert');
+const { freePortSync } = require('./qa-port');
 const {spawn}=require('child_process');
 const fs=require('fs');
 const os=require('os');
 const path=require('path');
 const Database=require('better-sqlite3');
 const root=path.join(__dirname,'..');
-const port=String(7000+Math.floor(Math.random()*400));
+const port=freePortSync();
 const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'wrenchpro-operations-'));
 const child=spawn(process.execPath,[path.join(root,'server','index.js')],{cwd:root,env:{...process.env,PORT:port,WRENCHPRO_DATA:dataDir,NODE_ENV:'test'},stdio:['ignore','pipe','pipe']});
 let output='';child.stdout.on('data',chunk=>{output+=chunk;});child.stderr.on('data',chunk=>{output+=chunk;});

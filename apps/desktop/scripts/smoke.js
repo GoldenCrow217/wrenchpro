@@ -1,4 +1,5 @@
 ﻿const { spawn } = require('child_process');
+const { freePortSync } = require('./qa-port');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
@@ -6,10 +7,9 @@ const path = require('path');
 const Database = require('better-sqlite3');
 const pkg = require('../package.json');
 
-const { findFreePort } = require('../electron/find-free-port');
 
-// A random port can collide with another local service, which then answers the
-// health check and makes the test time out. Probe for a genuinely free port.
+// Use an OS-assigned free port (see qa-port.js): random ports could collide with
+// another service or land on ports fetch() refuses, and the test would time out.
 let port = process.env.SMOKE_PORT || '';
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-smoke-'));
 const serverPath = path.join(__dirname, '..', 'server', 'index.js');
@@ -153,7 +153,7 @@ async function waitForDashboard() {
 
 (async () => {
   try {
-    if (!port) port = String(await findFreePort(3300 + Math.floor(Math.random() * 1000)));
+    if (!port) port = freePortSync();
     startServer();
     const body = await waitForDashboard();
     await checkHostAllowlist();

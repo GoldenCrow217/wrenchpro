@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { freePortSync } = require('./qa-port');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -8,7 +9,7 @@ const crypto = require('crypto');
 
 const JWT_SECRET = 'tenant-qa-secret-not-production';
 const SUPABASE_URL = 'https://xgqidqyctypfbuhhzwai.supabase.co';
-const port = String(6700 + Math.floor(Math.random() * 400));
+const port = freePortSync();
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-tenant-'));
 const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
   cwd: path.join(__dirname, '..'),
@@ -23,7 +24,7 @@ const url = route => `http://127.0.0.1:${port}${route}`;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function waitForServer() {
-  for (let i = 0; i < 100; i += 1) {
+  for (let i = 0; i < 400; i += 1) {
     if (child.exitCode !== null) throw new Error(`Server exited early:\n${output}`);
     try { if ((await fetch(url('/api/health'))).ok) return; } catch {}
     await sleep(50);
@@ -56,7 +57,7 @@ async function request(method, route, body, headers = {}) {
 }
 
 async function runOptionalMembershipQa() {
-  const optionalPort = String(7800 + Math.floor(Math.random() * 500));
+  const optionalPort = freePortSync();
   const optionalDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-tenant-optional-'));
   const optionalChild = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
     cwd: path.join(__dirname, '..'),
@@ -68,7 +69,7 @@ async function runOptionalMembershipQa() {
   optionalChild.stderr.on('data', chunk => { optionalOutput += chunk; });
   const optionalUrl = route => `http://127.0.0.1:${optionalPort}${route}`;
   try {
-    for (let i = 0; i < 100; i += 1) {
+    for (let i = 0; i < 400; i += 1) {
       if (optionalChild.exitCode !== null) throw new Error(`Optional membership QA server exited early:\n${optionalOutput}`);
       try { if ((await fetch(optionalUrl('/api/health'))).ok) break; } catch {}
       await sleep(50);
@@ -89,7 +90,7 @@ async function runOptionalMembershipQa() {
 }
 
 async function runHostedAuthConfigQa({ env, label, requestHeaders, assertion }) {
-  const configPort = String(7200 + Math.floor(Math.random() * 500));
+  const configPort = freePortSync();
   const configDataDir = fs.mkdtempSync(path.join(os.tmpdir(), `wrenchpro-tenant-${label}-`));
   const configChild = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
     cwd: path.join(__dirname, '..'),
@@ -101,7 +102,7 @@ async function runHostedAuthConfigQa({ env, label, requestHeaders, assertion }) 
   configChild.stderr.on('data', chunk => { configOutput += chunk; });
   const configUrl = route => `http://127.0.0.1:${configPort}${route}`;
   try {
-    for (let i = 0; i < 100; i += 1) {
+    for (let i = 0; i < 400; i += 1) {
       if (configChild.exitCode !== null) throw new Error(`Config QA server exited early:\n${configOutput}`);
       try { if ((await fetch(configUrl('/api/health'))).ok) break; } catch {}
       await sleep(50);

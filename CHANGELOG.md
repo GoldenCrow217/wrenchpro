@@ -4,6 +4,11 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+### Fixed (tests)
+
+- QA servers now use OS-assigned ports (`scripts/qa-port.js`) instead of random ports in small fixed ranges. The random ranges could land on ports that `fetch()` refuses (6665–6669 and 6697, the IRC ports on the Fetch standard's "bad ports" list; 3659, 4045, and 4190 in the smoke test's range), so a server that started fine looked unreachable until the wait timed out. This failed the first v1.2.2 release run (`qa:reliability-corrections` on port 6665); nothing was published, and a re-run released it.
+- Server startup waits in the QA scripts allow about 20 seconds instead of 5–7.5, for slow shared CI runners. A server that crashes still fails immediately.
+
 ## v1.2.2 - 2026-09-27
 
 ### Fixed
