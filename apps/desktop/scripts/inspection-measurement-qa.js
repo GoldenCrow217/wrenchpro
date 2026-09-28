@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { freePortSync } = require('./qa-port');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -8,7 +9,7 @@ const Database = require('better-sqlite3');
 const root = path.join(__dirname, '..');
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-inspection-measurement-qa-'));
 const dbPath = path.join(dataDir, 'wrenchpro.db');
-const port = String(6100 + Math.floor(Math.random() * 300));
+const port = freePortSync();
 const baseUrl = `http://127.0.0.1:${port}`;
 let child;
 let output = '';
@@ -51,7 +52,7 @@ async function start() {
   });
   child.stdout.on('data', chunk => { output += chunk; });
   child.stderr.on('data', chunk => { output += chunk; });
-  for (let attempt = 0; attempt < 75; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     if (child.exitCode !== null) throw new Error(`Server exited early:\n${output}`);
     try { if ((await request('GET', '/api/health')).ok) return; } catch { await sleep(100); }
   }

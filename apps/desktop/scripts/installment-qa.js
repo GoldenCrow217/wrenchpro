@@ -1,10 +1,11 @@
 const { spawn } = require('child_process');
+const { freePortSync } = require('./qa-port');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const port = String(5200 + Math.floor(Math.random() * 500));
+const port = freePortSync();
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-installment-qa-'));
 const baseUrl = `http://127.0.0.1:${port}`;
 const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
@@ -53,7 +54,7 @@ async function createPlan(customerId, jobId, amount = 50) {
 (async () => {
   let db;
   try {
-    for (let attempt = 0; attempt < 100; attempt += 1) {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
       try { if ((await request('GET', '/api/health')).ok) break; } catch {}
       await sleep(100);
     }
