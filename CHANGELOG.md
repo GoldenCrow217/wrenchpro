@@ -4,6 +4,8 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+## v1.2.2 - 2026-09-27
+
 ### Fixed
 
 - Titles and their descriptions no longer overlap in the Customize dashboard KPIs window, the Time Tracking technician work queue, and the Workflow lists (bays & mobile units, inspection templates, vendors, deferred work). The description style (`settings-hint`) carries a negative top margin meant for hints under form fields; descriptions under a bold title now sit below it.
