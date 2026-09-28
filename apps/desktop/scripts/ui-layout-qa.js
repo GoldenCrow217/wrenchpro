@@ -20,4 +20,13 @@ assert.match(html, /\.table-wrap\{[^}]*overflow-x:auto;[^}]*position:relative;/,
 // Calendar chips truncate with CSS ellipsis, not by chopping text mid-word.
 assert.ok(!/class="cal-ev[^\n]*\.slice\(0,\d+\)/.test(html),'calendar chips must not cut text with slice(); rely on text-overflow');
 
-console.log('UI layout QA passed: real table cells, contained table overflow, ellipsis-based truncation');
+// .settings-hint has a negative top margin to tuck under form fields. Used as a
+// description under a bold title (KPI picker, work queue, bays, templates,
+// vendors), it overlapped the title until this override existed.
+assert.match(html, /strong \+ \.settings-hint\{margin-top:2px;/, 'descriptions under bold titles must not inherit the negative form-hint margin');
+
+// The Today's route row adapts to narrow cards instead of squeezing the job text.
+assert.match(html, /\.route-card\{container-type:inline-size;\}/, 'the route card must be a size container');
+assert.match(html, /@container \(max-width:560px\)\{\.route-row\{/, 'the route row must restack on narrow cards');
+
+console.log('UI layout QA passed: real table cells, contained table overflow, ellipsis-based truncation, title/description spacing, responsive route row');
