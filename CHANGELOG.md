@@ -4,6 +4,13 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+### Fixed
+
+- Titles and their descriptions no longer overlap in the Customize dashboard KPIs window, the Time Tracking technician work queue, and the Workflow lists (bays & mobile units, inspection templates, vendors, deferred work). The description style (`settings-hint`) carries a negative top margin meant for hints under form fields; descriptions under a bold title now sit below it.
+- Dashboard "Today's route" adapts to narrow windows: when the card is narrow, the technician moves under the job instead of squeezing the job description to one word per line.
+- Checkboxes and radio buttons use the WrenchPro accent color, and dropdowns inside tables (e.g. "Add to estimate…" on deferred work) match the app's other dropdowns.
+- `qa:ui-layout` also guards the title/description spacing and the responsive route row.
+
 ## v1.2.1 - 2026-09-27
 
 ### Fixed
