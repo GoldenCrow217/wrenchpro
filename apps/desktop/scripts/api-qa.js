@@ -1,10 +1,11 @@
 const { spawn } = require('child_process');
+const { freePortSync } = require('./qa-port');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const port = process.env.QA_PORT || String(4300 + Math.floor(Math.random() * 1000));
+const port = process.env.QA_PORT || freePortSync();
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-api-qa-'));
 const serverPath = path.join(__dirname, '..', 'server', 'index.js');
 const baseUrl = `http://127.0.0.1:${port}`;

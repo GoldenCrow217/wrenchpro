@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { freePortSync } = require('./qa-port');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -45,7 +46,7 @@ assert.strictEqual(report.totalIncome, 160, 'sales tax must not be counted as op
 assert.strictEqual(report.net, 140);
 assert.strictEqual(report.totalOutstanding, 120, 'unpaid repair orders and unlinked legacy plans must both be included');
 
-const port = String(6600 + Math.floor(Math.random() * 300));
+const port = freePortSync();
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrenchpro-corrections-'));
 const child = spawn(process.execPath, [path.join(root, 'server', 'index.js')], {
   cwd: root,
@@ -80,7 +81,7 @@ async function rejected(method, route, body, field, status = 400) {
 }
 
 async function waitForServer() {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 400; attempt += 1) {
     if (child.exitCode !== null) throw new Error(`Server exited early:\n${output}`);
     try { if ((await fetch(url('/api/health'))).ok) return; } catch {}
     await new Promise(resolve => setTimeout(resolve, 50));

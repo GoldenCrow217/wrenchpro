@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { freePortSync } = require('./qa-port');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -7,7 +8,7 @@ const path = require('path');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function startServer(envOverrides, label) {
-  const port = String(8200 + Math.floor(Math.random() * 900));
+  const port = freePortSync();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), `wrenchpro-hosted-security-${label}-`));
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
     cwd: path.join(__dirname, '..'),
@@ -18,7 +19,7 @@ async function startServer(envOverrides, label) {
   child.stdout.on('data', chunk => { output += chunk; });
   child.stderr.on('data', chunk => { output += chunk; });
   const baseUrl = `http://127.0.0.1:${port}`;
-  for (let i = 0; i < 100; i += 1) {
+  for (let i = 0; i < 400; i += 1) {
     if (child.exitCode !== null) throw new Error(`${label} server exited early:\n${output}`);
     try { if ((await fetch(`${baseUrl}/api/health`)).ok) return { child, baseUrl, output: () => output }; } catch {}
     await sleep(50);
