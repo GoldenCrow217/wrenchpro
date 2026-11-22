@@ -4,7 +4,7 @@ const path = require('path');
 const vm = require('vm');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-const helperMatch = source.match(/function cleanBearerToken\(value\)\{[\s\S]*?function shopAuthErrorMessage\(status,msg,field\)\{[\s\S]*?\n\}/);
+const helperMatch = source.match(/function cleanBearerToken\(value\)\{[\s\S]*?function shopRoleActionMessage\(action\)\{[\s\S]*?\n\}/);
 if (!helperMatch) throw new Error('Shop auth frontend helpers were not found');
 
 function base64urlJson(value) {
@@ -41,6 +41,7 @@ const context = {
   SHOP_REJECTED_TOKEN_STORAGE_KEY: 'wrenchpro.rejectedSupabaseAccessTokenFingerprint',
   SUPABASE_AUTH_ISSUER: trustedIssuer,
   shopContext: { shopId: 42, email: 'fallback@example.com', accessToken: '' },
+  shopContextDetails: { mode: 'shop', shop: { id: 42, name: 'QA Shop' }, membership: { role: 'mechanic', email: 'mechanic@example.com' } },
   sessionStorage: createStorage(),
   localStorage: createStorage(),
   atob(value) { return Buffer.from(value, 'base64').toString('binary'); },
@@ -75,6 +76,51 @@ assert.match(context.shopAuthErrorMessage(401, 'server said no'), /session expir
 assert.match(context.shopAuthErrorMessage(403, 'Shop account is not active', 'plan_status'), /shop account is not active/, 'Blocked SaaS accounts should get a subscription/account-status recovery message');
 assert.match(context.shopAuthErrorMessage(403, 'User is not an active member'), /not an active member/, 'Membership 403s should keep their membership recovery message');
 assert.match(context.shopAuthErrorMessage(503, 'Shop membership authentication is not configured'), /hosted authentication is not configured/, 'Hosted auth misconfiguration should show a support/configuration recovery message');
+assert.strictEqual(context.canManageShopSettings(), false, 'Hosted mechanics should not see settings as editable');
+assert.strictEqual(context.canManageEmployees(), false, 'Hosted mechanics should not see employee management as editable');
+assert.strictEqual(context.canManageInventory(), false, 'Hosted mechanics should not see inventory management as editable');
+assert.strictEqual(context.canManageCatalog(), false, 'Hosted mechanics should not see catalog management as editable');
+assert.strictEqual(context.canManageOperationsSetup(), false, 'Hosted mechanics should not see workflow setup, resource, template, or purchasing actions as editable');
+assert.strictEqual(context.canManageEstimates(), false, 'Hosted mechanics should not see estimate creation or approval actions as editable');
+assert.strictEqual(context.canRecordPayments(), false, 'Hosted mechanics should not see payment actions as available');
+assert.strictEqual(context.shouldRestrictPaidJobStatus(), true, 'Hosted mechanics should not be able to mark repair orders paid from the frontend');
+context.shopContextDetails.membership.role = 'service_writer';
+assert.strictEqual(context.canRecordPayments(), true, 'Hosted service writers should see payment actions as available');
+assert.strictEqual(context.shouldRestrictPaidJobStatus(), false, 'Hosted service writers should be able to mark paid repair orders when allowed by payment guards');
+assert.strictEqual(context.canManageEmployees(), false, 'Hosted service writers should not see employee management as editable');
+assert.strictEqual(context.canManageInventory(), false, 'Hosted service writers should not see inventory management as editable');
+assert.strictEqual(context.canManageCatalog(), false, 'Hosted service writers should not see catalog management as editable');
+assert.strictEqual(context.canManageOperationsSetup(), false, 'Hosted service writers should not see workflow setup, resource, template, or purchasing actions as editable');
+assert.strictEqual(context.canManageEstimates(), true, 'Hosted service writers should see estimate creation and approval actions as editable');
+context.shopContextDetails.membership.role = 'owner';
+assert.strictEqual(context.canManageShopSettings(), true, 'Hosted owners should see settings as editable');
+assert.strictEqual(context.canManageEmployees(), true, 'Hosted owners should see employee management as editable');
+assert.strictEqual(context.canManageInventory(), true, 'Hosted owners should see inventory management as editable');
+assert.strictEqual(context.canManageCatalog(), true, 'Hosted owners should see catalog management as editable');
+assert.strictEqual(context.canManageOperationsSetup(), true, 'Hosted owners should see workflow setup, resource, template, and purchasing actions as editable');
+assert.strictEqual(context.canManageEstimates(), true, 'Hosted owners should see estimate creation and approval actions as editable');
+assert.strictEqual(context.shouldRestrictPaidJobStatus(), false, 'Hosted owners should be able to mark paid repair orders');
+context.shopContext = { shopId: null, email: '', accessToken: '' };
+assert.strictEqual(context.canManageEmployees(), true, 'Desktop mode should keep local employee management available');
+assert.strictEqual(context.canManageInventory(), true, 'Desktop mode should keep local inventory management available');
+assert.strictEqual(context.canManageCatalog(), true, 'Desktop mode should keep local catalog management available');
+assert.strictEqual(context.canManageOperationsSetup(), true, 'Desktop mode should keep local workflow setup, resource, template, and purchasing actions available');
+assert.strictEqual(context.canManageEstimates(), true, 'Desktop mode should keep local estimate actions available');
+assert.strictEqual(context.shouldRestrictPaidJobStatus(), false, 'Desktop mode should keep paid repair-order status available');
+assert.match(source, /operationsTab==='deferred'\|\|\(\['resources','templates','purchasing'\]\.includes\(operationsTab\)&&!canManageOperationsSetup\(\)\)/, 'Workflow setup primary actions should be hidden from non-admin hosted roles');
+assert.match(source, /openWorkflowColumnModal\(id=null\)\{\s*if\(!canManageOperationsSetup\(\)\)/, 'Workflow column modal should be guarded on the frontend');
+assert.match(source, /openResourceModal\(id=null\)\{if\(!canManageOperationsSetup\(\)\)/, 'Shop resource modal should be guarded on the frontend');
+assert.match(source, /openInspectionTemplateModal\(id=null\)\{if\(!canManageOperationsSetup\(\)\)/, 'Inspection template modal should be guarded on the frontend');
+assert.match(source, /openPurchaseOrderModal\(id=null\)\{if\(!canManageOperationsSetup\(\)\)/, 'Purchase order modal should be guarded on the frontend');
+assert.match(source, /openInventoryReservation\(\)\{\s*if\(!canManageOperationsSetup\(\)\)/, 'Inventory reservations should be guarded on the frontend');
+assert.match(source, /invoiceStatus==='Paid'&&!canRecordPayments\(\)/, 'Repair-order paid status should be guarded on the frontend');
+assert.match(source, /id==='estimates'\)\{pri\.textContent='\+ New Estimate'; if\(!canManageEstimates\(\)\)pri\.style\.display='none';\}/, 'Estimate creation primary action should be hidden from non-estimator hosted roles');
+assert.match(source, /openEstimateModal\(id\)\{\s*if\(!canManageEstimates\(\)\)/, 'Estimate modal should be guarded on the frontend');
+assert.match(source, /convertEstToJob\(\)\{\s*if\(!canManageEstimates\(\)\)/, 'Estimate conversion should be guarded on the frontend');
+assert.match(source, /\['qf-paid','qf-method','qf-pay-date'\]\.forEach\(id=>\{const input=document\.getElementById\(id\);if\(input\)input\.disabled=!canRecordPayments\(\);\}\)/, 'Quick-entry payment fields should be disabled for non-payment hosted roles');
+assert.match(source, /record payments through quick entry/, 'Quick-entry payment save path should be guarded on the frontend');
+context.shopContext = { shopId: 42, email: 'fallback@example.com', accessToken: '' };
+context.shopContextDetails.membership.role = 'mechanic';
 const normalizedHostedContext = context.normalizeHostedShopContext({ shop_id: '42', shop_email: 'TECH@EXAMPLE.COM', access_token: valid });
 assert.strictEqual(normalizedHostedContext.shopId, 42, 'Hosted shell context should normalize snake_case shop IDs');
 assert.strictEqual(normalizedHostedContext.email, 'tech@example.com', 'Hosted shell context should normalize snake_case emails');

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { customerTenantWhere, resolveShopId } = require('../tenant');
+const { customerTenantWhere, resolveShopId, shopRoleAllowed, shopRoleDenied } = require('../tenant');
 const { fail, requiredText, nonNegativeNumber, isoDate } = require('../validation');
 const { localDateKey } = require('../business-date');
 const { reconcileJobInvoiceStatus } = require('../job-finance');
@@ -41,7 +41,10 @@ function nextRepairOrderNumber(req) {
   return `RO-${String(highest + 1).padStart(4, '0')}`;
 }
 
+const PAYMENT_ROLES = ['owner', 'admin', 'service_writer'];
+
 router.post('/', (req, res) => {
+  if (Number(req.body.amount_paid || 0) > 0 && !shopRoleAllowed(req, PAYMENT_ROLES)) return shopRoleDenied(res, PAYMENT_ROLES);
   if (!validateQuickEntry(res, req.body)) return;
   const body = req.body;
   const tenant = customerTenantWhere(req, 'c');

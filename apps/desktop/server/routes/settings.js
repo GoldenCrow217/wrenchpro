@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { resolveShopId } = require('../tenant');
+const { requireShopRole, resolveShopId } = require('../tenant');
 const { fail, nonNegativeNumber } = require('../validation');
 const { normalizeMarkupTiers } = require('../pricing');
 
@@ -57,13 +57,28 @@ function shopSettings(shopId) {
   return db.prepare('SELECT * FROM shop_settings WHERE shop_id = ?').get(shopId) || null;
 }
 
+function canViewPrivateSettings(req) {
+  if (!resolveShopId(req)) return true;
+  const role = String(req.shopMembership?.role || '').trim().toLowerCase();
+  return role === 'owner' || role === 'admin';
+}
+
+function publicSettings(row, req) {
+  if (!row || canViewPrivateSettings(req)) return row || {};
+  return {
+    ...row,
+    owner_name: '',
+    tax_id: '',
+  };
+}
+
 router.get('/', (req, res) => {
   const shopId = resolveShopId(req);
   const row = shopId ? (shopSettings(shopId) || defaultShopSettings(shopId)) : globalSettings();
-  res.json(row || {});
+  res.json(publicSettings(row, req));
 });
 
-router.put('/', (req, res) => {
+router.put('/', requireShopRole(['owner', 'admin']), (req, res) => {
   const shopId = resolveShopId(req);
   const currentSettings = shopId ? (shopSettings(shopId) || defaultShopSettings(shopId)) : globalSettings();
   for (const [field, label] of [['default_labor_rate','Default labor rate'],['diagnostic_rate','Diagnostic rate'],['fleet_rate','Fleet rate'],['emergency_rate','Emergency rate'],['service_fee','Service fee'],['tax_rate','Tax rate'],['oil_warn_miles','Oil warning mileage'],['parts_deposit_percent','Parts deposit percent'],['payment_grace_days','Payment grace days'],['late_fee','Late fee']]) {

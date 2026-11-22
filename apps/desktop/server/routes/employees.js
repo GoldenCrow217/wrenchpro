@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { resolveShopId, shopTenantWhere } = require('../tenant');
+const { requireShopRole, resolveShopId, shopTenantWhere } = require('../tenant');
 const { requiredText, nonNegativeNumber, positiveId } = require('../validation');
 
 function validateEmployee(res, body) {
@@ -16,7 +16,7 @@ router.get('/', (req, res) => {
   res.json(employees);
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireShopRole(['owner', 'admin']), (req, res) => {
   if (!validateEmployee(res, req.body)) return;
   const { first, last, phone, email, role, hourly_rate, status, notes } = req.body;
   const shopId = resolveShopId(req);
@@ -34,7 +34,7 @@ router.post('/', (req, res) => {
   res.json({ id: result.lastInsertRowid, shop_id: shopId, ...req.body });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireShopRole(['owner', 'admin']), (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   if (!validateEmployee(res, req.body)) return;
   const { first, last, phone, email, role, hourly_rate, status, notes } = req.body;
@@ -55,7 +55,7 @@ router.put('/:id', (req, res) => {
   res.json({ success: true });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireShopRole(['owner', 'admin']), (req, res) => {
   const tenant = shopTenantWhere(req);
 
   const archiveEmployee = db.transaction(() => {

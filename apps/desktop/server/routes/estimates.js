@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { customerTenantWhere, shopTenantWhere, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
+const { customerTenantWhere, shopTenantWhere, employeeInTenant, inventoryItemsInTenant, requireShopRole } = require('../tenant');
 const { fail, nonNegativeNumber, positiveId, isoDate } = require('../validation');
 const { calculateEstimateTotals, isTaxablePart } = require('../pricing');
 const { normalizedItemType, normalizeLineItems, lineItemTotals } = require('../line-items');
+
+const ESTIMATE_ROLES = ['owner', 'admin', 'service_writer'];
 
 function validateEstimate(res, body, create) {
   if (create && !positiveId(res, body.customer_id, 'customer_id', { required: true })) return false;
@@ -113,7 +115,7 @@ const createEstimate = db.transaction((req, values) => {
   return { id: estId, estimate_number: num, total, vehicle_mileage: vehicleMileage };
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireShopRole(ESTIMATE_ROLES), (req, res) => {
   if (!validateEstimate(res, req.body, true)) return;
   let {
     customer_id, vehicle_id, employee_id, date, miles, status, notes,
@@ -144,7 +146,7 @@ router.post('/', (req, res) => {
   res.json({ ...savedEstimate(created.id), vehicle_mileage:created.vehicle_mileage });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireShopRole(ESTIMATE_ROLES), (req, res) => {
   if (!validateEstimate(res, req.body, false)) return;
   let {
     status, notes, customer_complaint, miles, discount, tax_rate, expires_date, items,
@@ -226,7 +228,7 @@ router.put('/:id', (req, res) => {
   res.json({ ...savedEstimate(Number(req.params.id)), vehicle_mileage: vehicleMileage });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireShopRole(ESTIMATE_ROLES), (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const result = db.prepare(`
     UPDATE estimates SET deleted_at = datetime('now')
@@ -240,7 +242,7 @@ router.delete('/:id', (req, res) => {
   res.json({ success: true });
 });
 
-router.post('/:id/convert', (req, res) => {
+router.post('/:id/convert', requireShopRole(ESTIMATE_ROLES), (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const est = db.prepare(`
     SELECT e.*

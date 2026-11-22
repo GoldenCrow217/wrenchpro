@@ -74,7 +74,7 @@ Current status: **private beta**.
 
 ## Development Setup
 
-**Requirements:** Node.js 20 (matches CI and Electron's bundled Node)
+**Requirements:** Node.js 22 or newer (CI and releases use Node.js 24)
 
 ```bash
 git clone https://github.com/GoldenCrow217/wrenchpro.git

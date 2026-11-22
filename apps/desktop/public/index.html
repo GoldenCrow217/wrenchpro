@@ -2158,6 +2158,22 @@ function shopContextLabel(){
   }
   return shopContext.shopId?`Shop #${shopContext.shopId}${shopContext.email?` · ${shopContext.email}`:''}`:'Local desktop mode';
 }
+function currentShopRole(){ return String(shopContextDetails?.membership?.role||'').trim().toLowerCase(); }
+function hasShopRole(roles){
+  if(!shopContext.shopId)return true;
+  const allowed=new Set((Array.isArray(roles)?roles:[roles]).map(role=>String(role||'').trim().toLowerCase()).filter(Boolean));
+  return allowed.has(currentShopRole());
+}
+function canManageShopSettings(){ return hasShopRole(['owner','admin']); }
+function canManageEmployees(){ return hasShopRole(['owner','admin']); }
+function canManageExpenses(){ return hasShopRole(['owner','admin']); }
+function canManageInventory(){ return hasShopRole(['owner','admin']); }
+function canManageCatalog(){ return hasShopRole(['owner','admin']); }
+function canManageOperationsSetup(){ return hasShopRole(['owner','admin']); }
+function canManageEstimates(){ return hasShopRole(['owner','admin','service_writer']); }
+function canRecordPayments(){ return hasShopRole(['owner','admin','service_writer']); }
+function shouldRestrictPaidJobStatus(){ return Boolean(shopContext.shopId)&&!canRecordPayments(); }
+function shopRoleActionMessage(action){ return `Your ${shopContextDetails?.membership?.role||'shop'} role cannot ${action}. Ask an owner or admin for access.`; }
 async function loadShopContextDetails(){
   if(!shopContext.shopId){
     shopContextDetails={mode:'desktop',shop:null,membership:null};
@@ -2451,19 +2467,19 @@ function sp(id, _el){
   pri.onclick = priAction;
   if(id==='dashboard'){pri.style.display='none';}
   else if(id==='jobs'){pri.textContent='+ New Job';}
-  else if(id==='workflow'){pri.textContent=operationsTab==='board'?'+ New Job':operationsTab==='resources'?'+ Add Resource':operationsTab==='templates'?'+ Add Template':operationsTab==='purchasing'?'+ Purchase Order':'';if(operationsTab==='deferred')pri.style.display='none';}
+  else if(id==='workflow'){pri.textContent=operationsTab==='board'?'+ New Job':operationsTab==='resources'?'+ Add Resource':operationsTab==='templates'?'+ Add Template':operationsTab==='purchasing'?'+ Purchase Order':'';if(operationsTab==='deferred'||(['resources','templates','purchasing'].includes(operationsTab)&&!canManageOperationsSetup()))pri.style.display='none';}
   else if(id==='customers'){ pri.textContent='+ New Customer'; showCustList(); }
   else if(id==='vehicles'){pri.textContent='+ Add Vehicle';}
   else if(id==='schedule'){pri.textContent='+ Appointment';}
-  else if(id==='finance'){pri.textContent='+ Record Payment'; sec.style.display=''; sec.textContent='+ New Plan';}
-  else if(id==='plans'){pri.textContent='+ New Plan'; sec.style.display=''; sec.textContent='+ Record Payment';}
-  else if(id==='employees'){pri.textContent='+ Add Employee';}
-  else if(id==='expenses'){pri.textContent='+ Add Expense';}
+  else if(id==='finance'){pri.textContent='+ Record Payment'; if(!canRecordPayments())pri.style.display='none'; sec.style.display=canRecordPayments()?'':'none'; sec.textContent='+ New Plan';}
+  else if(id==='plans'){pri.textContent='+ New Plan'; if(!canRecordPayments())pri.style.display='none'; sec.style.display=canRecordPayments()?'':'none'; sec.textContent='+ Record Payment';}
+  else if(id==='employees'){pri.textContent='+ Add Employee'; if(!canManageEmployees())pri.style.display='none';}
+  else if(id==='expenses'){pri.textContent='+ Add Expense'; if(!canManageExpenses())pri.style.display='none';}
   else if(id==='leads'){pri.textContent='+ New Lead';}
-  else if(id==='estimates'){pri.textContent='+ New Estimate';}
+  else if(id==='estimates'){pri.textContent='+ New Estimate'; if(!canManageEstimates())pri.style.display='none';}
   else if(id==='inspections'){pri.textContent='+ New Inspection';}
-  else if(id==='inventory'){pri.textContent='+ Add Part';}
-  else if(id==='catalog'){pri.textContent='+ Add Service';}
+  else if(id==='inventory'){pri.textContent='+ Add Part'; if(!canManageInventory())pri.style.display='none';}
+  else if(id==='catalog'){pri.textContent='+ Add Service'; if(!canManageCatalog())pri.style.display='none';}
   else if(id==='warranties'){pri.textContent='+ Add Warranty';}
   else if(id==='time'){pri.textContent='+ Log Time';}
   else if(id==='report'){pri.style.display='none';}
@@ -2478,20 +2494,21 @@ function priAction(){
   else if(p==='customers') openCustModal();
   else if(p==='vehicles') openVehModal(null,null);
   else if(p==='schedule') openApptModal(today());
-  else if(p==='finance') openPmtModal();
-  else if(p==='plans') openPlanModal();
-  else if(p==='employees') openEmpModal();
-  else if(p==='expenses') openExpModal();
+  else if(p==='finance'){ if(!canRecordPayments())return toast(shopRoleActionMessage('record payments'),8000); openPmtModal(); }
+  else if(p==='plans'){ if(!canRecordPayments())return toast(shopRoleActionMessage('manage payment plans'),8000); openPlanModal(); }
+  else if(p==='employees'){ if(!canManageEmployees())return toast(shopRoleActionMessage('manage employees'),8000); openEmpModal(); }
+  else if(p==='expenses'){ if(!canManageExpenses())return toast(shopRoleActionMessage('manage expenses'),8000); openExpModal(); }
   else if(p==='leads') openLeadModal();
-  else if(p==='estimates') openEstimateModal();
+  else if(p==='estimates'){ if(!canManageEstimates())return toast(shopRoleActionMessage('create or edit estimates'),8000); openEstimateModal(); }
   else if(p==='inspections') openInspModal();
-  else if(p==='inventory') openPartModal();
-  else if(p==='catalog') openCatalogModal();
+  else if(p==='inventory'){ if(!canManageInventory())return toast(shopRoleActionMessage('manage inventory'),8000); openPartModal(); }
+  else if(p==='catalog'){ if(!canManageCatalog())return toast(shopRoleActionMessage('manage the service catalog'),8000); openCatalogModal(); }
   else if(p==='warranties') openWarrantyModal();
   else if(p==='time') openTimeModal();
 }
 
 function secAction(){
+  if(!canRecordPayments())return toast(shopRoleActionMessage('record payments'),8000);
   if(currentPage==='finance') openPlanModal();
   else if(currentPage==='plans') openPmtModal();
 }
@@ -3264,7 +3281,7 @@ function renderFinance(){
     <td style="color:#3B6D11;font-weight:600;">${fmt$(paid)}</td>
     <td style="color:${remaining>0?'#A32D2D':'#3B6D11'};font-weight:700;">${fmt$(remaining)}</td>
     <td>${statusBadge(paymentStatus)}</td>
-    <td class="cell-actions"><div class="cell-actions-inner"><button type="button" class="btn btn-sm" onclick="openInvoice(${safeId(job.id)})">Invoice</button>${remaining>0?`<button type="button" class="btn btn-sm btn-primary" onclick="openPmtModal(${safeId(job.customer_id)},${safeId(job.id)})">Add payment</button>`:''}</div></td>
+    <td class="cell-actions"><div class="cell-actions-inner"><button type="button" class="btn btn-sm" onclick="openInvoice(${safeId(job.id)})">Invoice</button>${remaining>0&&canRecordPayments()?`<button type="button" class="btn btn-sm btn-primary" onclick="openPmtModal(${safeId(job.customer_id)},${safeId(job.id)})">Add payment</button>`:''}</div></td>
   </tr>`).join(''):'<tr><td colspan="7" class="empty">No repair orders to track</td></tr>';
   const tbody=document.getElementById('ledger-tbody');
   tbody.innerHTML=pmts.length?pmts.map(p=>`<tr>
@@ -3274,11 +3291,12 @@ function renderFinance(){
     <td>${esc(p.description||'—')} ${p.note?'<span style="color:#aaa;font-size:11px;">· '+esc(p.note)+'</span>':''}</td>
     <td><span class="badge b-gray">${esc(p.method||'Cash')}</span></td>
     <td style="font-weight:600;color:${p.payment_type==='refund'||Number(p.amount)<0?'#A32D2D':'#3B6D11'};">${fmt$(p.amount)}</td>
-    <td>${p.payment_type!=='refund'&&Number(p.amount)>0?`<button type="button" class="btn btn-sm" onclick="refundPayment(${safeId(p.id)})">Refund</button> `:''}<button type="button" class="btn btn-sm btn-danger" onclick="deletePayment(${safeId(p.id)})">Delete</button></td>
+    <td>${canRecordPayments()?(p.payment_type!=='refund'&&Number(p.amount)>0?`<button type="button" class="btn btn-sm" onclick="refundPayment(${safeId(p.id)})">Refund</button> `:'')+`<button type="button" class="btn btn-sm btn-danger" onclick="deletePayment(${safeId(p.id)})">Delete</button>`:'<span class="muted">View only</span>'}</td>
   </tr>`).join(''):`<tr><td colspan="7" class="empty">${from||to?'No payments match this date range':'No payments yet'}</td></tr>`;
 }
 
 async function deletePayment(id){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('delete payments'),8000);return;}
   const payment=state.payments.find(item=>item.id===id);
   if(!payment){toast('Payment not found. Refresh the Payments page and try again.',8000);return;}
   const reference=payment.repair_order_number?` for ${payment.repair_order_number}`:'';
@@ -3340,7 +3358,7 @@ function openPlanDetail(id){
   const additionalPayments=planAdditionalPayments(p);
   document.getElementById('plan-detail-inner').innerHTML=`
     <h2>${esc(p.first)} ${esc(p.last)} — ${esc(p.description||'')}</h2>
-    ${p.repair_order_number?`<div style="font-size:13px;margin:-.5rem 0 1rem;">Repair order: <button class="btn btn-sm" onclick="closeM('m-plan-detail');openJobModal(${safeId(p.job_id)})">${esc(p.repair_order_number)}</button></div>`:`<div style="padding:10px;background:#FFF4E5;border-radius:6px;margin:-.5rem 0 1rem;"><div style="font-size:12px;color:#854F0B;margin-bottom:6px;">Legacy plan: select its repair order so it appears on the invoice.</div><div style="display:flex;gap:6px;"><select id="legacy-plan-job">${state.jobs.filter(job=>job.customer_id===p.customer_id&&job.deleted_at==null).map(job=>`<option value="${safeId(job.id)}">${esc(job.repair_order_number||'Job #'+job.id)} — ${esc(job.service||'Service')}</option>`).join('')}</select><button class="btn btn-sm" onclick="linkLegacyPlan(${safeId(p.id)})">Link R/O</button></div></div>`}
+    ${p.repair_order_number?`<div style="font-size:13px;margin:-.5rem 0 1rem;">Repair order: <button class="btn btn-sm" onclick="closeM('m-plan-detail');openJobModal(${safeId(p.job_id)})">${esc(p.repair_order_number)}</button></div>`:canRecordPayments()?`<div style="padding:10px;background:#FFF4E5;border-radius:6px;margin:-.5rem 0 1rem;"><div style="font-size:12px;color:#854F0B;margin-bottom:6px;">Legacy plan: select its repair order so it appears on the invoice.</div><div style="display:flex;gap:6px;"><select id="legacy-plan-job">${state.jobs.filter(job=>job.customer_id===p.customer_id&&job.deleted_at==null).map(job=>`<option value="${safeId(job.id)}">${esc(job.repair_order_number||'Job #'+job.id)} — ${esc(job.service||'Service')}</option>`).join('')}</select><button class="btn btn-sm" onclick="linkLegacyPlan(${safeId(p.id)})">Link R/O</button></div></div>`:`<div style="padding:10px;background:#F5F5F0;border-radius:6px;margin:-.5rem 0 1rem;font-size:12px;color:#777;">Legacy plan is view-only for your shop role.</div>`}
     <div style="display:flex;gap:12px;margin-bottom:1rem;">
       <div class="stat" style="flex:1;"><div class="stat-label">Total</div><div class="stat-value">${fmt$(p.total)}</div></div>
       <div class="stat" style="flex:1;"><div class="stat-label">Paid</div><div class="stat-value green">${fmt$(paid)}</div></div>
@@ -3356,19 +3374,20 @@ function openPlanDetail(id){
         <span style="flex:1;">${esc(inst.due_date)}</span>
         <span style="flex:1;">${fmt$(inst.amount)}${Number(inst.late_fee_due||inst.late_fee||0)>0?` + ${fmt$(inst.late_fee_due||inst.late_fee)} late fee`:''}${Number(inst.amount_paid||0)>0&&!inst.paid?` · ${fmt$(inst.amount_paid)} paid`:''}</span>
         <span style="flex:1;">${inst.paid?'<span class="badge b-green">Paid</span>':od?'<span class="badge b-red">Overdue</span>':'<span class="badge b-amber">Pending</span>'}</span>
-        ${!inst.paid?`<button class="btn btn-sm btn-success" id="installment-pay-${safeId(inst.id)}" onclick="markInstPaid(${safeId(inst.id)},${safeId(p.id)})">Mark paid</button>`:''}
+        ${!inst.paid&&canRecordPayments()?`<button class="btn btn-sm btn-success" id="installment-pay-${safeId(inst.id)}" onclick="markInstPaid(${safeId(inst.id)},${safeId(p.id)})">Mark paid</button>`:!inst.paid?'<span class="muted">View only</span>':''}
       </div>`;
     }).join('')}
     <div style="font-weight:600;font-size:13px;margin:1rem 0 .5rem;">Additional payments</div>
     ${additionalPayments.length?additionalPayments.map(payment=>`<div class="inst-row"><span style="flex:1;">${esc(payment.date||'—')}</span><span style="flex:2;">${esc(payment.description||payment.note||'Additional payment')}</span><strong>${fmt$(payment.amount)}</strong></div>`).join(''):'<div style="font-size:12px;color:#888;">No additional payments have been recorded.</div>'}
     ${p.notes?`<div style="font-size:12px;color:#888;margin-top:.75rem;font-style:italic;">${esc(p.notes)}</div>`:''}
-    <div class="mfooter"><div><button class="btn btn-sm btn-danger" onclick="deletePlan(${safeId(p.id)})">Delete plan</button></div>
-    <div style="display:flex;gap:8px;"><button class="btn" onclick="closeM('m-plan-detail')">Close</button><button class="btn btn-primary" onclick="closeM('m-plan-detail');openPmtModal(${safeId(p.customer_id)},${safeId(p.job_id)},${safeId(p.id)})">Add payment</button></div></div>
+    <div class="mfooter"><div>${canRecordPayments()?`<button class="btn btn-sm btn-danger" onclick="deletePlan(${safeId(p.id)})">Delete plan</button>`:'<span class="muted">View only</span>'}</div>
+    <div style="display:flex;gap:8px;"><button class="btn" onclick="closeM('m-plan-detail')">Close</button>${canRecordPayments()?`<button class="btn btn-primary" onclick="closeM('m-plan-detail');openPmtModal(${safeId(p.customer_id)},${safeId(p.job_id)},${safeId(p.id)})">Add payment</button>`:''}</div></div>
   `;
   document.getElementById('m-plan-detail').classList.add('open');
 }
 
 async function markInstPaid(instId, planId){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('record installment payments'),8000);return;}
   if(payingInstallmentIds.has(instId))return;
   const p=state.plans.find(x=>x.id===planId);
   const inst=p?.installments?.find(i=>i.id===instId);
@@ -3398,6 +3417,7 @@ async function markInstPaid(instId, planId){
 }
 
 async function deletePlan(id){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('delete payment plans'),8000);return;}
   if(!confirm('Delete this payment plan?'))return;
   await runMutation(`plan-delete-${id}`,{action:'Deleting payment plan',request:()=>api('DELETE',`/api/plans/${id}`),apply:()=>removeStateRecord('plans',id),render:()=>{renderFinance();renderPlans();},close:'m-plan-detail',success:'Plan deleted'});
 }
@@ -3419,7 +3439,7 @@ function renderExpenses(){
     <td class="td-name">${esc(e.description)}</td>
     <td><span class="badge b-gray">${esc(e.category)}</span></td>
     <td style="font-weight:600;color:#A32D2D;">${fmt$(e.amount)}</td>
-    <td><button class="btn btn-sm btn-danger" onclick="deleteExpense(${safeId(e.id)})">Delete</button></td>
+    <td>${canManageExpenses()?`<button class="btn btn-sm btn-danger" onclick="deleteExpense(${safeId(e.id)})">Delete</button>`:'<span class="muted">View only</span>'}</td>
   </tr>`).join(''):`<tr><td colspan="5" class="empty">No expenses found</td></tr>`;
   populateExpMonths();
 }
@@ -3432,6 +3452,7 @@ function populateExpMonths(){
 }
 
 async function deleteExpense(id){
+  if(!canManageExpenses()){toast(shopRoleActionMessage('manage expenses'),8000);return;}
   await runMutation(`expense-delete-${id}`,{action:'Deleting expense',request:()=>api('DELETE',`/api/expenses/${id}`),apply:()=>removeStateRecord('expenses',id),render:()=>renderSafely(renderExpenses,renderFinance,renderDashboard),success:'Expense deleted'});
 }
 
@@ -3597,12 +3618,13 @@ function renderEmployees(){
       <td>${jobs.length}</td>
       <td style="color:#3B6D11;font-weight:500;">${labor?fmt$(labor):'—'}</td>
       <td>${e.status==='active'?'<span class="badge b-green">Active</span>':'<span class="badge b-gray">Inactive</span>'}</td>
-      <td><button class="btn btn-sm" onclick="openEmpModal(${safeId(e.id)})">Edit</button></td>
+      <td>${canManageEmployees()?`<button class="btn btn-sm" onclick="openEmpModal(${safeId(e.id)})">Edit</button>`:'<span class="muted">View only</span>'}</td>
     </tr>`;
   }).join('');
 }
 
 function openEmpModal(id){
+  if(!canManageEmployees()){toast(shopRoleActionMessage('manage employees'),8000);return;}
   editEmpId=id||null;
   document.getElementById('ef2-del').innerHTML='';
   if(id){
@@ -3628,6 +3650,7 @@ function openEmpModal(id){
 }
 
 async function saveEmployee(){
+  if(!canManageEmployees()){toast(shopRoleActionMessage('manage employees'),8000);return;}
   const first=document.getElementById('ef2-first').value.trim();
   const last=document.getElementById('ef2-last').value.trim();
   if(!first||!last){toast('Please enter first and last name.');return;}
@@ -3637,6 +3660,7 @@ async function saveEmployee(){
 }
 
 async function deleteEmployee(id){
+  if(!canManageEmployees()){toast(shopRoleActionMessage('manage employees'),8000);return;}
   if(!confirm('Remove this employee? Their jobs will be unassigned.'))return;
   await runMutation(`employee-delete-${id}`,{action:'Removing employee',request:()=>api('DELETE',`/api/employees/${id}`),apply:()=>{removeStateRecord('employees',id);state.jobs=state.jobs.map(j=>j.employee_id===id&&!j.closed_at?{...j,employee_id:null,emp_first:null,emp_last:null}:j);},render:()=>{renderEmployees();renderJobs();},close:'m-emp',success:'Employee removed'});
 }
@@ -3666,6 +3690,7 @@ function nextRepairOrderNumber(jobs=state.jobs){
 }
 
 async function linkLegacyPlan(planId){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('manage payment plans'),8000);return;}
   const jobId=parseInt(document.getElementById('legacy-plan-job')?.value);
   if(!jobId){toast('Select a repair order to link.',8000);return;}
   const plan=state.plans.find(item=>item.id===planId);
@@ -3876,6 +3901,7 @@ async function openJobModal(id){
       document.getElementById('jf-complaint').value=j.complaint||'';
       document.getElementById('jf-diagnosis').value=j.diagnosis||'';
       document.getElementById('jf-inv-status').value=j.invoice_status||'Unpaid';
+      document.getElementById('jf-inv-status').querySelector('option[value="Paid"]').disabled=shouldRestrictPaidJobStatus();
       document.getElementById('jf-service-addr').value=j.service_address||'';
       delete document.getElementById('jf-service-addr').dataset.autoValue;
       document.getElementById('jf-apply-trip-fee').checked=Number(j.travel_fee||0)>0;
@@ -3904,6 +3930,7 @@ async function openJobModal(id){
       repairOrderInput.dataset.suggested=repairOrderInput.value;
       document.getElementById('jf-status').value='Pending';
       document.getElementById('jf-inv-status').value='Unpaid';
+      document.getElementById('jf-inv-status').querySelector('option[value="Paid"]').disabled=shouldRestrictPaidJobStatus();
       document.getElementById('jf-require-parts-deposit').checked=!!Number(state.settings.require_parts_deposit||0);
       document.getElementById('jf-parts-deposit').dataset.manual='';
       jobItems = [];
@@ -4011,10 +4038,12 @@ async function saveJob(){
   if((editJobId&&!repairOrderNumber)||(repairOrderRaw&&!repairOrderNumber)){toast('Repair order number must use the format RO-#### (for example, RO-1001).',8000);return;}
   const serverAssignsRepairOrder=!editJobId&&(!repairOrderNumber||repairOrderNumber===repairOrderInput.dataset.suggested);
   if(repairOrderNumber)repairOrderInput.value=repairOrderNumber;
+  const invoiceStatus=document.getElementById('jf-inv-status').value;
+  if(invoiceStatus==='Paid'&&!canRecordPayments()){toast(shopRoleActionMessage('mark repair orders paid'),8000);return;}
   const empId=parseInt(document.getElementById('jf-emp').value)||null;
   const discount=jobItems.filter(item=>item.type==='discount').reduce((sum,item)=>sum+(Number(item.amount)||0),0);
   const deferredServiceIds=[...new Set(jobItems.map(item=>Number(item.deferred_service_id)).filter(Number.isSafeInteger))];
-  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,...(!serverAssignsRepairOrder&&{repair_order_number:repairOrderNumber}),date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:document.getElementById('jf-inv-status').value,service_address:document.getElementById('jf-service-addr').value,discount,travel_fee:document.getElementById('jf-apply-trip-fee').checked?(parseFloat(document.getElementById('jf-travel-fee').value)||0):0,parts_deposit_required:document.getElementById('jf-require-parts-deposit').checked?(parseFloat(document.getElementById('jf-parts-deposit').value)||0):0,items:jobItems,deferred_service_ids:deferredServiceIds};
+  const body={customer_id:custId,vehicle_id:vehId,service:document.getElementById('jf-service').value,...(!serverAssignsRepairOrder&&{repair_order_number:repairOrderNumber}),date:document.getElementById('jf-date').value,miles:parseInt(document.getElementById('jf-miles').value)||0,status:document.getElementById('jf-status').value,notes:document.getElementById('jf-notes').value,employee_id:empId,complaint:document.getElementById('jf-complaint').value,diagnosis:document.getElementById('jf-diagnosis').value,invoice_status:invoiceStatus,service_address:document.getElementById('jf-service-addr').value,discount,travel_fee:document.getElementById('jf-apply-trip-fee').checked?(parseFloat(document.getElementById('jf-travel-fee').value)||0):0,parts_deposit_required:document.getElementById('jf-require-parts-deposit').checked?(parseFloat(document.getElementById('jf-parts-deposit').value)||0):0,items:jobItems,deferred_service_ids:deferredServiceIds};
   const id=editJobId, existing=id?state.jobs.find(j=>j.id===id):null;
   await runMutation(`job-save-${id||'new'}`,{
     buttonId:'save-job-btn',action:'Saving job',request:()=>id?api('PUT',`/api/jobs/${id}`,body):api('POST','/api/jobs',body),
@@ -4224,6 +4253,7 @@ async function deleteVehicle(id){
 }
 
 async function openPmtModal(custId, jobId, planId){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('record payments'),8000);return;}
   await populateCustomerDropdown('pf-cust');
   document.getElementById('pf-plan').innerHTML='<option value="">— No plan —</option>';
   document.getElementById('pf-job').innerHTML='<option value="">— General payment —</option>';
@@ -4288,6 +4318,7 @@ async function selectPaymentPlan(){
 }
 
 async function savePayment(){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('record payments'),8000);return;}
   const custId=parseInt(document.getElementById('pf-cust').value);
   const amt=parseFloat(document.getElementById('pf-amt').value)||0;
   if(!custId||!amt){toast('Please fill in customer and amount.');return;}
@@ -4296,6 +4327,7 @@ async function savePayment(){
 }
 
 async function openPlanModal(){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('manage payment plans'),8000);return;}
   await populateCustomerDropdown('pl-cust');
   ['pl-desc','pl-total','pl-down','pl-custom-payment-amount','pl-notes'].forEach(x=>document.getElementById(x).value='');
   document.getElementById('pl-count').value='4';
@@ -4416,6 +4448,7 @@ function calcPlan(resetCustom=false){
 }
 
 async function savePlan(){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('manage payment plans'),8000);return;}
   const custId=parseInt(document.getElementById('pl-cust').value);
   const jobId=parseInt(document.getElementById('pl-job').value);
   const total=parseFloat(document.getElementById('pl-total').value)||0;
@@ -4503,6 +4536,7 @@ function syncExpenseInventoryRetail(){
 }
 
 function openExpModal(){
+  if(!canManageExpenses()){toast(shopRoleActionMessage('manage expenses'),8000);return;}
   document.getElementById('ef-date').value=today();
   ['ef-amt','ef-desc','ef-note'].forEach(x=>document.getElementById(x).value='');
   document.getElementById('ef-cat').value='Parts & supplies';
@@ -4518,6 +4552,7 @@ function openExpModal(){
 }
 
 async function saveExpense(){
+  if(!canManageExpenses()){toast(shopRoleActionMessage('manage expenses'),8000);return;}
   const amt=parseFloat(document.getElementById('ef-amt').value)||0;
   if(!amt){toast('Please enter an amount.');return;}
   const body={date:document.getElementById('ef-date').value,description:document.getElementById('ef-desc').value||'Expense',category:document.getElementById('ef-cat').value,amount:amt,note:document.getElementById('ef-note').value};
@@ -4727,6 +4762,7 @@ async function runBackupAction(action){
 }
 function renderSettings(){
   renderBackupCard();
+  const canEditSettings=canManageShopSettings();
   const s = state.settings;
   document.getElementById('s-biz-name').value = s.business_name||'';
   document.getElementById('s-owner').value    = s.owner_name||'';
@@ -4760,6 +4796,10 @@ function renderSettings(){
   const clearBtn = document.getElementById('s-logo-clear');
   if(s.invoice_logo){ preview.src=s.invoice_logo; preview.style.display=''; clearBtn.style.display=''; }
   else { preview.style.display='none'; clearBtn.style.display='none'; }
+  document.querySelectorAll('#page-settings input,#page-settings textarea,#page-settings select').forEach(input=>{ input.disabled=!canEditSettings; });
+  document.querySelectorAll('#page-settings button').forEach(button=>{ if(button.id!=='s-logo-clear'||!canEditSettings)button.disabled=!canEditSettings; });
+  const saveButton=document.getElementById('settings-save-btn');
+  if(saveButton){saveButton.disabled=!canEditSettings;saveButton.textContent=canEditSettings?'Save settings':'View only';}
   document.getElementById('s-saved').style.display='none';
   initVersionLabels();
 }
@@ -4833,6 +4873,7 @@ function propagateSettingsChange(previousSettings={}){
 }
 
 async function saveSettings(){
+  if(!canManageShopSettings()){toast(shopRoleActionMessage('edit shop settings'),8000);return;}
   const previousSettings={...state.settings};
   const logo = state.settings._pendingLogo !== undefined
     ? state.settings._pendingLogo
@@ -5097,6 +5138,7 @@ function openQuickEntry(){
   document.getElementById('qf-date').value=today();
   document.getElementById('qf-pay-date').value=today();
   document.getElementById('qf-method').value=state.settings.default_pay_method||'Cash';
+  ['qf-paid','qf-method','qf-pay-date'].forEach(id=>{const input=document.getElementById(id);if(input)input.disabled=!canRecordPayments();});
   document.getElementById('qf-cust-match').textContent='';
   document.getElementById('qf-veh-match').textContent='';
   document.getElementById('qf-status').textContent='';
@@ -5144,6 +5186,7 @@ async function saveQuickEntry(){
   if(!make||!model){toast('Please enter the vehicle make and model.');return;}
   if(!service){ toast('Please enter a service description.'); return; }
   if(!date){ toast('Please enter a date.'); return; }
+  if((parseFloat(document.getElementById('qf-paid').value)||0)>0&&!canRecordPayments()){toast(shopRoleActionMessage('record payments through quick entry'),8000);return;}
 
   activeMutations.add('quick-entry');setProcessing('save-quick-btn',true,'Saving...');statusEl.textContent = 'Saving...';
   try{
@@ -5437,13 +5480,14 @@ function renderEstimates(){
     <td style="font-weight:600;">${fmt$(e.total)}</td>
     <td>${estStatusBadge(e.status)}</td>
     <td class="cell-actions"><div class="cell-actions-inner">
-      <button class="btn btn-sm" onclick="openEstimateModal(${safeId(e.id)})">Edit</button>
+      ${canManageEstimates()?`<button class="btn btn-sm" onclick="openEstimateModal(${safeId(e.id)})">Edit</button>`:'<span class="muted">View only</span>'}
       <button class="btn btn-sm" onclick="openEstimateInvoice(${safeId(e.id)})">Print</button>
     </div></td>
   </tr>`).join('');
 }
 
 async function openEstimateModal(id){
+  if(!canManageEstimates()){toast(shopRoleActionMessage('create or edit estimates'),8000);return;}
   editEstId=id||null; estItems=[];
   await populateCustomerDropdown('estf-cust');
   document.getElementById('estf-date').value=today();
@@ -5562,6 +5606,7 @@ function _calcEst(){
 }
 
 async function saveEstimate(){
+  if(!canManageEstimates()){toast(shopRoleActionMessage('create or edit estimates'),8000);return;}
   const custId=parseInt(document.getElementById('estf-cust').value);
   if(!custId){toast('Please select a customer.');return;}
   const incompleteDiscount=estItems.find(item=>item.type==='discount'&&!String(item.description||'').trim());
@@ -5605,11 +5650,13 @@ async function saveEstimate(){
 }
 
 async function deleteEstimate(id){
+  if(!canManageEstimates()){toast(shopRoleActionMessage('delete estimates'),8000);return;}
   if(!confirm('Delete this estimate?'))return;
   await runMutation(`estimate-delete-${id}`,{action:'Deleting estimate',request:()=>api('DELETE',`/api/estimates/${id}`),apply:()=>removeStateRecord('estimates',id),render:renderEstimates,close:'m-estimate',success:'Estimate deleted'});
 }
 
 async function convertEstToJob(){
+  if(!canManageEstimates()){toast(shopRoleActionMessage('convert estimates'),8000);return;}
   if(!editEstId){toast('Save the estimate first.');return;}
   if(!confirm('Convert this approved estimate to a repair order?'))return;
   const id=editEstId;
@@ -5746,6 +5793,7 @@ function renderInspections(){
 }
 
 async function refundPayment(id){
+  if(!canRecordPayments()){toast(shopRoleActionMessage('refund payments'),8000);return;}
   const payment=state.payments.find(item=>Number(item.id)===Number(id));
   if(!payment){toast('Payment not found. Refresh Payments and try again.',8000);return;}
   if(payment.plan_id||payment.installment_id){toast('Correct payment-plan funds from the linked plan so installment balances remain accurate.',8000);return;}
@@ -5982,7 +6030,7 @@ function renderInventory(){
       <td style="font-weight:600;${isLow?'color:#A32D2D;':''}">${p.quantity}</td>
       <td style="color:#888;">${p.reorder_qty||0}</td>
       <td style="font-size:12px;color:#888;">${esc(p.location||'—')}</td>
-      <td><button class="btn btn-sm" onclick="openPartModal(${safeId(p.id)})">Edit</button></td>
+      <td>${canManageInventory()?`<button class="btn btn-sm" onclick="openPartModal(${safeId(p.id)})">Edit</button>`:'<span class="muted">View only</span>'}</td>
     </tr>`;
   }).join('');
 }
@@ -6037,6 +6085,7 @@ function updatePartMarkupFromRetail(){
 }
 
 function openPartModal(id){
+  if(!canManageInventory()){toast(shopRoleActionMessage('manage inventory'),8000);return;}
   editPartId=id||null;
   document.getElementById('prf-del').innerHTML='';
   if(id){
@@ -6066,6 +6115,7 @@ function openPartModal(id){
 }
 
 async function savePart(){
+  if(!canManageInventory()){toast(shopRoleActionMessage('manage inventory'),8000);return;}
   const name=document.getElementById('prf-name').value.trim();
   if(!name){toast('Please enter a part name.');return;}
   const cost=parseFloat(document.getElementById('prf-cost').value)||0;
@@ -6080,6 +6130,7 @@ async function savePart(){
 }
 
 async function deletePart(id){
+  if(!canManageInventory()){toast(shopRoleActionMessage('manage inventory'),8000);return;}
   if(!confirm('Delete this part?'))return;
   await runMutation(`part-delete-${id}`,{action:'Deleting part',request:()=>api('DELETE',`/api/inventory/${id}`),apply:()=>removeStateRecord('inventory',id),render:renderInventory,close:'m-part',success:'Part deleted'});
 }
@@ -6104,11 +6155,12 @@ function renderCatalog(){
     <td style="font-weight:500;color:#3B6D11;">${s.default_price?fmt$(s.default_price):'—'}</td>
     <td>${s.taxable?'<span class="badge b-green">Yes</span>':'<span class="badge b-gray">No</span>'}</td>
     <td style="font-size:12px;color:#888;">${esc((s.notes||'').slice(0,40))}</td>
-    <td><button class="btn btn-sm" onclick="openCatalogModal(${safeId(s.id)})">Edit</button></td>
+    <td>${canManageCatalog()?`<button class="btn btn-sm" onclick="openCatalogModal(${safeId(s.id)})">Edit</button>`:'<span class="muted">View only</span>'}</td>
   </tr>`).join('');
 }
 
 function openCatalogModal(id){
+  if(!canManageCatalog()){toast(shopRoleActionMessage('manage the service catalog'),8000);return;}
   editCatalogId=id||null;
   document.getElementById('catf-del').innerHTML='';
   if(id){
@@ -6133,6 +6185,7 @@ function openCatalogModal(id){
 }
 
 async function saveCatalogItem(){
+  if(!canManageCatalog()){toast(shopRoleActionMessage('manage the service catalog'),8000);return;}
   const name=document.getElementById('catf-name').value.trim();
   if(!name){toast('Please enter a service name.');return;}
   const body={name,description:document.getElementById('catf-desc').value,category:document.getElementById('catf-category').value,default_hours:parseFloat(document.getElementById('catf-hours').value)||0,default_price:parseFloat(document.getElementById('catf-price').value)||0,taxable:document.getElementById('catf-taxable').value==='1',notes:document.getElementById('catf-notes').value};
@@ -6141,6 +6194,7 @@ async function saveCatalogItem(){
 }
 
 async function deleteCatalogItem(id){
+  if(!canManageCatalog()){toast(shopRoleActionMessage('manage the service catalog'),8000);return;}
   if(!confirm('Delete this service?'))return;
   await runMutation(`catalog-delete-${id}`,{action:'Deleting service',request:()=>api('DELETE',`/api/catalog/${id}`),apply:()=>removeStateRecord('catalog',id),render:renderCatalog,close:'m-catalog-item',success:'Service deleted'});
 }
@@ -6317,13 +6371,14 @@ function setOperationsTab(tab){
   document.querySelectorAll('.ops-tab').forEach(button=>button.classList.toggle('active',button.dataset.opsTab===tab));
   const pri=document.getElementById('pri-btn');
   if(currentPage==='workflow'){
-    pri.style.display=tab==='deferred'?'none':'';
+    pri.style.display=tab==='deferred'||(['resources','templates','purchasing'].includes(tab)&&!canManageOperationsSetup())?'none':'';
     pri.textContent=tab==='board'?'+ New Job':tab==='resources'?'+ Add Resource':tab==='templates'?'+ Add Template':'+ Purchase Order';
   }
   renderOperations();
 }
 function operationsPrimaryAction(){
   if(operationsTab==='board')openJobModal();
+  else if(!canManageOperationsSetup())return toast(shopRoleActionMessage('manage workflow setup, resources, templates, purchasing, or reservations'),8000);
   else if(operationsTab==='resources')openResourceModal();
   else if(operationsTab==='templates')openInspectionTemplateModal();
   else if(operationsTab==='purchasing')openPurchaseOrderModal();
@@ -6341,12 +6396,12 @@ function workflowColumnForJob(job,columns){
 }
 function renderWorkflowBoard(){
   const ops=operationsState(),columns=(ops.workflow_columns||[]).filter(column=>column.is_active),jobs=ops.jobs||[];
-  if(!columns.length)return `<div class="card"><div class="empty">No workflow columns are configured.</div><button type="button" class="btn btn-sm" onclick="openWorkflowColumnModal()">+ Add column</button></div>`;
+  if(!columns.length)return `<div class="card"><div class="empty">No workflow columns are configured.</div>${canManageOperationsSetup()?'<button type="button" class="btn btn-sm" onclick="openWorkflowColumnModal()">+ Add column</button>':'<div class="settings-hint">Ask an owner or admin to configure workflow columns.</div>'}</div>`;
   const resourceOptions=(selected)=>`<option value="">Unassigned resource</option>${(ops.resources||[]).filter(r=>r.active).map(r=>`<option value="${safeId(r.id)}" ${Number(selected)===Number(r.id)?'selected':''}>${esc(r.name)}</option>`).join('')}`;
   const columnOptions=(selected)=>columns.map(c=>`<option value="${safeId(c.id)}" ${Number(selected)===Number(c.id)?'selected':''}>${esc(c.name)}</option>`).join('');
   const cardsByColumn=new Map(columns.map(column=>[column.id,[]]));
   jobs.filter(job=>!isJobLocked(job)&&(!['Complete','Canceled'].includes(job.status)||job.workflow_column_id)).forEach(job=>{const column=workflowColumnForJob(job,columns);if(column)cardsByColumn.get(column.id)?.push(job);});
-  return `<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:10px;"><div class="settings-hint">Drag orders between columns or use the column selector. Assign a customizable bay or mobile service unit without changing the repair order.</div><button type="button" class="btn btn-sm" onclick="openWorkflowColumnModal()">Configure columns</button></div><div class="workflow-board">${columns.map(column=>`<section class="workflow-column" style="--column-color:${attrEsc(column.color||'#64748B')}" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropWorkflowJob(event,${safeId(column.id)})"><header class="workflow-column-head"><span>${esc(column.name)}</span><span class="pill" style="margin-left:auto;">${cardsByColumn.get(column.id)?.length||0}</span><button type="button" class="icon-btn" title="Edit column" onclick="openWorkflowColumnModal(${safeId(column.id)})">⋯</button></header><div class="workflow-column-body">${(cardsByColumn.get(column.id)||[]).map(job=>`<article class="workflow-card" draggable="true" ondragstart="startWorkflowDrag(event,${safeId(job.id)})" ondragend="document.querySelectorAll('.workflow-column').forEach(el=>el.classList.remove('drag-over'))"><div class="workflow-card-title"><span>${esc(job.repair_order_number||`RO-${job.id}`)}</span>${job.priority&&job.priority!=='Normal'?`<span class="pill ${job.priority==='Urgent'?'pill-red':'pill-amber'}">${esc(job.priority)}</span>`:''}</div><div class="workflow-card-meta"><strong>${esc(`${job.first||''} ${job.last||''}`.trim())}</strong><br>${esc(`${job.year||''} ${job.make||''} ${job.model||''}`.trim())}<br>${esc(job.service||'No service description')}${job.employee_first?`<br>Tech: ${esc(`${job.employee_first} ${job.employee_last||''}`)}`:''}</div><select aria-label="Workflow column" onchange="saveJobOperations(${safeId(job.id)},this.value,null,null,null)">${columnOptions(column.id)}</select><select aria-label="Bay or mobile unit" onchange="saveJobOperations(${safeId(job.id)},null,this.value,null,null)">${resourceOptions(job.resource_id)}</select><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><select aria-label="Priority" onchange="saveJobOperations(${safeId(job.id)},null,null,null,this.value)">${['Low','Normal','High','Urgent'].map(p=>`<option ${job.priority===p?'selected':''}>${p}</option>`).join('')}</select><input type="datetime-local" aria-label="Promised time" value="${attrEsc(String(job.promised_at||'').replace(' ','T').slice(0,16))}" onchange="saveJobOperations(${safeId(job.id)},null,null,this.value,null)"></div><div style="display:flex;gap:5px;margin-top:8px;"><button type="button" class="btn btn-sm" onclick="openServiceEventModal(${safeId(job.id)},'check-in')">Check-in</button><button type="button" class="btn btn-sm" onclick="openServiceEventModal(${safeId(job.id)},'quality-control')">QC</button><button type="button" class="btn btn-sm" onclick="openJobModal(${safeId(job.id)})">Edit</button></div></article>`).join('')||'<div class="empty" style="padding:14px 4px;">No orders</div>'}</div></section>`).join('')}</div>`;
+  return `<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:10px;"><div class="settings-hint">Drag orders between columns or use the column selector. Assign a customizable bay or mobile service unit without changing the repair order.</div>${canManageOperationsSetup()?'<button type="button" class="btn btn-sm" onclick="openWorkflowColumnModal()">Configure columns</button>':''}</div><div class="workflow-board">${columns.map(column=>`<section class="workflow-column" style="--column-color:${attrEsc(column.color||'#64748B')}" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropWorkflowJob(event,${safeId(column.id)})"><header class="workflow-column-head"><span>${esc(column.name)}</span><span class="pill" style="margin-left:auto;">${cardsByColumn.get(column.id)?.length||0}</span>${canManageOperationsSetup()?`<button type="button" class="icon-btn" title="Edit column" onclick="openWorkflowColumnModal(${safeId(column.id)})">⋯</button>`:''}</header><div class="workflow-column-body">${(cardsByColumn.get(column.id)||[]).map(job=>`<article class="workflow-card" draggable="true" ondragstart="startWorkflowDrag(event,${safeId(job.id)})" ondragend="document.querySelectorAll('.workflow-column').forEach(el=>el.classList.remove('drag-over'))"><div class="workflow-card-title"><span>${esc(job.repair_order_number||`RO-${job.id}`)}</span>${job.priority&&job.priority!=='Normal'?`<span class="pill ${job.priority==='Urgent'?'pill-red':'pill-amber'}">${esc(job.priority)}</span>`:''}</div><div class="workflow-card-meta"><strong>${esc(`${job.first||''} ${job.last||''}`.trim())}</strong><br>${esc(`${job.year||''} ${job.make||''} ${job.model||''}`.trim())}<br>${esc(job.service||'No service description')}${job.employee_first?`<br>Tech: ${esc(`${job.employee_first} ${job.employee_last||''}`)}`:''}</div><select aria-label="Workflow column" onchange="saveJobOperations(${safeId(job.id)},this.value,null,null,null)">${columnOptions(column.id)}</select><select aria-label="Bay or mobile unit" onchange="saveJobOperations(${safeId(job.id)},null,this.value,null,null)">${resourceOptions(job.resource_id)}</select><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><select aria-label="Priority" onchange="saveJobOperations(${safeId(job.id)},null,null,null,this.value)">${['Low','Normal','High','Urgent'].map(p=>`<option ${job.priority===p?'selected':''}>${p}</option>`).join('')}</select><input type="datetime-local" aria-label="Promised time" value="${attrEsc(String(job.promised_at||'').replace(' ','T').slice(0,16))}" onchange="saveJobOperations(${safeId(job.id)},null,null,this.value,null)"></div><div style="display:flex;gap:5px;margin-top:8px;"><button type="button" class="btn btn-sm" onclick="openServiceEventModal(${safeId(job.id)},'check-in')">Check-in</button><button type="button" class="btn btn-sm" onclick="openServiceEventModal(${safeId(job.id)},'quality-control')">QC</button><button type="button" class="btn btn-sm" onclick="openJobModal(${safeId(job.id)})">Edit</button></div></article>`).join('')||'<div class="empty" style="padding:14px 4px;">No orders</div>'}</div></section>`).join('')}</div>`;
 }
 function startWorkflowDrag(event,jobId){event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',String(jobId));}
 function dropWorkflowJob(event,columnId){event.preventDefault();event.currentTarget.classList.remove('drag-over');const jobId=Number(event.dataTransfer.getData('text/plain'));if(jobId>0)saveJobOperations(jobId,String(columnId),null,null,null);}
@@ -6356,37 +6411,39 @@ async function saveJobOperations(jobId,columnId,resourceId,promisedAt,priority){
   await runMutation(`job-operations-${jobId}`,{action:'Updating workflow',request:()=>api('PUT',`/api/operations/jobs/${jobId}/workflow`,body),apply:r=>{Object.assign(job,r);const main=state.jobs.find(row=>Number(row.id)===Number(jobId));if(main)Object.assign(main,r);},render:renderOperations,success:'Workflow updated'});
 }
 function openWorkflowColumnModal(id=null){
+  if(!canManageOperationsSetup()){toast(shopRoleActionMessage('configure workflow columns'),8000);return;}
   const ops=operationsState(),column=id?(ops.workflow_columns||[]).find(row=>Number(row.id)===Number(id)):null;editWorkflowColumnId=column?.id||null;
   document.getElementById('delete-workflow-column-btn').style.display=column?'':'none';
   document.getElementById('m-workflow-column-title').textContent=column?'Edit workflow column':'Add workflow column';document.getElementById('wcf-name').value=column?.name||'';document.getElementById('wcf-color').value=column?.color||'#64748b';document.getElementById('wcf-position').value=column?.position??((ops.workflow_columns||[]).length+1)*10;document.getElementById('wcf-closed').checked=Boolean(column?.is_closed);document.getElementById('m-workflow-column').classList.add('open');
 }
 async function saveWorkflowColumn(){
+  if(!canManageOperationsSetup()){toast(shopRoleActionMessage('configure workflow columns'),8000);return;}
   const body={name:document.getElementById('wcf-name').value.trim(),color:document.getElementById('wcf-color').value.toUpperCase(),position:Number(document.getElementById('wcf-position').value)||0,is_closed:document.getElementById('wcf-closed').checked,is_active:true};if(!body.name){toast('Enter a workflow column name.',8000);return;}
   const id=editWorkflowColumnId;await runMutation(`workflow-column-${id||'new'}`,{buttonId:'save-workflow-column-btn',action:'Saving workflow column',request:()=>api(id?'PUT':'POST',id?`/api/operations/workflow-columns/${id}`:'/api/operations/workflow-columns',body),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-workflow-column',success:'Workflow column saved'});
 }
-function renderShopResources(){const resources=operationsState().resources||[];return `<div class="ops-grid">${resources.map(resource=>`<div class="card"><div class="ops-list-item"><span style="width:12px;height:12px;border-radius:3px;background:${attrEsc(resource.color||'#6B7280')}"></span><div style="flex:1;"><strong>${esc(resource.name)}</strong><div class="settings-hint">${esc(resource.resource_type)}${resource.notes?` · ${esc(resource.notes)}`:''}</div></div>${resource.active?'<span class="pill pill-green">Active</span>':'<span class="pill">Inactive</span>'}<button type="button" class="btn btn-sm" onclick="openResourceModal(${safeId(resource.id)})">Edit</button></div></div>`).join('')||'<div class="card empty">No bays or mobile service units have been added.</div>'}</div>`;}
-function openResourceModal(id=null){const resource=id?(operationsState().resources||[]).find(row=>Number(row.id)===Number(id)):null;editResourceId=resource?.id||null;document.getElementById('delete-resource-btn').style.display=resource?'':'none';document.getElementById('m-resource-title').textContent=resource?'Edit shop resource':'Add bay or mobile unit';document.getElementById('rsf-name').value=resource?.name||'';document.getElementById('rsf-type').value=resource?.resource_type||'bay';document.getElementById('rsf-color').value=resource?.color||'#6b7280';document.getElementById('rsf-notes').value=resource?.notes||'';document.getElementById('rsf-active').checked=resource?Boolean(resource.active):true;document.getElementById('m-resource').classList.add('open');}
-async function saveShopResource(){const body={name:document.getElementById('rsf-name').value.trim(),resource_type:document.getElementById('rsf-type').value,color:document.getElementById('rsf-color').value.toUpperCase(),notes:document.getElementById('rsf-notes').value,active:document.getElementById('rsf-active').checked};if(!body.name){toast('Enter a bay or mobile-unit name.',8000);return;}const id=editResourceId;await runMutation(`resource-${id||'new'}`,{buttonId:'save-resource-btn',action:'Saving shop resource',request:()=>api(id?'PUT':'POST',id?`/api/operations/resources/${id}`:'/api/operations/resources',body),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-resource',success:'Shop resource saved'});}
-function renderInspectionTemplates(){const templates=operationsState().templates||[];return `<div class="ops-grid">${templates.map(template=>`<div class="card"><div style="display:flex;gap:8px;align-items:start;"><div style="flex:1;"><strong>${esc(template.name)}</strong><div class="settings-hint">${esc(template.description||'No description')} · ${(template.items||[]).length} items</div></div>${template.active?'<span class="pill pill-green">Active</span>':'<span class="pill">Inactive</span>'}</div><div style="margin-top:10px;font-size:11px;color:var(--fg-muted);">${[...new Set((template.items||[]).map(item=>item.category).filter(Boolean))].slice(0,6).map(esc).join(' · ')}</div><button type="button" class="btn btn-sm" style="margin-top:10px;" onclick="openInspectionTemplateModal(${safeId(template.id)})">Edit template</button></div>`).join('')||'<div class="card empty">No inspection templates are available.</div>'}</div>`;}
-function openInspectionTemplateModal(id=null){const template=id?(operationsState().templates||[]).find(row=>Number(row.id)===Number(id)):null;editInspectionTemplateId=template?.id||null;inspectionTemplateItems=(template?.items||[]).map(item=>({...item,quick_notes:Array.isArray(item.quick_notes)?item.quick_notes:(()=>{try{return JSON.parse(item.quick_notes||'[]')}catch(_){return[]}})()}));if(!inspectionTemplateItems.length)inspectionTemplateItems=[{category:'General',item_name:'',input_type:'condition',measurement_unit:'',position_label:'',quick_notes:[]}];document.getElementById('m-insp-template-title').textContent=template?'Edit inspection template':'New inspection template';document.getElementById('itf-name').value=template?.name||'';document.getElementById('itf-description').value=template?.description||'';renderInspectionTemplateItems();document.getElementById('m-insp-template').classList.add('open');}
+function renderShopResources(){const resources=operationsState().resources||[];return `<div class="ops-grid">${resources.map(resource=>`<div class="card"><div class="ops-list-item"><span style="width:12px;height:12px;border-radius:3px;background:${attrEsc(resource.color||'#6B7280')}"></span><div style="flex:1;"><strong>${esc(resource.name)}</strong><div class="settings-hint">${esc(resource.resource_type)}${resource.notes?` · ${esc(resource.notes)}`:''}</div></div>${resource.active?'<span class="pill pill-green">Active</span>':'<span class="pill">Inactive</span>'}${canManageOperationsSetup()?`<button type="button" class="btn btn-sm" onclick="openResourceModal(${safeId(resource.id)})">Edit</button>`:'<span class="muted">View only</span>'}</div></div>`).join('')||'<div class="card empty">No bays or mobile service units have been added.</div>'}</div>`;}
+function openResourceModal(id=null){if(!canManageOperationsSetup()){toast(shopRoleActionMessage('manage shop resources'),8000);return;}const resource=id?(operationsState().resources||[]).find(row=>Number(row.id)===Number(id)):null;editResourceId=resource?.id||null;document.getElementById('delete-resource-btn').style.display=resource?'':'none';document.getElementById('m-resource-title').textContent=resource?'Edit shop resource':'Add bay or mobile unit';document.getElementById('rsf-name').value=resource?.name||'';document.getElementById('rsf-type').value=resource?.resource_type||'bay';document.getElementById('rsf-color').value=resource?.color||'#6b7280';document.getElementById('rsf-notes').value=resource?.notes||'';document.getElementById('rsf-active').checked=resource?Boolean(resource.active):true;document.getElementById('m-resource').classList.add('open');}
+async function saveShopResource(){if(!canManageOperationsSetup()){toast(shopRoleActionMessage('manage shop resources'),8000);return;}const body={name:document.getElementById('rsf-name').value.trim(),resource_type:document.getElementById('rsf-type').value,color:document.getElementById('rsf-color').value.toUpperCase(),notes:document.getElementById('rsf-notes').value,active:document.getElementById('rsf-active').checked};if(!body.name){toast('Enter a bay or mobile-unit name.',8000);return;}const id=editResourceId;await runMutation(`resource-${id||'new'}`,{buttonId:'save-resource-btn',action:'Saving shop resource',request:()=>api(id?'PUT':'POST',id?`/api/operations/resources/${id}`:'/api/operations/resources',body),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-resource',success:'Shop resource saved'});}
+function renderInspectionTemplates(){const templates=operationsState().templates||[];return `<div class="ops-grid">${templates.map(template=>`<div class="card"><div style="display:flex;gap:8px;align-items:start;"><div style="flex:1;"><strong>${esc(template.name)}</strong><div class="settings-hint">${esc(template.description||'No description')} · ${(template.items||[]).length} items</div></div>${template.active?'<span class="pill pill-green">Active</span>':'<span class="pill">Inactive</span>'}</div><div style="margin-top:10px;font-size:11px;color:var(--fg-muted);">${[...new Set((template.items||[]).map(item=>item.category).filter(Boolean))].slice(0,6).map(esc).join(' · ')}</div>${canManageOperationsSetup()?`<button type="button" class="btn btn-sm" style="margin-top:10px;" onclick="openInspectionTemplateModal(${safeId(template.id)})">Edit template</button>`:'<div class="settings-hint" style="margin-top:10px;">View only</div>'}</div>`).join('')||'<div class="card empty">No inspection templates are available.</div>'}</div>`;}
+function openInspectionTemplateModal(id=null){if(!canManageOperationsSetup()){toast(shopRoleActionMessage('manage inspection templates'),8000);return;}const template=id?(operationsState().templates||[]).find(row=>Number(row.id)===Number(id)):null;editInspectionTemplateId=template?.id||null;inspectionTemplateItems=(template?.items||[]).map(item=>({...item,quick_notes:Array.isArray(item.quick_notes)?item.quick_notes:(()=>{try{return JSON.parse(item.quick_notes||'[]')}catch(_){return[]}})()}));if(!inspectionTemplateItems.length)inspectionTemplateItems=[{category:'General',item_name:'',input_type:'condition',measurement_unit:'',position_label:'',quick_notes:[]}];document.getElementById('m-insp-template-title').textContent=template?'Edit inspection template':'New inspection template';document.getElementById('itf-name').value=template?.name||'';document.getElementById('itf-description').value=template?.description||'';renderInspectionTemplateItems();document.getElementById('m-insp-template').classList.add('open');}
 function addInspectionTemplateItem(){inspectionTemplateItems.push({category:'General',item_name:'',input_type:'condition',measurement_unit:'',position_label:'',quick_notes:[]});renderInspectionTemplateItems();}
 function setInspectionTemplateItem(index,field,value){if(inspectionTemplateItems[index])inspectionTemplateItems[index][field]=value;}
 function setInspectionTemplateQuickNotes(index,value){if(inspectionTemplateItems[index])inspectionTemplateItems[index].quick_notes=String(value||'').split('|').map(note=>note.trim()).filter(Boolean);}
 function removeInspectionTemplateItem(index){inspectionTemplateItems.splice(index,1);renderInspectionTemplateItems();}
 function renderInspectionTemplateItems(){const container=document.getElementById('itf-items');if(!container)return;container.innerHTML=inspectionTemplateItems.map((item,index)=>`<div class="template-item-row"><input value="${attrEsc(item.category||'')}" placeholder="Brakes" oninput="setInspectionTemplateItem(${index},'category',this.value)"><input value="${attrEsc(item.item_name||'')}" placeholder="Brake pad thickness" oninput="setInspectionTemplateItem(${index},'item_name',this.value)"><select onchange="setInspectionTemplateItem(${index},'input_type',this.value)">${['condition','measurement','text','checkbox'].map(type=>`<option ${item.input_type===type?'selected':''}>${type}</option>`).join('')}</select><select onchange="setInspectionTemplateItem(${index},'measurement_unit',this.value)">${['','mm','32nds','psi','volts','percent'].map(unit=>`<option value="${unit}" ${item.measurement_unit===unit?'selected':''}>${unit||'—'}</option>`).join('')}</select><input value="${attrEsc(item.position_label||'')}" placeholder="LF" oninput="setInspectionTemplateItem(${index},'position_label',this.value)"><input value="${attrEsc((item.quick_notes||[]).join(' | '))}" placeholder="Good | Replace soon" title="Separate quick notes with |" oninput="setInspectionTemplateQuickNotes(${index},this.value)"><button type="button" class="icon-btn" aria-label="Remove item" onclick="removeInspectionTemplateItem(${index})">×</button></div>`).join('');}
-async function saveInspectionTemplate(){const name=document.getElementById('itf-name').value.trim(),items=inspectionTemplateItems.filter(item=>String(item.item_name||'').trim()).map((item,index)=>({...item,sort_order:index+1}));if(!name||!items.length){toast('Enter a template name and at least one inspection item.',8000);return;}const body={name,description:document.getElementById('itf-description').value,active:true,items},id=editInspectionTemplateId;await runMutation(`inspection-template-${id||'new'}`,{buttonId:'save-insp-template-btn',action:'Saving inspection template',request:()=>api(id?'PUT':'POST',id?`/api/operations/inspection-templates/${id}`:'/api/operations/inspection-templates',body),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-insp-template',success:'Inspection template saved'});}
-function renderDeferredServices(){const items=operationsState().deferred_services||[];return `<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>Customer</th><th>Vehicle</th><th>Recommended service</th><th>Quoted value</th><th>Deferred</th><th>Status</th><th></th></tr></thead><tbody>${items.map(item=>`<tr><td>${esc(`${item.first||''} ${item.last||''}`.trim())}</td><td>${esc(`${item.year||''} ${item.make||''} ${item.model||''}`.trim())}</td><td>${esc(item.description)}</td><td>${fmt$(item.amount)}</td><td>${esc(String(item.deferred_at||'').slice(0,10))}</td><td>${statusBadge(item.status)}</td><td>${item.status==='open'?`<select aria-label="Add deferred service to estimate" onchange="if(this.value)addDeferredToEstimate(${safeId(item.id)},this.value)"><option value="">Add to estimate…</option>${state.estimates.filter(est=>Number(est.customer_id)===Number(item.customer_id)&&(!item.vehicle_id||Number(est.vehicle_id)===Number(item.vehicle_id))&&!['Approved','Declined'].includes(est.status)).map(est=>`<option value="${safeId(est.id)}">${esc(est.estimate_number||`EST-${est.id}`)}</option>`).join('')}</select><button type="button" class="btn btn-sm" onclick="updateDeferredService(${safeId(item.id)},'dismissed')">Dismiss</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No deferred services</td></tr>'}</tbody></table></div></div>`;}
+async function saveInspectionTemplate(){if(!canManageOperationsSetup()){toast(shopRoleActionMessage('manage inspection templates'),8000);return;}const name=document.getElementById('itf-name').value.trim(),items=inspectionTemplateItems.filter(item=>String(item.item_name||'').trim()).map((item,index)=>({...item,sort_order:index+1}));if(!name||!items.length){toast('Enter a template name and at least one inspection item.',8000);return;}const body={name,description:document.getElementById('itf-description').value,active:true,items},id=editInspectionTemplateId;await runMutation(`inspection-template-${id||'new'}`,{buttonId:'save-insp-template-btn',action:'Saving inspection template',request:()=>api(id?'PUT':'POST',id?`/api/operations/inspection-templates/${id}`:'/api/operations/inspection-templates',body),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-insp-template',success:'Inspection template saved'});}
+function renderDeferredServices(){const items=operationsState().deferred_services||[];return `<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>Customer</th><th>Vehicle</th><th>Recommended service</th><th>Quoted value</th><th>Deferred</th><th>Status</th><th></th></tr></thead><tbody>${items.map(item=>`<tr><td>${esc(`${item.first||''} ${item.last||''}`.trim())}</td><td>${esc(`${item.year||''} ${item.make||''} ${item.model||''}`.trim())}</td><td>${esc(item.description)}</td><td>${fmt$(item.amount)}</td><td>${esc(String(item.deferred_at||'').slice(0,10))}</td><td>${statusBadge(item.status)}</td><td>${item.status==='open'?`<select aria-label="Add deferred service to estimate" onchange="if(this.value)addDeferredToEstimate(${safeId(item.id)},this.value)" ${canManageEstimates()?'':'disabled'}><option value="">Add to estimate…</option>${state.estimates.filter(est=>Number(est.customer_id)===Number(item.customer_id)&&(!item.vehicle_id||Number(est.vehicle_id)===Number(item.vehicle_id))&&!['Approved','Declined'].includes(est.status)).map(est=>`<option value="${safeId(est.id)}">${esc(est.estimate_number||`EST-${est.id}`)}</option>`).join('')}</select><button type="button" class="btn btn-sm" onclick="updateDeferredService(${safeId(item.id)},'dismissed')">Dismiss</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No deferred services</td></tr>'}</tbody></table></div></div>`;}
 async function updateDeferredService(id,status){await runMutation(`deferred-${id}`,{action:'Updating deferred service',request:()=>api('PUT',`/api/operations/deferred-services/${id}`,{status}),apply:async()=>{await refreshOperations();},render:renderOperations,success:'Deferred service updated'});}
-async function addDeferredToEstimate(id,estimateId){await runMutation(`deferred-estimate-${id}`,{action:'Adding recommended service',request:()=>api('POST',`/api/operations/deferred-services/${id}/add-to-estimate`,{estimate_id:Number(estimateId)}),apply:async()=>{await Promise.all([refreshOperations(),refreshResource('/api/estimates','estimates')]);},render:renderOperations,success:'Recommended service added to estimate'});}
-function renderPurchasing(){const ops=operationsState(),reservations=ops.reservations||[],orders=ops.purchase_orders||[];return `<div class="stats-grid"><div class="stat"><div class="stat-label">Active reservations</div><div class="stat-value">${reservations.filter(r=>r.status==='reserved').length}</div></div><div class="stat"><div class="stat-label">Open purchase orders</div><div class="stat-value">${orders.filter(po=>!['Fulfilled','Canceled'].includes(po.status)).length}</div></div><div class="stat"><div class="stat-label">Reserved units</div><div class="stat-value">${reservations.filter(r=>r.status==='reserved').reduce((sum,r)=>sum+Number(r.quantity||0),0)}</div></div></div><div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;"><div class="table-wrap"><table><thead><tr><th>PO #</th><th>Vendor</th><th>Repair order</th><th>Status</th><th>Items</th><th>Total cost</th><th></th></tr></thead><tbody>${orders.map(po=>`<tr><td>${esc(po.po_number)}</td><td>${esc(po.vendor_name||'—')}</td><td>${esc(po.repair_order_number||'—')}</td><td>${statusBadge(po.status)}</td><td>${(po.items||[]).length}</td><td>${fmt$((po.items||[]).reduce((sum,item)=>sum+Number(item.quantity_ordered||0)*Number(item.unit_cost||0),0))}</td><td><button type="button" class="btn btn-sm" onclick="openPurchaseOrderModal(${safeId(po.id)})">Edit / receive</button></td></tr>`).join('')||'<tr><td colspan="7" class="empty">No purchase orders</td></tr>'}</tbody></table></div></div><div class="card"><h3 style="margin-top:0;">Inventory reservations</h3>${reservations.filter(r=>r.status==='reserved').map(r=>`<div class="ops-list-item"><div style="flex:1;"><strong>${esc(r.name)}</strong><div class="settings-hint">${r.quantity} reserved${r.repair_order_number?` for ${esc(r.repair_order_number)}`:''} · ${Math.max(0,Number(r.on_hand)-Number(r.quantity))} remaining after this reservation</div></div><button type="button" class="btn btn-sm" onclick="releaseReservation(${safeId(r.id)})">Release</button></div>`).join('')||'<div class="empty">No active reservations</div>'}</div>`;}
-function openPurchaseOrderModal(id=null){const ops=operationsState(),po=id?(ops.purchase_orders||[]).find(row=>Number(row.id)===Number(id)):null;editPurchaseOrderId=po?.id||null;purchaseOrderItems=(po?.items||[]).map(item=>({...item}));if(!purchaseOrderItems.length)purchaseOrderItems=[{description:'',part_number:'',quantity_ordered:1,quantity_received:0,unit_cost:0,inventory_id:null,add_to_inventory:false}];document.getElementById('m-po-title').textContent=po?`Edit ${po.po_number}`:'New purchase order';document.getElementById('pof-vendor').innerHTML='<option value="">No vendor selected</option>'+((ops.vendors||[]).filter(v=>v.active).map(v=>`<option value="${safeId(v.id)}" ${Number(po?.vendor_id)===Number(v.id)?'selected':''}>${esc(v.name)}</option>`).join(''));document.getElementById('pof-job').innerHTML='<option value="">Not linked to an RO</option>'+state.jobs.filter(j=>!['Complete','Canceled'].includes(j.status)).map(j=>`<option value="${safeId(j.id)}" ${Number(po?.job_id)===Number(j.id)?'selected':''}>${esc(j.repair_order_number||`RO-${j.id}`)} · ${esc(j.first||'')} ${esc(j.last||'')}</option>`).join('');document.getElementById('pof-status').value=po?.status||'Draft';document.getElementById('pof-invoice').value=po?.vendor_invoice_number||'';document.getElementById('pof-notes').value=po?.notes||'';renderPurchaseOrderItems();document.getElementById('m-purchase-order').classList.add('open');}
+async function addDeferredToEstimate(id,estimateId){if(!canManageEstimates()){toast(shopRoleActionMessage('add deferred services to estimates'),8000);return;}await runMutation(`deferred-estimate-${id}`,{action:'Adding recommended service',request:()=>api('POST',`/api/operations/deferred-services/${id}/add-to-estimate`,{estimate_id:Number(estimateId)}),apply:async()=>{await Promise.all([refreshOperations(),refreshResource('/api/estimates','estimates')]);},render:renderOperations,success:'Recommended service added to estimate'});}
+function renderPurchasing(){const ops=operationsState(),reservations=ops.reservations||[],orders=ops.purchase_orders||[];return `<div class="stats-grid"><div class="stat"><div class="stat-label">Active reservations</div><div class="stat-value">${reservations.filter(r=>r.status==='reserved').length}</div></div><div class="stat"><div class="stat-label">Open purchase orders</div><div class="stat-value">${orders.filter(po=>!['Fulfilled','Canceled'].includes(po.status)).length}</div></div><div class="stat"><div class="stat-label">Reserved units</div><div class="stat-value">${reservations.filter(r=>r.status==='reserved').reduce((sum,r)=>sum+Number(r.quantity||0),0)}</div></div></div><div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;"><div class="table-wrap"><table><thead><tr><th>PO #</th><th>Vendor</th><th>Repair order</th><th>Status</th><th>Items</th><th>Total cost</th><th></th></tr></thead><tbody>${orders.map(po=>`<tr><td>${esc(po.po_number)}</td><td>${esc(po.vendor_name||'—')}</td><td>${esc(po.repair_order_number||'—')}</td><td>${statusBadge(po.status)}</td><td>${(po.items||[]).length}</td><td>${fmt$((po.items||[]).reduce((sum,item)=>sum+Number(item.quantity_ordered||0)*Number(item.unit_cost||0),0))}</td><td>${canManageOperationsSetup()?`<button type="button" class="btn btn-sm" onclick="openPurchaseOrderModal(${safeId(po.id)})">Edit / receive</button>`:'<span class="muted">View only</span>'}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No purchase orders</td></tr>'}</tbody></table></div></div><div class="card"><h3 style="margin-top:0;">Inventory reservations</h3>${reservations.filter(r=>r.status==='reserved').map(r=>`<div class="ops-list-item"><div style="flex:1;"><strong>${esc(r.name)}</strong><div class="settings-hint">${r.quantity} reserved${r.repair_order_number?` for ${esc(r.repair_order_number)}`:''} · ${Math.max(0,Number(r.on_hand)-Number(r.quantity))} remaining after this reservation</div></div>${canManageOperationsSetup()?`<button type="button" class="btn btn-sm" onclick="releaseReservation(${safeId(r.id)})">Release</button>`:'<span class="muted">View only</span>'}</div>`).join('')||'<div class="empty">No active reservations</div>'}</div>`;}
+function openPurchaseOrderModal(id=null){if(!canManageOperationsSetup()){toast(shopRoleActionMessage('manage purchase orders'),8000);return;}const ops=operationsState(),po=id?(ops.purchase_orders||[]).find(row=>Number(row.id)===Number(id)):null;editPurchaseOrderId=po?.id||null;purchaseOrderItems=(po?.items||[]).map(item=>({...item}));if(!purchaseOrderItems.length)purchaseOrderItems=[{description:'',part_number:'',quantity_ordered:1,quantity_received:0,unit_cost:0,inventory_id:null,add_to_inventory:false}];document.getElementById('m-po-title').textContent=po?`Edit ${po.po_number}`:'New purchase order';document.getElementById('pof-vendor').innerHTML='<option value="">No vendor selected</option>'+((ops.vendors||[]).filter(v=>v.active).map(v=>`<option value="${safeId(v.id)}" ${Number(po?.vendor_id)===Number(v.id)?'selected':''}>${esc(v.name)}</option>`).join(''));document.getElementById('pof-job').innerHTML='<option value="">Not linked to an RO</option>'+state.jobs.filter(j=>!['Complete','Canceled'].includes(j.status)).map(j=>`<option value="${safeId(j.id)}" ${Number(po?.job_id)===Number(j.id)?'selected':''}>${esc(j.repair_order_number||`RO-${j.id}`)} · ${esc(j.first||'')} ${esc(j.last||'')}</option>`).join('');document.getElementById('pof-status').value=po?.status||'Draft';document.getElementById('pof-invoice').value=po?.vendor_invoice_number||'';document.getElementById('pof-notes').value=po?.notes||'';renderPurchaseOrderItems();document.getElementById('m-purchase-order').classList.add('open');}
 function addPurchaseOrderItem(){purchaseOrderItems.push({description:'',part_number:'',quantity_ordered:1,quantity_received:0,unit_cost:0,inventory_id:null,add_to_inventory:false});renderPurchaseOrderItems();}
 function setPurchaseOrderItem(index,field,value){if(purchaseOrderItems[index])purchaseOrderItems[index][field]=value;}
 function removePurchaseOrderItem(index){purchaseOrderItems.splice(index,1);renderPurchaseOrderItems();}
 function selectPurchaseOrderInventory(index,value){const item=state.inventory.find(part=>Number(part.id)===Number(value));if(!purchaseOrderItems[index])return;purchaseOrderItems[index]={...purchaseOrderItems[index],inventory_id:item?.id||null,description:item?.name||purchaseOrderItems[index].description,part_number:item?.part_number||purchaseOrderItems[index].part_number,unit_cost:Number(item?.cost||purchaseOrderItems[index].unit_cost||0),add_to_inventory:Boolean(item)};renderPurchaseOrderItems();}
 function renderPurchaseOrderItems(){const container=document.getElementById('pof-items');if(!container)return;container.innerHTML=purchaseOrderItems.map((item,index)=>`<div class="template-item-row" style="grid-template-columns:1.6fr 1fr .7fr .7fr .8fr auto;"><div><select aria-label="Inventory part" onchange="selectPurchaseOrderInventory(${index},this.value)"><option value="">Custom part</option>${state.inventory.map(part=>`<option value="${safeId(part.id)}" ${Number(item.inventory_id)===Number(part.id)?'selected':''}>${esc(part.name)}</option>`).join('')}</select><input aria-label="Part description" value="${attrEsc(item.description||'')}" placeholder="Part description" oninput="setPurchaseOrderItem(${index},'description',this.value)"></div><input aria-label="Part number" value="${attrEsc(item.part_number||'')}" oninput="setPurchaseOrderItem(${index},'part_number',this.value)"><input type="number" min="0.001" step="0.001" aria-label="Quantity ordered" value="${attrEsc(item.quantity_ordered??1)}" oninput="setPurchaseOrderItem(${index},'quantity_ordered',Number(this.value))"><input type="number" min="0" step="0.001" aria-label="Quantity received" value="${attrEsc(item.quantity_received??0)}" oninput="setPurchaseOrderItem(${index},'quantity_received',Number(this.value))"><input type="number" min="0" step="0.01" aria-label="Unit cost" value="${attrEsc(item.unit_cost??0)}" oninput="setPurchaseOrderItem(${index},'unit_cost',Number(this.value))"><button type="button" class="icon-btn" aria-label="Remove part" onclick="removePurchaseOrderItem(${index})">×</button></div>`).join('');}
-async function savePurchaseOrder(){const items=purchaseOrderItems.filter(item=>String(item.description||'').trim()).map(item=>({...item,quantity_ordered:Number(item.quantity_ordered),quantity_received:Number(item.quantity_received),unit_cost:Number(item.unit_cost),add_to_inventory:Boolean(item.inventory_id)}));if(!items.length){toast('Add at least one part to the purchase order.',8000);return;}const body={vendor_id:parseInt(document.getElementById('pof-vendor').value)||null,job_id:parseInt(document.getElementById('pof-job').value)||null,status:document.getElementById('pof-status').value,vendor_invoice_number:document.getElementById('pof-invoice').value,notes:document.getElementById('pof-notes').value,items},id=editPurchaseOrderId;await runMutation(`purchase-order-${id||'new'}`,{buttonId:'save-purchase-order-btn',action:'Saving purchase order',request:()=>api(id?'PUT':'POST',id?`/api/operations/purchase-orders/${id}`:'/api/operations/purchase-orders',body),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-purchase-order',success:'Purchase order saved'});}
-async function releaseReservation(id){await runMutation(`reservation-release-${id}`,{action:'Releasing inventory reservation',request:()=>api('PUT',`/api/operations/reservations/${id}/release`,{}),apply:async()=>{await refreshOperations();},render:renderOperations,success:'Inventory reservation released'});}
+async function savePurchaseOrder(){if(!canManageOperationsSetup()){toast(shopRoleActionMessage('manage purchase orders'),8000);return;}const items=purchaseOrderItems.filter(item=>String(item.description||'').trim()).map(item=>({...item,quantity_ordered:Number(item.quantity_ordered),quantity_received:Number(item.quantity_received),unit_cost:Number(item.unit_cost),add_to_inventory:Boolean(item.inventory_id)}));if(!items.length){toast('Add at least one part to the purchase order.',8000);return;}const body={vendor_id:parseInt(document.getElementById('pof-vendor').value)||null,job_id:parseInt(document.getElementById('pof-job').value)||null,status:document.getElementById('pof-status').value,vendor_invoice_number:document.getElementById('pof-invoice').value,notes:document.getElementById('pof-notes').value,items},id=editPurchaseOrderId;await runMutation(`purchase-order-${id||'new'}`,{buttonId:'save-purchase-order-btn',action:'Saving purchase order',request:()=>api(id?'PUT':'POST',id?`/api/operations/purchase-orders/${id}`:'/api/operations/purchase-orders',body),apply:async()=>{await refreshOperations();},render:renderOperations,close:'m-purchase-order',success:'Purchase order saved'});}
+async function releaseReservation(id){if(!canManageOperationsSetup()){toast(shopRoleActionMessage('release inventory reservations'),8000);return;}await runMutation(`reservation-release-${id}`,{action:'Releasing inventory reservation',request:()=>api('PUT',`/api/operations/reservations/${id}/release`,{}),apply:async()=>{await refreshOperations();},render:renderOperations,success:'Inventory reservation released'});}
 function openServiceEventModal(jobId,eventType){const job=state.jobs.find(row=>Number(row.id)===Number(jobId));if(!job){toast('Repair order could not be found.',8000);return;}serviceEventPhotos=[];document.getElementById('sef-photo').value='';document.getElementById('sef-photo-preview').innerHTML='';const labels={'check-in':'Vehicle check-in','check-out':'Vehicle check-out','quality-control':'Quality-control inspection'};document.getElementById('m-service-event-title').textContent=`${labels[eventType]||'Service record'} · ${job.repair_order_number||`RO-${job.id}`}`;document.getElementById('sef-job').value=job.id;document.getElementById('sef-type').value=eventType;document.getElementById('sef-mileage').value=job.miles||'';document.getElementById('sef-fuel').value='';document.getElementById('sef-keys').value='';document.getElementById('sef-warning').value='';document.getElementById('sef-damage').value='';document.getElementById('sef-road-test').value='';const checks=eventType==='quality-control'?['Work completed','Fluids checked','Wheels torqued','Warning lights reviewed','Final road test','Vehicle clean']:['Customer concerns recorded','Existing damage documented','Keys received','Mileage verified'];document.getElementById('sef-checklist').innerHTML=checks.map((label,index)=>`<label class="card" style="padding:9px;display:flex;gap:8px;align-items:center;"><input type="checkbox" data-service-check="${index}"> ${esc(label)}</label>`).join('');document.getElementById('m-service-event').classList.add('open');}
 async function saveServiceEvent(){const checklist={};document.querySelectorAll('[data-service-check]').forEach(input=>{checklist[input.closest('label').textContent.trim()]=input.checked;});const body={job_id:Number(document.getElementById('sef-job').value),event_type:document.getElementById('sef-type').value,mileage:Number(document.getElementById('sef-mileage').value)||0,fuel_level:document.getElementById('sef-fuel').value,keys_received:document.getElementById('sef-keys').value,warning_lights:document.getElementById('sef-warning').value,exterior_damage:document.getElementById('sef-damage').value,road_test_notes:document.getElementById('sef-road-test').value,checklist,photos:serviceEventPhotos};const result=await runMutation(`service-event-${body.job_id}-${body.event_type}`,{buttonId:'save-service-event-btn',action:'Saving vehicle service record',request:()=>api('POST','/api/operations/service-events',body),apply:async()=>{await Promise.all([refreshOperations(),refreshResource('/api/jobs','jobs'),refreshResource('/api/vehicles','vehicles')]);},render:renderOperations,close:'m-service-event',success:'Vehicle service record saved'});if(result)serviceEventPhotos=[];}
 
@@ -6423,6 +6480,7 @@ async function updateJobTaskStatus(id,status){
   await runMutation(`job-task-status-${id}`,{action:'Updating technician task',request:()=>api('PUT',`/api/operations/tasks/${id}`,body),apply:async()=>{await refreshOperations();},render:renderTime,success:status==='Complete'?'Task completed':'Task started'});
 }
 function openInventoryReservation(){
+  if(!canManageOperationsSetup()){toast(shopRoleActionMessage('reserve inventory'),8000);return;}
   if(!editJobId){toast('Save the repair order before reserving inventory.',8000);return;}
   const active=operationsState().reservations||[],select=document.getElementById('rvf-inventory');
   select.innerHTML=state.inventory.map(part=>{const reserved=active.filter(r=>r.status==='reserved'&&Number(r.inventory_id)===Number(part.id)).reduce((sum,r)=>sum+Number(r.quantity||0),0);const available=Math.max(0,Number(part.quantity||0)-reserved);return `<option value="${safeId(part.id)}" data-available="${available}">${esc(part.name)} · ${available} available</option>`;}).join('');
