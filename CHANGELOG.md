@@ -4,6 +4,8 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+## v1.3.0 - 2026-11-21
+
 ### Added
 
 - Schedule day view: clicking a calendar day now opens that day's plan instead of jumping straight to a new appointment. It lists appointments in time order with start/end times, length, vehicle, bay/mobile unit, contact, and notes; shows open gaps of 30 minutes or more; flags double-booked appointments (overlapping times on the same bay/mobile unit, or both unassigned); lists the day's jobs; and offers Edit, Delete, "+ New appointment" (date prefilled), and previous/next-day arrows. Busy calendar days show "+N more" instead of overflowing, overlapping chips get a red edge, and days can be opened from the keyboard. Covered by `qa:schedule-renderer`.
