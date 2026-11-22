@@ -4,6 +4,25 @@ All notable WrenchPro changes should be documented here before release.
 
 ## Unreleased
 
+### Added
+
+- Schedule day view: clicking a calendar day now opens that day's plan instead of jumping straight to a new appointment. It lists appointments in time order with start/end times, length, vehicle, bay/mobile unit, contact, and notes; shows open gaps of 30 minutes or more; flags double-booked appointments (overlapping times on the same bay/mobile unit, or both unassigned); lists the day's jobs; and offers Edit, Delete, "+ New appointment" (date prefilled), and previous/next-day arrows. Busy calendar days show "+N more" instead of overflowing, overlapping chips get a red edge, and days can be opened from the keyboard. Covered by `qa:schedule-renderer`.
+
+### Security
+
+- Hosted shop roles now block mechanics from editing shop settings, managing staff records, or recording/changing payments, including indirect payment paths through quick entry, paid repair orders, payment plans, and installment payments. Owners/admins retain settings/staff control, service writers can still pass payment guards, the frontend hides/disables restricted actions, disables quick-entry payment fields, guards paid repair-order status changes, and non-admin shop-context responses redact owner/billing/plan details. Covered by `qa:tenant` and `qa:shop-auth-frontend`.
+- Hosted mechanics and service writers can view service catalog and inventory records but can no longer create, edit, or delete catalog/inventory cost and stock data; only owners/admins can manage those resources. Covered by `qa:tenant` and `qa:shop-auth-frontend`.
+- Hosted shop operations configuration and stock-cost workflows now require owner/admin roles for workflow columns, bays/mobile units, inspection templates, vendors, purchase orders, and inventory reservations; the frontend now hides/guards those setup actions for non-admin hosted roles. Covered by `qa:tenant` and `qa:shop-auth-frontend`.
+- Hosted non-admin settings reads now redact private owner identity and tax identifiers while keeping operational defaults available for normal app calculations. Covered by `qa:tenant`.
+- Hosted estimate creation, editing, deletion, approval/conversion, and deferred-service add-to-estimate actions now require owner/admin/service-writer roles; mechanics retain estimate viewing/printing only. Covered by `qa:tenant` and `qa:shop-auth-frontend`.
+- Refreshed the npm lockfile with non-breaking audit fixes; production dependency audit now reports 0 high-or-critical vulnerabilities with `npm audit --omit=dev --audit-level=high`. Remaining audit findings are dev-toolchain-only and require breaking upgrades (`nodemon`/`electron-builder`).
+- Updated Electron 44.4.5 → 44.11.5 (same major) for upstream security fixes (GHSA-x562-297c-g43g pointer-lock frame attribution, GHSA-jr5w-w6x2-84p9 compromised eMudhra intermediate certificates).
+- Second non-breaking `npm audit fix` pass: `body-parser` 1.20.9 (compressed-body DoS, GHSA-27r3-jxmh-p828), `qs` 6.16.2, `undici`, and `fast-uri`. `npm audit --omit=dev` reports 0 vulnerabilities; the only remaining findings are dev-only `minimatch`/`brace-expansion` under `nodemon` and `electron-builder`.
+
+### Docs
+
+- README development setup now states Node.js 22+ (matching `engines`) instead of Node.js 20.
+
 ### Fixed (tests)
 
 - QA servers now use OS-assigned ports (`scripts/qa-port.js`) instead of random ports in small fixed ranges. The random ranges could land on ports that `fetch()` refuses (6665–6669 and 6697, the IRC ports on the Fetch standard's "bad ports" list; 3659, 4045, and 4190 in the smoke test's range), so a server that started fine looked unreachable until the wait timed out. This failed the first v1.2.2 release run (`qa:reliability-corrections` on port 6665); nothing was published, and a re-run released it.

@@ -16,6 +16,12 @@ const SUPABASE_JWT_SECRET = String(process.env.WRENCHPRO_SUPABASE_JWT_SECRET || 
 const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.WRENCHPRO_SUPABASE_URL || '').trim().replace(/\/$/, '');
 const SUPABASE_AUTH_CONFIGURED = Boolean(SUPABASE_JWT_SECRET && SUPABASE_URL);
 const ACTIVE_ROLES = new Set(['owner', 'admin', 'mechanic', 'service_writer']);
+const ROLE_LABELS = {
+  owner: 'Owner',
+  admin: 'Admin',
+  mechanic: 'Mechanic',
+  service_writer: 'Service writer',
+};
 const BLOCKED_PLAN_STATUSES = new Set(['canceled', 'cancelled', 'suspended', 'disabled', 'inactive', 'deleted', 'trial_expired']);
 
 function normalizeEmail(value) {
@@ -189,6 +195,32 @@ function membershipFor(shopId, email, userId = '') {
   return ACTIVE_ROLES.has(role) ? membership : null;
 }
 
+function requireShopRole(allowedRoles) {
+  const allowed = new Set((Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles]).map(role => String(role || '').trim().toLowerCase()).filter(Boolean));
+  return (req, res, next) => {
+    const shopId = requestedShopId(req);
+    if (!shopId || !req.shopMembership) return next();
+    const role = String(req.shopMembership.role || '').trim().toLowerCase();
+    if (allowed.has(role)) return next();
+    const allowedLabels = [...allowed].map(roleName => ROLE_LABELS[roleName] || roleName).join(', ');
+    return res.status(403).json({ error: `This action requires one of these shop roles: ${allowedLabels}`, field: 'role' });
+  };
+}
+
+function shopRoleAllowed(req, allowedRoles) {
+  const shopId = requestedShopId(req);
+  if (!shopId || !req.shopMembership) return true;
+  const allowed = new Set((Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles]).map(role => String(role || '').trim().toLowerCase()).filter(Boolean));
+  const role = String(req.shopMembership.role || '').trim().toLowerCase();
+  return allowed.has(role);
+}
+
+function shopRoleDenied(res, allowedRoles) {
+  const allowed = new Set((Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles]).map(role => String(role || '').trim().toLowerCase()).filter(Boolean));
+  const allowedLabels = [...allowed].map(roleName => ROLE_LABELS[roleName] || roleName).join(', ');
+  return res.status(403).json({ error: `This action requires one of these shop roles: ${allowedLabels}`, field: 'role' });
+}
+
 function validateRequestedShopContext(req, res, next) {
   try {
     const rawShopHeader = req?.headers?.[SHOP_HEADER];
@@ -296,6 +328,9 @@ module.exports = {
   requestedShopId,
   hasRequestedShopId,
   requestedUserEmail,
+  requireShopRole,
+  shopRoleAllowed,
+  shopRoleDenied,
   validateRequestedShopContext,
   resolveShopId,
   customerTenantWhere,

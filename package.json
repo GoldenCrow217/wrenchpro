@@ -16,6 +16,10 @@
     "qa:package": "npm run qa:package -w apps/desktop",
     "smoke": "npm run smoke -w apps/desktop",
     "qa:api": "npm run qa:api -w apps/desktop",
+    "qa:tenant": "npm run qa:tenant -w apps/desktop",
+    "qa:shop-auth-frontend": "npm run qa:shop-auth-frontend -w apps/desktop",
+    "qa:hosted-security": "npm run qa:hosted-security -w apps/desktop",
+    "qa:saas": "npm run qa:tenant && npm run qa:shop-auth-frontend && npm run qa:hosted-security",
     "build:icons": "npm run build:icons -w apps/desktop"
   },
   "engines": {

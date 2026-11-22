@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { customerTenantWhere, resolveShopId } = require('../tenant');
+const { customerTenantWhere, requireShopRole, resolveShopId } = require('../tenant');
 const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
 const { reconcileJobInvoiceStatus } = require('../job-finance');
 
@@ -34,7 +34,7 @@ router.get('/', (req, res) => {
   res.json(payments);
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireShopRole(['owner', 'admin', 'service_writer']), (req, res) => {
   if (!validatePayment(res, req.body, true)) return;
   const { customer_id, plan_id, job_id, description, amount, method, date, note } = req.body;
   const tenant = customerTenantWhere(req, 'c');
@@ -97,7 +97,7 @@ router.post('/', (req, res) => {
   res.json({ id: saved.id, ...req.body, job_id: resolvedJobId, repair_order_number: job?.repair_order_number || null, late_fee_amount: saved.lateFeeAmount, allocations: saved.allocations, plan_installments: planInstallments, job_invoice_status: saved.jobInvoiceStatus });
 });
 
-router.post('/:id/refund', (req, res) => {
+router.post('/:id/refund', requireShopRole(['owner', 'admin', 'service_writer']), (req, res) => {
   if (!finiteNumber(res, req.body, 'amount', { required: true, label: 'Refund amount' })) return;
   if (Number(req.body.amount) <= 0) return fail(res, 'amount', 'Refund amount must be greater than zero');
   if (!isoDate(res, req.body, 'date', { required: true, label: 'Refund date' })) return;
@@ -119,7 +119,7 @@ router.post('/:id/refund', (req, res) => {
   res.json({ id:saved.id,customer_id:payment.customer_id,job_id:payment.job_id||null,repair_order_number:payment.repair_order_number||null,first:payment.first,last:payment.last,description:`Refund — ${payment.description||'Payment'}`,amount:-amount,method:req.body.method||payment.method||'Cash',date:req.body.date,note:req.body.note||'',payment_type:'refund',parent_payment_id:payment.id,job_invoice_status:saved.jobInvoiceStatus });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireShopRole(['owner', 'admin', 'service_writer']), (req, res) => {
   if (!validatePayment(res, req.body, false)) return;
   const { description, amount, method, date, note } = req.body;
   const tenant = customerTenantWhere(req, 'c');
@@ -146,7 +146,7 @@ router.put('/:id', (req, res) => {
   res.json({ success: true, job_id: payment.job_id || null, job_invoice_status: payment.job_id ? db.prepare('SELECT invoice_status FROM jobs WHERE id=?').get(payment.job_id)?.invoice_status : null });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireShopRole(['owner', 'admin', 'service_writer']), (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const payment = db.prepare(`SELECT p.* FROM payments p JOIN customers c ON p.customer_id=c.id WHERE p.id=? AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
   if (!payment) return res.status(404).json({ error: 'Payment not found' });

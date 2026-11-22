@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { resolveShopId, shopTenantWhere } = require('../tenant');
+const { requireShopRole, resolveShopId, shopTenantWhere } = require('../tenant');
 const { requiredText, nonNegativeNumber, positiveId } = require('../validation');
 
 function validateCatalogItem(res, body) {
@@ -15,7 +15,7 @@ router.get('/', (req, res) => {
   res.json(db.prepare(`SELECT * FROM service_catalog WHERE ${tenant.clause} ORDER BY category, name`).all(...tenant.values));
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireShopRole(['owner', 'admin']), (req, res) => {
   if (!validateCatalogItem(res, req.body)) return;
   const { name, description, category, default_hours, default_price, taxable, notes } = req.body;
   const shopId = resolveShopId(req);
@@ -26,7 +26,7 @@ router.post('/', (req, res) => {
   res.json({ id: result.lastInsertRowid, shop_id: shopId, ...req.body });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireShopRole(['owner', 'admin']), (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   if (!validateCatalogItem(res, req.body)) return;
   const { name, description, category, default_hours, default_price, taxable, notes } = req.body;
@@ -39,7 +39,7 @@ router.put('/:id', (req, res) => {
   res.json({ success: true });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireShopRole(['owner', 'admin']), (req, res) => {
   const tenant = shopTenantWhere(req);
   const result = db.prepare(`DELETE FROM service_catalog WHERE id = ? AND ${tenant.clause}`).run(req.params.id, ...tenant.values);
   if (!result.changes) return res.status(404).json({ error: 'Catalog item not found' });

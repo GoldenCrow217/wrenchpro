@@ -33,6 +33,7 @@
     "qa:accounting-integrity": "node scripts/accounting-integrity-qa.js",
     "qa:finance-corrections": "node scripts/finance-corrections-qa.js",
     "qa:jobs-renderer": "node scripts/run-jobs-renderer-qa.js",
+    "qa:schedule-renderer": "node scripts/run-schedule-renderer-qa.js",
     "qa:inspection-measurements": "node scripts/inspection-measurement-qa.js",
     "qa:inspection-renderer": "node scripts/run-inspection-renderer-qa.js",
     "qa:operations": "node scripts/operations-qa.js",
@@ -50,7 +51,7 @@
     "express": "^4.18.2"
   },
   "devDependencies": {
-    "electron": "44.4.5",
+    "electron": "44.11.5",
     "electron-builder": "^26.15.3",
     "nodemon": "^3.1.0"
   },

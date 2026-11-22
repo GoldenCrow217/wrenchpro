@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { resolveShopId, shopTenantWhere, customerTenantWhere } = require('../tenant');
+const { resolveShopId, shopTenantWhere, customerTenantWhere, requireShopRole } = require('../tenant');
 const { fail, positiveId, requiredText, nonNegativeNumber } = require('../validation');
 
 const WORKFLOW_COLORS = new Set(['#64748B','#D97706','#2563EB','#7C3AED','#EA580C','#0891B2','#4F46E5','#16A34A','#475569','#DC2626','#0F766E']);
@@ -12,6 +12,8 @@ const TASK_STATUSES = new Set(['Not Started', 'In Progress', 'Blocked', 'Complet
 const EVENT_TYPES = new Set(['check-in', 'check-out', 'quality-control']);
 const INSPECTION_INPUT_TYPES = new Set(['condition','measurement','text','checkbox']);
 const INSPECTION_UNITS = new Set(['','mm','32nds','psi','volts','percent']);
+const SHOP_ADMIN_ROLES = ['owner', 'admin'];
+const ESTIMATE_ROLES = ['owner', 'admin', 'service_writer'];
 
 function rowsWithChildren(rows, table, foreignKey, orderBy = 'id') {
   const stmt = db.prepare(`SELECT * FROM ${table} WHERE ${foreignKey}=? ORDER BY ${orderBy}`);
@@ -177,7 +179,7 @@ router.get('/', (req, res) => {
   });
 });
 
-router.post('/workflow-columns', (req, res) => {
+router.post('/workflow-columns', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!requiredText(res, req.body, 'name', 'Column name')) return;
   const color = WORKFLOW_COLORS.has(req.body.color) ? req.body.color : '#64748B';
   const shopId = resolveShopId(req);
@@ -186,7 +188,7 @@ router.post('/workflow-columns', (req, res) => {
   res.json(db.prepare('SELECT * FROM workflow_columns WHERE id=?').get(result.lastInsertRowid));
 });
 
-router.put('/workflow-columns/:id', (req, res) => {
+router.put('/workflow-columns/:id', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!positiveId(res, req.params.id, 'id') || !requiredText(res, req.body, 'name', 'Column name')) return;
   const tenant = shopTenantWhere(req);
   const color = WORKFLOW_COLORS.has(req.body.color) ? req.body.color : '#64748B';
@@ -196,7 +198,7 @@ router.put('/workflow-columns/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM workflow_columns WHERE id=?').get(req.params.id));
 });
 
-router.delete('/workflow-columns/:id', (req, res) => {
+router.delete('/workflow-columns/:id', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   const tenant = shopTenantWhere(req);
   if (!db.prepare(`SELECT id FROM workflow_columns WHERE id=? AND ${tenant.clause}`).get(req.params.id, ...tenant.values)) return res.status(404).json({ error: 'Workflow column not found' });
@@ -211,7 +213,7 @@ router.delete('/workflow-columns/:id', (req, res) => {
   res.json({ success: true });
 });
 
-router.post('/resources', (req, res) => {
+router.post('/resources', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!requiredText(res, req.body, 'name', 'Resource name')) return;
   const type = RESOURCE_TYPES.has(req.body.resource_type) ? req.body.resource_type : 'other';
   const result = db.prepare(`INSERT INTO shop_resources (shop_id,name,resource_type,color,position,active,notes) VALUES (?,?,?,?,?,?,?)`)
@@ -219,7 +221,7 @@ router.post('/resources', (req, res) => {
   res.json(db.prepare('SELECT * FROM shop_resources WHERE id=?').get(result.lastInsertRowid));
 });
 
-router.put('/resources/:id', (req, res) => {
+router.put('/resources/:id', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!positiveId(res, req.params.id, 'id') || !requiredText(res, req.body, 'name', 'Resource name')) return;
   const tenant = shopTenantWhere(req);
   const type = RESOURCE_TYPES.has(req.body.resource_type) ? req.body.resource_type : 'other';
@@ -229,7 +231,7 @@ router.put('/resources/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM shop_resources WHERE id=?').get(req.params.id));
 });
 
-router.delete('/resources/:id', (req, res) => {
+router.delete('/resources/:id', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   const tenant = shopTenantWhere(req);
   if (!db.prepare(`SELECT id FROM shop_resources WHERE id=? AND ${tenant.clause}`).get(req.params.id, ...tenant.values)) return res.status(404).json({ error: 'Shop resource not found' });
@@ -263,7 +265,7 @@ router.put('/jobs/:id/workflow', (req, res) => {
   res.json(db.prepare('SELECT * FROM jobs WHERE id=?').get(job.id));
 });
 
-router.post('/inspection-templates', (req, res) => {
+router.post('/inspection-templates', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!requiredText(res, req.body, 'name', 'Template name')) return;
   if (!validateTemplateItems(res,req.body.items)) return;
   const result = db.transaction(() => {
@@ -279,7 +281,7 @@ router.post('/inspection-templates', (req, res) => {
   res.json(template);
 });
 
-router.put('/inspection-templates/:id', (req, res) => {
+router.put('/inspection-templates/:id', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!positiveId(res, req.params.id, 'id') || !requiredText(res, req.body, 'name', 'Template name')) return;
   if (req.body.items!==undefined&&!validateTemplateItems(res,req.body.items)) return;
   const tenant = shopTenantWhere(req);
@@ -338,7 +340,7 @@ router.put('/deferred-services/:id', (req, res) => {
   res.json({ success:true });
 });
 
-router.post('/deferred-services/:id/add-to-estimate', (req, res) => {
+router.post('/deferred-services/:id/add-to-estimate', requireShopRole(ESTIMATE_ROLES), (req, res) => {
   if (!positiveId(res, req.params.id, 'id') || !positiveId(res, req.body.estimate_id, 'estimate_id', {required:true})) return;
   const tenant = shopTenantWhere(req);
   const deferred = db.prepare(`SELECT * FROM deferred_services WHERE id=? AND status='open' AND ${tenant.clause}`).get(req.params.id,...tenant.values);
@@ -350,7 +352,7 @@ router.post('/deferred-services/:id/add-to-estimate', (req, res) => {
   res.json({id:itemId,estimate_id:estimate.id});
 });
 
-router.post('/reservations', (req, res) => {
+router.post('/reservations', requireShopRole(SHOP_ADMIN_ROLES), (req, res) => {
   if (!positiveId(res, req.body.inventory_id, 'inventory_id', {required:true})) return;
   if (!nonNegativeNumber(res, req.body, 'quantity', {required:true,label:'Reserved quantity'}) || Number(req.body.quantity)<=0) return fail(res,'quantity','Reserved quantity must be greater than zero');
   if ((!req.body.job_id&&!req.body.estimate_id)||(req.body.job_id&&req.body.estimate_id)) return fail(res,'job_id','Select exactly one repair order or estimate');
@@ -365,7 +367,7 @@ router.post('/reservations', (req, res) => {
   res.json(db.prepare('SELECT * FROM inventory_reservations WHERE id=?').get(id));
 });
 
-router.put('/reservations/:id/release', (req,res)=>{
+router.put('/reservations/:id/release', requireShopRole(SHOP_ADMIN_ROLES), (req,res)=>{
   if(!positiveId(res,req.params.id,'id'))return;
   const tenant=shopTenantWhere(req);
   const result=db.prepare(`UPDATE inventory_reservations SET status='released',released_at=datetime('now') WHERE id=? AND status='reserved' AND ${tenant.clause}`).run(req.params.id,...tenant.values);
@@ -373,7 +375,7 @@ router.put('/reservations/:id/release', (req,res)=>{
   res.json({success:true});
 });
 
-router.post('/vendors',(req,res)=>{
+router.post('/vendors', requireShopRole(SHOP_ADMIN_ROLES), (req,res)=>{
   if(!requiredText(res,req.body,'name','Vendor name'))return;
   const id=db.prepare(`INSERT INTO vendors (shop_id,name,phone,email,account_number,notes) VALUES (?,?,?,?,?,?)`).run(resolveShopId(req),String(req.body.name).trim(),req.body.phone||'',req.body.email||'',req.body.account_number||'',req.body.notes||'').lastInsertRowid;
   res.json(db.prepare('SELECT * FROM vendors WHERE id=?').get(id));
@@ -407,7 +409,7 @@ function validatePoRelationships(req,res){
   return true;
 }
 
-router.post('/purchase-orders',(req,res)=>{
+router.post('/purchase-orders', requireShopRole(SHOP_ADMIN_ROLES), (req,res)=>{
   if(!validatePo(req,res)||!validatePoRelationships(req,res))return;
   const poId=db.transaction(()=>{
     const id=db.prepare(`INSERT INTO purchase_orders (shop_id,po_number,vendor_id,job_id,status,vendor_invoice_number,ordered_at,notes) VALUES (?,?,?,?,?,?,?,?)`).run(resolveShopId(req),nextPoNumber(req),req.body.vendor_id||null,req.body.job_id||null,req.body.status||'Draft',req.body.vendor_invoice_number||'',req.body.status==='Ordered'?new Date().toISOString():null,req.body.notes||'').lastInsertRowid;
@@ -421,7 +423,7 @@ router.post('/purchase-orders',(req,res)=>{
   res.json({id:poId,po_number:db.prepare('SELECT po_number FROM purchase_orders WHERE id=?').get(poId).po_number});
 });
 
-router.put('/purchase-orders/:id',(req,res)=>{
+router.put('/purchase-orders/:id', requireShopRole(SHOP_ADMIN_ROLES), (req,res)=>{
   if(!positiveId(res,req.params.id,'id')||!validatePo(req,res)||!validatePoRelationships(req,res))return;
   const tenant=shopTenantWhere(req);
   const current=db.prepare(`SELECT * FROM purchase_orders WHERE id=? AND ${tenant.clause}`).get(req.params.id,...tenant.values);
@@ -452,7 +454,7 @@ router.put('/purchase-orders/:id',(req,res)=>{
   res.json({success:true});
 });
 
-router.post('/purchase-orders/:id/receive',(req,res)=>{
+router.post('/purchase-orders/:id/receive', requireShopRole(SHOP_ADMIN_ROLES), (req,res)=>{
   if(!positiveId(res,req.params.id,'id')||!Array.isArray(req.body.items))return fail(res,'items','Received quantities are required');
   const tenant=shopTenantWhere(req);
   const po=db.prepare(`SELECT * FROM purchase_orders WHERE id=? AND ${tenant.clause}`).get(req.params.id,...tenant.values);

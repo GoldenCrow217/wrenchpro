@@ -150,6 +150,8 @@ async function main() {
   const expiredTrialShop = db.prepare("INSERT INTO shops (name, owner_email, plan_status, trial_ends_at) VALUES ('Expired Trial Repair', 'owner-expired@example.com', 'trial', '2000-01-01')").run().lastInsertRowid;
   db.prepare("UPDATE settings SET business_name = 'Desktop Only Repair', owner_name = 'Desktop Owner', tax_id = 'LOCAL-TAX-123' WHERE id = 1").run();
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'tech-a@example.com', 'owner', 'Tech A', 'user-a')").run(shopA);
+  db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'mechanic-a@example.com', 'mechanic', 'Mechanic A', 'user-mechanic-a')").run(shopA);
+  db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'advisor-a@example.com', 'service_writer', 'Advisor A', 'user-advisor-a')").run(shopA);
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'tech-b@example.com', 'owner', 'Tech B', 'user-b')").run(shopB);
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'owner-suspended@example.com', 'owner', 'Suspended Owner', 'user-suspended')").run(suspendedShop);
   db.prepare("INSERT INTO shop_memberships (shop_id, email, role, display_name, supabase_user_id) VALUES (?, 'owner-expired@example.com', 'owner', 'Expired Trial Owner', 'user-expired')").run(expiredTrialShop);
@@ -157,6 +159,8 @@ async function main() {
 
   const tokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com' });
   const tokenB = signToken({ sub: 'user-b', email: 'tech-b@example.com' });
+  const mechanicTokenA = signToken({ sub: 'user-mechanic-a', email: 'mechanic-a@example.com' });
+  const serviceWriterTokenA = signToken({ sub: 'user-advisor-a', email: 'advisor-a@example.com' });
   const suspendedToken = signToken({ sub: 'user-suspended', email: 'owner-suspended@example.com' });
   const expiredTrialToken = signToken({ sub: 'user-expired', email: 'owner-expired@example.com' });
   const expiredTokenA = signToken({ sub: 'user-a', email: 'tech-a@example.com', exp: Math.floor(Date.now() / 1000) - 10 });
@@ -172,6 +176,8 @@ async function main() {
   const noEmailSpoofToken = signToken({ sub: 'user-spoof' });
   const linkedEmailSpoofToken = signToken({ sub: 'user-spoof', email: 'tech-a@example.com' });
   const aHeaders = { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${tokenA}` };
+  const mechanicHeadersA = { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${mechanicTokenA}` };
+  const serviceWriterHeadersA = { 'x-wrenchpro-shop-id': String(shopA), authorization: `Bearer ${serviceWriterTokenA}` };
   const bHeaders = { 'x-wrenchpro-shop-id': String(shopB), authorization: `Bearer ${tokenB}` };
 
   assert.strictEqual((await request('GET', '/api/customers', undefined, { 'x-wrenchpro-shop-id': 'bad' })).status, 400);
@@ -215,6 +221,16 @@ async function main() {
   assert.ok(!Object.prototype.hasOwnProperty.call(shopContextA.body.membership, 'supabase_user_id'), 'Shop context must not expose provider user IDs');
   assert.ok(!Object.prototype.hasOwnProperty.call(shopContextA.body.membership, 'authorization'), 'Shop context must not expose bearer tokens');
 
+  const mechanicShopContextA = await request('GET', '/api/shop-context', undefined, mechanicHeadersA);
+  assert.strictEqual(mechanicShopContextA.status, 200, JSON.stringify(mechanicShopContextA.body));
+  assert.strictEqual(mechanicShopContextA.body.membership.role, 'mechanic');
+  assert.strictEqual(mechanicShopContextA.body.shop.name, 'A Mobile Repair');
+  assert.strictEqual(mechanicShopContextA.body.shop.trial_ends_at, '2099-12-31');
+  assert.ok(!Object.prototype.hasOwnProperty.call(mechanicShopContextA.body.shop, 'owner_email'), 'Non-admin shop members must not see owner emails in shop context');
+  assert.ok(!Object.prototype.hasOwnProperty.call(mechanicShopContextA.body.shop, 'billing_email'), 'Non-admin shop members must not see billing emails in shop context');
+  assert.ok(!Object.prototype.hasOwnProperty.call(mechanicShopContextA.body.shop, 'plan_code'), 'Non-admin shop members must not see plan codes in shop context');
+  assert.ok(!Object.prototype.hasOwnProperty.call(mechanicShopContextA.body.shop, 'current_period_ends_at'), 'Non-admin shop members must not see billing period details in shop context');
+
   const customerA = await request('POST', '/api/customers', { first: 'Ada', last: 'Tenant' }, aHeaders);
   assert.strictEqual(customerA.status, 200, JSON.stringify(customerA.body));
   assert.strictEqual(customerA.body.shop_id, shopA);
@@ -234,8 +250,69 @@ async function main() {
   assert.strictEqual(initialSettingsB.body.owner_name, '', 'New hosted shops must not expose desktop owner identity');
   assert.strictEqual(initialSettingsB.body.tax_id, '', 'New hosted shops must not expose desktop tax identifiers');
 
-  const settingsA = await request('PUT', '/api/settings', { business_name: 'A Mobile Repair', default_labor_rate: 125 }, aHeaders);
+  const mechanicSettings = await request('PUT', '/api/settings', { business_name: 'Mechanic Edit Attempt', default_labor_rate: 125 }, mechanicHeadersA);
+  assert.strictEqual(mechanicSettings.status, 403, 'Hosted mechanics must not be able to edit shop billing/settings data');
+  assert.strictEqual(mechanicSettings.body.field, 'role');
+  const mechanicEmployee = await request('POST', '/api/employees', { first: 'Unauthorized', last: 'Hire', role: 'Mechanic', hourly_rate: 20 }, mechanicHeadersA);
+  assert.strictEqual(mechanicEmployee.status, 403, 'Hosted mechanics must not be able to manage staff records');
+  const mechanicPayment = await request('POST', '/api/payments', {}, mechanicHeadersA);
+  assert.strictEqual(mechanicPayment.status, 403, 'Hosted mechanics must not be able to record payments');
+  const advisorPaymentValidation = await request('POST', '/api/payments', {}, serviceWriterHeadersA);
+  assert.strictEqual(advisorPaymentValidation.status, 400, 'Hosted service writers should pass the payment role guard and then hit normal validation');
+  const mechanicExpense = await request('POST', '/api/expenses', { date: '2026-09-29', description: 'Unauthorized parts run', category: 'Parts & supplies', amount: 42 }, mechanicHeadersA);
+  assert.strictEqual(mechanicExpense.status, 403, 'Hosted mechanics must not be able to create expense records');
+  const advisorExpense = await request('POST', '/api/expenses', { date: '2026-09-29', description: 'Unauthorized office expense', category: 'Supplies', amount: 12 }, serviceWriterHeadersA);
+  assert.strictEqual(advisorExpense.status, 403, 'Hosted service writers must not be able to create expense records');
+  const ownerExpenseValidation = await request('POST', '/api/expenses', {}, aHeaders);
+  assert.strictEqual(ownerExpenseValidation.status, 400, 'Hosted owners should pass the expense role guard and then hit normal validation');
+  const mechanicInventory = await request('POST', '/api/inventory', { name: 'Unauthorized filter', cost: 5, retail_price: 12, quantity: 1, reorder_qty: 1 }, mechanicHeadersA);
+  assert.strictEqual(mechanicInventory.status, 403, 'Hosted mechanics must not manage inventory costs/stock');
+  const advisorInventory = await request('POST', '/api/inventory', { name: 'Advisor filter', cost: 5, retail_price: 12, quantity: 1, reorder_qty: 1 }, serviceWriterHeadersA);
+  assert.strictEqual(advisorInventory.status, 403, 'Hosted service writers must not manage inventory costs/stock');
+  const ownerInventoryValidation = await request('POST', '/api/inventory', {}, aHeaders);
+  assert.strictEqual(ownerInventoryValidation.status, 400, 'Hosted owners should pass the inventory role guard and then hit normal validation');
+  const mechanicCatalog = await request('POST', '/api/catalog', { name: 'Unauthorized service', default_hours: 1, default_price: 99 }, mechanicHeadersA);
+  assert.strictEqual(mechanicCatalog.status, 403, 'Hosted mechanics must not manage the service catalog');
+  const advisorCatalog = await request('POST', '/api/catalog', { name: 'Advisor service', default_hours: 1, default_price: 99 }, serviceWriterHeadersA);
+  assert.strictEqual(advisorCatalog.status, 403, 'Hosted service writers must not manage the service catalog');
+  const ownerCatalogValidation = await request('POST', '/api/catalog', {}, aHeaders);
+  assert.strictEqual(ownerCatalogValidation.status, 400, 'Hosted owners should pass the catalog role guard and then hit normal validation');
+  const mechanicEstimate = await request('POST', '/api/estimates', { customer_id: customerA.body.id, vehicle_id: 1, date: '2026-09-29', status: 'Draft', total: 100 }, mechanicHeadersA);
+  assert.strictEqual(mechanicEstimate.status, 403, 'Hosted mechanics must not create estimates or quote customer-facing prices');
+  const advisorEstimateValidation = await request('POST', '/api/estimates', {}, serviceWriterHeadersA);
+  assert.strictEqual(advisorEstimateValidation.status, 400, 'Hosted service writers should pass the estimate role guard and then hit normal validation');
+
+  const roleDb = new Database(path.join(dataDir, 'wrenchpro.db'));
+  const vehicleA = roleDb.prepare("INSERT INTO vehicles (customer_id, year, make, model, miles) VALUES (?, 2018, 'Toyota', 'Camry', 90000)").run(customerA.body.id).lastInsertRowid;
+  const paidGuardJob = roleDb.prepare("INSERT INTO jobs (customer_id, vehicle_id, service, repair_order_number, date, labor, parts, status, invoice_status) VALUES (?, ?, 'Payment guard repair', 'RO-GUARD', '2026-09-29', 100, 20, 'Complete', 'Unpaid')").run(customerA.body.id, vehicleA).lastInsertRowid;
+  const planGuard = roleDb.prepare("INSERT INTO payment_plans (customer_id, job_id, description, total, down_payment, installment_count, start_date) VALUES (?, ?, 'Guard plan', 120, 0, 1, '2026-09-29')").run(customerA.body.id, paidGuardJob).lastInsertRowid;
+  const installmentGuard = roleDb.prepare("INSERT INTO installments (plan_id, due_date, amount, paid) VALUES (?, '2026-10-29', 120, 0)").run(planGuard).lastInsertRowid;
+  roleDb.close();
+  const mechanicQuickPaid = await request('POST', '/api/quick-entry', { first: 'Quick', last: 'Guard', make: 'Ford', model: 'F-150', service: 'Oil service', date: '2026-09-29', amount_paid: 25, payment_date: '2026-09-29' }, mechanicHeadersA);
+  assert.strictEqual(mechanicQuickPaid.status, 403, 'Hosted mechanics must not record payments through quick entry');
+  const mechanicPaidJobCreate = await request('POST', '/api/jobs', { customer_id: customerA.body.id, vehicle_id: vehicleA, service: 'Paid create guard', repair_order_number: 'RO-PAID-CREATE', date: '2026-09-29', labor: 50, parts: 0, status: 'Complete', invoice_status: 'Paid' }, mechanicHeadersA);
+  assert.strictEqual(mechanicPaidJobCreate.status, 403, 'Hosted mechanics must not create paid repair orders that auto-record payments');
+  const mechanicPaidJobUpdate = await request('PUT', `/api/jobs/${paidGuardJob}`, { invoice_status: 'Paid' }, mechanicHeadersA);
+  assert.strictEqual(mechanicPaidJobUpdate.status, 403, 'Hosted mechanics must not mark repair orders paid and auto-record payments');
+  const mechanicPlan = await request('POST', '/api/plans', { customer_id: customerA.body.id, job_id: paidGuardJob, description: 'Unauthorized plan', total: 120, down_payment: 0, installment_count: 1, start_date: '2026-09-29', installments: [{ due_date: '2026-10-29', amount: 120 }] }, mechanicHeadersA);
+  assert.strictEqual(mechanicPlan.status, 403, 'Hosted mechanics must not create payment plans');
+  const mechanicInstallmentPay = await request('PUT', `/api/plans/installment/${installmentGuard}/pay`, { date: '2026-09-29' }, mechanicHeadersA);
+  assert.strictEqual(mechanicInstallmentPay.status, 403, 'Hosted mechanics must not record installment payments');
+  const mechanicPlanLink = await request('PUT', `/api/plans/${planGuard}/link-job`, { job_id: paidGuardJob }, mechanicHeadersA);
+  assert.strictEqual(mechanicPlanLink.status, 403, 'Hosted mechanics must not relink payment plans');
+  const mechanicPlanDelete = await request('DELETE', `/api/plans/${planGuard}`, undefined, mechanicHeadersA);
+  assert.strictEqual(mechanicPlanDelete.status, 403, 'Hosted mechanics must not delete payment plans');
+
+  const settingsA = await request('PUT', '/api/settings', { business_name: 'A Mobile Repair', owner_name: 'Private Owner A', tax_id: 'PRIVATE-TAX-A', default_labor_rate: 125 }, aHeaders);
   assert.strictEqual(settingsA.status, 200, JSON.stringify(settingsA.body));
+  assert.strictEqual(settingsA.body.owner_name, 'Private Owner A', 'Hosted owners should see private shop settings after saving');
+  assert.strictEqual(settingsA.body.tax_id, 'PRIVATE-TAX-A', 'Hosted owners should see tax identifiers after saving');
+  const mechanicSettingsView = await request('GET', '/api/settings', undefined, mechanicHeadersA);
+  assert.strictEqual(mechanicSettingsView.status, 200, JSON.stringify(mechanicSettingsView.body));
+  assert.strictEqual(mechanicSettingsView.body.business_name, 'A Mobile Repair', 'Hosted mechanics still need public shop settings for normal app rendering');
+  assert.strictEqual(mechanicSettingsView.body.default_labor_rate, 125, 'Hosted mechanics still need operational rates for normal app calculations');
+  assert.strictEqual(mechanicSettingsView.body.owner_name, '', 'Hosted mechanics must not see private owner identity in settings');
+  assert.strictEqual(mechanicSettingsView.body.tax_id, '', 'Hosted mechanics must not see shop tax identifiers in settings');
   const settingsB = await request('GET', '/api/settings', undefined, bHeaders);
   assert.notStrictEqual(settingsB.body.business_name, 'A Mobile Repair');
 
@@ -245,6 +322,12 @@ async function main() {
   assert.strictEqual(operationsB.status,200,JSON.stringify(operationsB.body));
   assert.strictEqual(operationsA.body.workflow_columns.length,9);
   assert.strictEqual(operationsB.body.workflow_columns.length,9);
+  assert.strictEqual((await request('POST','/api/operations/workflow-columns',{name:'Unauthorized column'},mechanicHeadersA)).status,403,'Hosted mechanics must not change workflow configuration');
+  assert.strictEqual((await request('POST','/api/operations/resources',{name:'Unauthorized bay',resource_type:'bay'},mechanicHeadersA)).status,403,'Hosted mechanics must not manage shop resources');
+  assert.strictEqual((await request('POST','/api/operations/inspection-templates',{name:'Unauthorized template',items:[{item_name:'Brakes'}]},serviceWriterHeadersA)).status,403,'Hosted service writers must not manage inspection templates');
+  assert.strictEqual((await request('POST','/api/operations/vendors',{name:'Unauthorized vendor'},mechanicHeadersA)).status,403,'Hosted mechanics must not manage vendors');
+  assert.strictEqual((await request('POST','/api/operations/purchase-orders',{items:[]},mechanicHeadersA)).status,403,'Hosted mechanics must not create purchase orders or update inventory costs');
+  assert.strictEqual((await request('POST','/api/operations/reservations',{inventory_id:1,job_id:paidGuardJob,quantity:1},mechanicHeadersA)).status,403,'Hosted mechanics must not reserve inventory stock');
   const resourceA = await request('POST','/api/operations/resources',{name:'A Bay 1',resource_type:'bay',active:true},aHeaders);
   assert.strictEqual(resourceA.status,200,JSON.stringify(resourceA.body));
   const operationsBAfter = await request('GET','/api/operations',undefined,bHeaders);

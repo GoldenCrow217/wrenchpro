@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { resolveShopId, shopTenantWhere } = require('../tenant');
+const { requireShopRole, resolveShopId, shopTenantWhere } = require('../tenant');
 const { fail, requiredText, nonNegativeNumber, positiveId, isoDate } = require('../validation');
 
 function validateExpense(res, body) {
@@ -34,7 +34,7 @@ router.get('/', (req, res) => {
   res.json(db.prepare(query).all(...params));
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireShopRole(['owner', 'admin']), (req, res) => {
   if (!validateExpense(res, req.body)) return;
   const { date, description, category, amount, note } = req.body;
   const shopId = resolveShopId(req);
@@ -73,7 +73,7 @@ router.post('/', (req, res) => {
   res.json({ id: saved.id, shop_id: shopId, date, description, category, amount, note: note || '', inventory_item: saved.inventoryItem });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireShopRole(['owner', 'admin']), (req, res) => {
   if (!positiveId(res, req.params.id, 'id')) return;
   if (!validateExpense(res, req.body)) return;
   const { date, description, category, amount, note } = req.body;
@@ -84,7 +84,7 @@ router.put('/:id', (req, res) => {
   res.json({ success: true });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireShopRole(['owner', 'admin']), (req, res) => {
   const tenant = shopTenantWhere(req);
   const result = db.prepare(`DELETE FROM expenses WHERE id = ? AND ${tenant.clause}`).run(req.params.id, ...tenant.values);
   if (result.changes === 0) return res.status(404).json({ error: 'Expense not found' });

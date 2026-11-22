@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { customerTenantWhere, shopTenantWhere, resolveShopId, employeeInTenant, inventoryItemsInTenant } = require('../tenant');
+const { customerTenantWhere, shopTenantWhere, resolveShopId, employeeInTenant, inventoryItemsInTenant, shopRoleAllowed, shopRoleDenied } = require('../tenant');
 const { fail, nonNegativeNumber, positiveId, isoDate } = require('../validation');
 const { normalizedItemType, normalizeLineItems, lineItemTotals } = require('../line-items');
 const { reconcileJobInvoiceStatus } = require('../job-finance');
@@ -205,6 +205,8 @@ function jobGrandTotal(req, labor, parts, travelFee, discount, savedTaxRate) {
   return calculateJobTotals(labor, parts, travelFee, discount, taxRate).total;
 }
 
+const PAYMENT_ROLES = ['owner', 'admin', 'service_writer'];
+
 function insertAutomaticJobPayment(jobId, customer, amount, method, date, repairOrderNumber, service) {
   if (!(amount > 0)) return null;
   const description = `Payment for ${repairOrderNumber || `job #${jobId}`}${service ? ` — ${service}` : ''}`;
@@ -308,6 +310,7 @@ const createJob = db.transaction((req, values, items, automaticPayment, vehicleM
 });
 
 router.post('/', (req, res) => {
+  if (req.body?.invoice_status === 'Paid' && !shopRoleAllowed(req, PAYMENT_ROLES)) return shopRoleDenied(res, PAYMENT_ROLES);
   if (!validateJob(res, req.body, true)) return;
   let {
     customer_id, vehicle_id, service, repair_order_number, date, miles, labor, labor_hours, labor_rate,
@@ -382,6 +385,7 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  if (req.body?.invoice_status === 'Paid' && !shopRoleAllowed(req, PAYMENT_ROLES)) return shopRoleDenied(res, PAYMENT_ROLES);
   if (!validateJob(res, req.body, false)) return;
   let {
     service, repair_order_number, date, miles, labor, labor_hours, labor_rate, parts, discount, status, notes,

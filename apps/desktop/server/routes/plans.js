@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { customerTenantWhere, resolveShopId } = require('../tenant');
+const { customerTenantWhere, requireShopRole, resolveShopId } = require('../tenant');
 const { fail, finiteNumber, positiveId, isoDate } = require('../validation');
 const { localDateKey } = require('../business-date');
 const { reconcileJobInvoiceStatus } = require('../job-finance');
@@ -71,7 +71,9 @@ router.get('/', (req, res) => {
   res.json(plans);
 });
 
-router.post('/', (req, res) => {
+const PAYMENT_ROLES = ['owner', 'admin', 'service_writer'];
+
+router.post('/', requireShopRole(PAYMENT_ROLES), (req, res) => {
   if (!validatePlan(res, req.body)) return;
   const { customer_id, job_id, description, total, down_payment, down_payment_method, down_payment_date, plan_type, installment_count, frequency, start_date, notes, installments } = req.body;
 
@@ -116,7 +118,7 @@ router.post('/', (req, res) => {
   res.json({ ...plan, payment: saved.payment });
 });
 
-router.put('/:id/link-job', (req, res) => {
+router.put('/:id/link-job', requireShopRole(PAYMENT_ROLES), (req, res) => {
   if (!positiveId(res, req.body.job_id, 'job_id', { required: true })) return;
   const tenant = customerTenantWhere(req, 'c');
   const plan = db.prepare(`SELECT pp.* FROM payment_plans pp JOIN customers c ON pp.customer_id=c.id WHERE pp.id=? AND c.deleted_at IS NULL AND ${tenant.clause}`).get(req.params.id, ...tenant.values);
@@ -128,7 +130,7 @@ router.put('/:id/link-job', (req, res) => {
   res.json({ success: true, job_id: job.id, repair_order_number: job.repair_order_number });
 });
 
-router.put('/installment/:id/pay', (req, res) => {
+router.put('/installment/:id/pay', requireShopRole(PAYMENT_ROLES), (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const installmentId = Number(req.params.id);
   if (!Number.isSafeInteger(installmentId) || installmentId <= 0) return res.status(400).json({ error: 'A valid installment ID is required' });
@@ -204,7 +206,7 @@ router.put('/installment/:id/pay', (req, res) => {
   res.json({ success: true, already_paid: result.alreadyPaid, installment: result.installment, payment: result.payment, job_invoice_status: result.jobInvoiceStatus || null });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireShopRole(PAYMENT_ROLES), (req, res) => {
   const tenant = customerTenantWhere(req, 'c');
   const current = db.prepare(`
     SELECT pp.id FROM payment_plans pp
