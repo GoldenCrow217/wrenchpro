@@ -348,6 +348,22 @@ td.cell-actions{white-space:nowrap;}
 .cal-ev{font-size:10px;background:var(--info-soft);color:var(--info-fg);border-radius:3px;padding:1px 4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cal-ev.green{background:var(--success-soft);color:var(--success-fg);}
 .cal-ev.amber{background:var(--warning-soft);color:var(--warning-fg);}
+.cal-ev.conflict{box-shadow:inset 3px 0 0 var(--danger);}
+.cal-more{font-size:10px;color:var(--fg-muted);font-weight:600;padding:0 4px;}
+.cal-cell:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.day-nav{display:flex;align-items:center;gap:8px;margin-bottom:.35rem;}
+.day-nav h2{margin:0;flex:1;text-align:center;}
+.day-summary{font-size:12px;color:var(--fg-muted);text-align:center;margin-bottom:1rem;}
+.day-section{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--fg-muted);margin:1rem 0 .5rem;}
+.day-row{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--bg-elev);}
+.day-row.conflict{border-color:var(--danger);background:var(--danger-soft);}
+.day-time{min-width:84px;font-size:12px;font-weight:600;font-family:var(--font-mono);line-height:1.4;}
+.day-time .td-sub{font-family:inherit;font-weight:400;margin-top:0;}
+.day-main{flex:1;min-width:0;}
+.day-main .td-name,.day-main .td-sub{overflow-wrap:anywhere;}
+.day-actions{display:flex;gap:6px;flex-shrink:0;}
+.day-gap{font-size:12px;color:var(--success-fg);background:var(--success-soft);border-radius:8px;padding:6px 12px;margin-bottom:6px;}
+.day-warn{font-size:12px;color:var(--danger-fg);margin-top:4px;font-weight:500;}
 .report-line{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid var(--border);}
 .report-line:last-child{border-bottom:none;}
 .report-total{display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:600;border-top:2px solid var(--border);margin-top:4px;}
@@ -1344,6 +1360,23 @@ strong + .settings-hint{margin-top:2px;margin-bottom:0;}
 <!-- MODAL: Plan detail -->
 <div class="modal-overlay" id="m-plan-detail">
   <div class="modal" id="plan-detail-inner" style="width:560px;"></div>
+</div>
+
+<!-- MODAL: Day view (kept before the appointment form so the form opens on top of it) -->
+<div class="modal-overlay" id="m-day">
+  <div class="modal" style="width:640px;">
+    <div class="day-nav">
+      <button type="button" class="btn btn-sm" onclick="shiftDayView(-1)" aria-label="Previous day">←</button>
+      <h2 id="m-day-title">Day</h2>
+      <button type="button" class="btn btn-sm" onclick="shiftDayView(1)" aria-label="Next day">→</button>
+    </div>
+    <div class="day-summary" id="m-day-summary"></div>
+    <div id="m-day-body"></div>
+    <div class="mfooter"><div></div><div class="mfooter-r">
+      <button type="button" class="btn" onclick="closeM('m-day')">Close</button>
+      <button type="button" class="btn btn-primary" onclick="openApptModal(dayViewDate)">+ New appointment</button>
+    </div></div>
+  </div>
 </div>
 
 <!-- MODAL: Appointment -->
@@ -2946,21 +2979,143 @@ function renderCalendar(){
     const d=new Date(calYear,calMonth,-first.getDay()+i+1);
     cells+=`<div class="cal-cell other"><div class="cal-num">${d.getDate()}</div></div>`;
   }
+  const CAL_MAX_CHIPS=3;
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isToday=ds===todayStr;
-    const dayJobs=state.jobs.filter(j=>j.date===ds);
-    const dayAppts=(state.appts||[]).filter(a=>a.date===ds);
-    const evs=[
-      ...dayAppts.map(a=>`<div class="cal-ev" title="${a.time?esc(fmtTime(a.time))+' ':''}${esc(a.cust)}" data-appointment-id="${safeId(a.id)}" onclick="event.stopPropagation();openApptModal(null,${safeId(a.id)})">${a.time?esc(fmtTime(a.time))+' ':''} ${esc(a.cust)}</div>`),
+    const {appts:dayAppts,jobs:dayJobs,conflicts}=scheduleDayData(ds);
+    const chips=[
+      ...dayAppts.map(a=>`<div class="cal-ev${conflicts.has(a.id)?' conflict':''}" title="${a.time?esc(fmtTime(a.time))+' ':''}${esc(a.cust)}${conflicts.has(a.id)?' — overlaps another appointment':''}" data-appointment-id="${safeId(a.id)}" onclick="event.stopPropagation();openApptModal(null,${safeId(a.id)})">${a.time?esc(fmtTime(a.time))+' ':''} ${esc(a.cust)}</div>`),
       ...dayJobs.map(j=>`<div class="cal-ev ${j.status==='Complete'?'green':j.status==='Pending'?'amber':''}" title="${esc(j.service||'')}">${esc(j.service||'')}</div>`)
-    ].join('');
-    cells+=`<div class="cal-cell${isToday?' today':''}" onclick="openApptModal('${ds}')"><div class="cal-num">${d}</div>${evs}</div>`;
+    ];
+    const hidden=chips.length>CAL_MAX_CHIPS?chips.length-(CAL_MAX_CHIPS-1):0;
+    const evs=(hidden?chips.slice(0,CAL_MAX_CHIPS-1).join('')+`<div class="cal-more">+${hidden} more</div>`:chips.join(''));
+    const label=`${ds}: ${dayAppts.length} appointment${dayAppts.length===1?'':'s'}, ${dayJobs.length} job${dayJobs.length===1?'':'s'}. Open day view`;
+    cells+=`<div class="cal-cell${isToday?' today':''}" role="button" tabindex="0" aria-label="${attrEsc(label)}" title="See the day" onclick="openDayView('${ds}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDayView('${ds}');}"><div class="cal-num">${d}</div>${evs}</div>`;
   }
   document.getElementById('cal-body').innerHTML=cells;
+  if(dayViewDate&&document.getElementById('m-day')?.classList.contains('open'))renderDayView();
 }
 
 function fmtTime(t){ const [h,m]=t.split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`; }
+
+// ── Schedule day view ──
+let dayViewDate=null;
+function apptStartMinutes(a){
+  const match=/^(\d{1,2}):(\d{2})/.exec(a?.time||'');
+  return match?Number(match[1])*60+Number(match[2]):null;
+}
+function apptDuration(a){ return Number(a?.duration_minutes)||60; }
+function fmtMinutes(total){
+  const h=Math.floor(total/60)%24, m=total%60;
+  return fmtTime(`${h}:${String(m).padStart(2,'0')}`);
+}
+function fmtDuration(minutes){
+  const h=Math.floor(minutes/60), m=minutes%60;
+  return [h?`${h} hr${h===1?'':'s'}`:'',m?`${m} min`:''].filter(Boolean).join(' ')||'0 min';
+}
+// Appointments (sorted by time, untimed last), jobs, and which appointments
+// double-book: overlapping times on the same bay/mobile unit, or both unassigned.
+function scheduleDayData(ds){
+  const appts=(state.appts||[]).filter(a=>a.date===ds).sort((a,b)=>{
+    const sa=apptStartMinutes(a), sb=apptStartMinutes(b);
+    if(sa===null&&sb===null)return 0; if(sa===null)return 1; if(sb===null)return -1; return sa-sb;
+  });
+  const jobs=(state.jobs||[]).filter(j=>j.date===ds);
+  const conflicts=new Map();
+  const timed=appts.filter(a=>apptStartMinutes(a)!==null);
+  for(let i=0;i<timed.length;i++)for(let k=i+1;k<timed.length;k++){
+    const a=timed[i], b=timed[k];
+    if((a.resource_id||null)!==(b.resource_id||null))continue;
+    const sa=apptStartMinutes(a), sb=apptStartMinutes(b);
+    if(sa<sb+apptDuration(b)&&sb<sa+apptDuration(a)){
+      conflicts.set(a.id,[...(conflicts.get(a.id)||[]),b]);
+      conflicts.set(b.id,[...(conflicts.get(b.id)||[]),a]);
+    }
+  }
+  return {appts,jobs,conflicts};
+}
+function openDayView(ds){
+  dayViewDate=ds;
+  renderDayView();
+  document.getElementById('m-day')?.classList.add('open');
+}
+function shiftDayView(delta){
+  if(!dayViewDate)return;
+  const [y,m,d]=dayViewDate.split('-').map(Number);
+  const next=new Date(y,m-1,d+delta);
+  dayViewDate=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`;
+  if(next.getMonth()!==calMonth||next.getFullYear()!==calYear){calMonth=next.getMonth();calYear=next.getFullYear();renderCalendar();}
+  renderDayView();
+}
+function renderDayView(){
+  const ds=dayViewDate; if(!ds)return;
+  const [y,m,d]=ds.split('-').map(Number);
+  const title=new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('m-day-title').textContent=ds===today()?`Today · ${title}`:title;
+  const {appts,jobs,conflicts}=scheduleDayData(ds);
+  const timed=appts.filter(a=>apptStartMinutes(a)!==null);
+  const booked=appts.reduce((sum,a)=>sum+apptDuration(a),0);
+  const summary=[`${appts.length} appointment${appts.length===1?'':'s'}`,`${jobs.length} job${jobs.length===1?'':'s'}`];
+  if(appts.length)summary.push(`${fmtDuration(booked)} booked`);
+  if(timed.length){
+    const start=Math.min(...timed.map(apptStartMinutes)), end=Math.max(...timed.map(a=>apptStartMinutes(a)+apptDuration(a)));
+    summary.push(`${fmtMinutes(start)} – ${fmtMinutes(end)}`);
+  }
+  if(conflicts.size)summary.push(`${conflicts.size} overlapping`);
+  document.getElementById('m-day-summary').textContent=summary.join(' · ');
+
+  const apptRow=a=>{
+    const start=apptStartMinutes(a), overlaps=conflicts.get(a.id)||[];
+    const vehicle=[a.veh_year,a.veh_make,a.veh_model].filter(Boolean).join(' ');
+    const details=[a.service,vehicle,a.resource_name].filter(Boolean).map(esc).join(' · ');
+    const contact=[a.phone,a.address].filter(Boolean).map(esc).join(' · ');
+    return `<div class="day-row${overlaps.length?' conflict':''}" data-day-appointment-id="${safeId(a.id)}">
+      <div class="day-time">${start===null?'No time':`${esc(fmtMinutes(start))}<div class="td-sub">to ${esc(fmtMinutes(start+apptDuration(a)))}</div>`}<div class="td-sub">${esc(fmtDuration(apptDuration(a)))}</div></div>
+      <div class="day-main">
+        <div class="td-name">${esc(a.cust||'Appointment')}</div>
+        ${details?`<div class="td-sub">${details}</div>`:''}
+        ${contact?`<div class="td-sub">${contact}</div>`:''}
+        ${a.notes?`<div class="td-sub" style="font-style:italic;">${esc(a.notes)}</div>`:''}
+        ${overlaps.length?`<div class="day-warn">Overlaps with ${overlaps.map(o=>esc(o.cust||'another appointment')+(o.time?` at ${esc(fmtTime(o.time))}`:'')).join(', ')}</div>`:''}
+      </div>
+      <div class="day-actions"><button type="button" class="btn btn-sm" onclick="openApptModal(null,${safeId(a.id)})">Edit</button><button type="button" class="btn btn-sm btn-danger" onclick="deleteAppt(${safeId(a.id)})">Delete</button></div>
+    </div>`;
+  };
+  let html='';
+  if(!appts.length&&!jobs.length){
+    html=`<div class="empty" style="padding:2rem 1rem;">Nothing scheduled. Use “+ New appointment” to book this day.</div>`;
+  }else{
+    html+=`<div class="day-section">Appointments</div>`;
+    if(!appts.length)html+=`<div class="td-sub" style="margin-bottom:6px;">No appointments.</div>`;
+    let lastEnd=null;
+    appts.forEach(a=>{
+      const start=apptStartMinutes(a);
+      if(start!==null&&lastEnd!==null&&start-lastEnd>=30)html+=`<div class="day-gap">Open ${esc(fmtMinutes(lastEnd))} – ${esc(fmtMinutes(start))} (${esc(fmtDuration(start-lastEnd))})</div>`;
+      html+=apptRow(a);
+      if(start!==null)lastEnd=Math.max(lastEnd??0,start+apptDuration(a));
+    });
+    if(jobs.length){
+      html+=`<div class="day-section">Jobs on this day</div>`;
+      html+=jobs.map(j=>{
+        const vehicle=[j.year,j.make,j.model].filter(Boolean).join(' ');
+        const tech=j.emp_first?`${j.emp_first} ${j.emp_last||''}`.trim():'';
+        return `<div class="day-row">
+          <div class="day-time">${statusBadge(j.status)}</div>
+          <div class="day-main"><div class="td-name">${esc(j.service||'Job')}</div><div class="td-sub">${[`${j.first||''} ${j.last||''}`.trim(),vehicle,tech].filter(Boolean).map(esc).join(' · ')}</div></div>
+          <div class="day-actions">${isJobLocked(j)?'':`<button type="button" class="btn btn-sm" onclick="openJobModal(${safeId(j.id)})">Open</button>`}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+  document.getElementById('m-day-body').innerHTML=html;
+}
+async function deleteAppt(id){
+  const appointment=(state.appts||[]).find(a=>a.id===id);
+  if(!appointment)return;
+  if(!confirm(`Delete the appointment for ${appointment.cust||'this customer'}${appointment.time?` at ${fmtTime(appointment.time)}`:''}?`))return;
+  await runMutation(`appt-delete-${id}`,{action:'Deleting appointment',request:()=>api('DELETE',`/api/appointments/${id}`),apply:async()=>{await refreshResource('/api/appointments','appts');},render:()=>renderSafely(renderCalendar,renderDashboard),success:'Appointment deleted'});
+}
 function changeMonth(d){ calMonth+=d; if(calMonth>11){calMonth=0;calYear++;}else if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
 function goToday(){ calMonth=new Date().getMonth(); calYear=new Date().getFullYear(); renderCalendar(); }
 

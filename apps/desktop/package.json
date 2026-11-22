@@ -33,6 +33,7 @@
     "qa:accounting-integrity": "node scripts/accounting-integrity-qa.js",
     "qa:finance-corrections": "node scripts/finance-corrections-qa.js",
     "qa:jobs-renderer": "node scripts/run-jobs-renderer-qa.js",
+    "qa:schedule-renderer": "node scripts/run-schedule-renderer-qa.js",
     "qa:inspection-measurements": "node scripts/inspection-measurement-qa.js",
     "qa:inspection-renderer": "node scripts/run-inspection-renderer-qa.js",
     "qa:operations": "node scripts/operations-qa.js",
